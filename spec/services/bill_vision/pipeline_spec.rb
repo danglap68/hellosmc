@@ -167,6 +167,17 @@ RSpec.describe BillVision::Pipeline do
     expect(metadata["deterministic_business_review_reasons"]).to include("possible_duplicate")
   end
 
+  it "does not mistake its own transaction for a duplicate during reprocessing" do
+    primary = stub_model("gpt-6-luna", data: blurry)
+    validator = stub_model("gpt-6.1-sol", data: blurry)
+    analyze
+    expect(Transactions::Builder.call(bill_image: bill_image).sole).to be_needs_review
+    BillImages::Analyzer.call(bill_image, force: true)
+    expect(primary).to have_been_requested.twice
+    expect(validator).to have_been_requested.twice
+    expect(metadata["deterministic_business_review_reasons"]).not_to include("possible_duplicate")
+  end
+
   it "keeps malformed primary output and usage, reads once more, and remains in review" do
     stub_model("gpt-6-luna", content: "invalid JSON")
     validator = stub_model("gpt-6.1-sol")

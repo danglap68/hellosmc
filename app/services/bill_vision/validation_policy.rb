@@ -48,7 +48,10 @@ module BillVision
         evaluation = Transactions::Evaluator.call(document: doc, bill_image: @bill_image)
         business.concat(evaluation.review_reasons & CONFIGURATION_REASONS)
         prospective = Transaction.new(evaluation.attributes.merge(bill_image: @bill_image))
-        business << "possible_duplicate" if Transactions::DuplicateDetector.call(prospective).possible_duplicate?
+        duplicates = Transactions::DuplicateDetector.call(prospective).possible_duplicate_ids
+        # The existing rows being reread belong to this bill, not a second
+        # submission. Builder still checks duplicates when it persists rows.
+        business << "possible_duplicate" if (duplicates - @bill_image.transaction_ids).any?
         visual << "transaction_date_out_of_range" if evaluation.review_reasons.include?("transaction_date_out_of_range")
         visual << "merchant_fuzzy_match" if evaluation.review_reasons.include?("merchant_fuzzy_match")
         if evaluation.review_reasons.include?("merchant_ambiguous")
