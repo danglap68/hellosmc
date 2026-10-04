@@ -71,10 +71,10 @@ RSpec.describe BillImages::Analyzer do
     expect(bill_image.reload.processing_error).to include("SSLError")
   end
 
-  it "counts one attempt per run, not per retry" do
+  it "counts a transient network retry as a new run so it consumes the lifetime budget" do
     allow(BillVision::Extractor).to receive(:call).and_raise(BillVision::TransientError, "timeout")
     2.times { expect { described_class.call(bill_image, job_id: "job-1") }.to raise_error(BillVision::TransientError) }
-    expect(bill_image.reload.ocr_attempts).to eq(1)
+    expect(bill_image.reload.ocr_attempts).to eq(2)
   end
 
   it "skips an image another job is analyzing right now" do

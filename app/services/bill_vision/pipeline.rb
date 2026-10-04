@@ -109,7 +109,12 @@ module BillVision
     end
 
     def normalize(vision)
+      if vision.provider == "openai" && !OutputSchema.valid?(vision.data)
+        raise InvalidExtraction.new("openai answer does not match the extraction schema", raw: vision.raw, model: vision.model)
+      end
       Normalizer.call(vision.data, provider: vision.provider, model: vision.model)
+    rescue ArgumentError, TypeError, NoMethodError
+      raise InvalidExtraction.new("OCR normalization failed", raw: vision.raw, model: vision.model)
     end
 
     def confirm_fields(normalized, matches)

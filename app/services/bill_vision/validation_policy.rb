@@ -9,7 +9,7 @@ module BillVision
     end
 
     CONFIGURATION_REASONS = %w[dealer_unmapped dealer_inactive fee_rule_not_found fee_rule_ambiguous
-                               merchant_dealer_mismatch card_type_conflict card_type_unknown].freeze
+                               merchant_dealer_mismatch merchant_not_found card_type_conflict card_type_unknown].freeze
 
     def self.call(normalized:, bill_image: nil)
       new(normalized, bill_image).call
@@ -47,6 +47,8 @@ module BillVision
 
         evaluation = Transactions::Evaluator.call(document: doc, bill_image: @bill_image)
         business.concat(evaluation.review_reasons & CONFIGURATION_REASONS)
+        prospective = Transaction.new(evaluation.attributes.merge(bill_image: @bill_image))
+        business << "possible_duplicate" if Transactions::DuplicateDetector.call(prospective).possible_duplicate?
         visual << "transaction_date_out_of_range" if evaluation.review_reasons.include?("transaction_date_out_of_range")
         visual << "merchant_fuzzy_match" if evaluation.review_reasons.include?("merchant_fuzzy_match")
         if evaluation.review_reasons.include?("merchant_ambiguous")
