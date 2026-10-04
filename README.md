@@ -124,7 +124,9 @@ fill `SMTP_*` in `.env` and swap the two email blocks in `config/environments/de
 
 ### Telegram bot setup
 
-1. Create a bot with @BotFather, put the token in `TELEGRAM_BOT_TOKEN`.
+1. Create a bot with @BotFather and paste the token under **Cài đặt → Kết nối Telegram** (checked with Telegram,
+   stored encrypted; on the production server this also registers the webhook). `TELEGRAM_BOT_TOKEN` in the
+   environment still works as a fallback, e.g. for local polling.
 2. In @BotFather run `/setprivacy` → **Disable**, so the bot receives photos in groups.
 3. Add the bot to a dealer's group and post anything. The group appears under **Nhóm Telegram**,
    registered as *inactive* (unless **Cài đặt → Telegram → Tự động kích hoạt nhóm mới** is on).
@@ -171,7 +173,7 @@ needed before the app can reach its database:
 
 | Variable | Purpose |
 |---|---|
-| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET` | Telegram bot; webhook secret is required in production |
+| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET` | Optional fallbacks; normally set under **Cài đặt → Kết nối Telegram** |
 | `OPENAI_API_KEY`, `GEMINI_API_KEY` | OCR providers |
 | `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_ENDPOINT` | Image storage |
 | `SMTP_ADDRESS`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD` | Password-reset emails, e.g. Resend (`smtp.resend.com`, user `resend`, password = API key). Required in production; in development only used when real sending is switched on in `config/environments/development.rb`. |
@@ -237,9 +239,11 @@ from the HTTPS redirect.
 
 Switching Telegram to webhook mode:
 
+Use **Cài đặt → Kết nối Telegram → Kết nối webhook** (it generates a new secret, stores it encrypted and
+registers `https://APP_HOST/webhooks/telegram`), or from a console:
+
 ```bash
-TELEGRAM_WEBHOOK_SECRET=$(openssl rand -hex 32)     # required in production
-bin/rails 'telegram:set_webhook[https://your-host/webhooks/telegram]'
+bin/rails telegram:set_webhook        # same as the button; optional [url] argument
 bin/rails telegram:webhook_info
 ```
 

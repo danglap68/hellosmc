@@ -9,7 +9,7 @@
 # published.
 #
 # Required: SECRET_KEY_BASE (`bin/rails secret`; signs sessions and cookies),
-# DATABASE_URL, REDIS_URL (the databases' internal URLs), APP_HOST, TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET,
+# DATABASE_URL, REDIS_URL (the databases' internal URLs), APP_HOST,
 # R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET, R2_ENDPOINT. The image
 # build needs none of them, so make them runtime-only (untick "Available at
 # Buildtime"): build-time variables are passed to `docker build` as build args
@@ -17,7 +17,8 @@
 #
 # First boot of `web` loads the schema into the empty database and seeds card
 # types and the first admin (SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD; remove the
-# password from Coolify once you can sign in).
+# password from Coolify once you can sign in). The Telegram bot token and
+# webhook are then set under Cài đặt → Kết nối Telegram, not here.
 #
 # Environment lists are written out per service on purpose: no YAML anchors,
 # so Coolify's compose parser shows every variable.
@@ -30,8 +31,6 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       REDIS_URL: ${REDIS_URL}
       APP_HOST: ${APP_HOST}
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
-      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}
@@ -61,8 +60,6 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       REDIS_URL: ${REDIS_URL}
       APP_HOST: ${APP_HOST}
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
-      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}

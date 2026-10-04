@@ -495,6 +495,8 @@ vi:
       user_password_reset_sent: "Gửi link đặt lại mật khẩu"
       bill_image_uploaded: "Tải bill lên"
       settings_updated: "Thay đổi cài đặt"
+      telegram_token_updated: "Cập nhật token bot Telegram"
+      telegram_webhook_registered: "Kết nối webhook Telegram"
 
   users:
     you: "Bạn"
@@ -591,8 +593,6 @@ vi:
       help: "Khoá bí mật được khai báo bằng biến môi trường trên máy chủ, không lưu trong hệ thống."
       configured: "Đã cấu hình"
       missing: "Chưa cấu hình"
-      telegram_bot: "Bot Telegram"
-      telegram_webhook_secret: "Mã bí mật webhook"
       openai: "OpenAI"
       gemini: "Google Gemini"
       r2: "Cloudflare R2"
@@ -603,12 +603,37 @@ vi:
         local: "Ổ đĩa máy chủ"
         test: "test"
       env:
-        telegram_bot: "TELEGRAM_BOT_TOKEN"
-        telegram_webhook_secret: "TELEGRAM_WEBHOOK_SECRET"
         openai: "OPENAI_API_KEY"
         gemini: "GEMINI_API_KEY"
         r2: "R2_*"
         smtp: "SMTP_*"
+    telegram:
+      title: "Kết nối Telegram"
+      help: "Token và mã bí mật webhook được mã hoá trong hệ thống và không bao giờ hiển thị lại."
+      token: "Token bot"
+      token_placeholder: "Dán token từ @BotFather"
+      token_hint: "Hệ thống kiểm tra token với Telegram trước khi lưu. Trên máy chủ production, webhook được kết nối lại ngay sau đó."
+      checking: "Đang kiểm tra…"
+      webhook: "Webhook"
+      register_webhook: "Kết nối webhook"
+      registering: "Đang kết nối…"
+      webhook_hint: "Tạo mã bí mật mới và đăng ký địa chỉ trên với Telegram. Chỉ dùng trên máy chủ production; khi chạy local, bot nhận tin qua bin/telegram_bot."
+      app_host_missing: "Chưa đặt APP_HOST nên chưa có địa chỉ webhook."
+      token_saved: "Đã lưu token của bot @%{bot}."
+      webhook_registered: "Đã kết nối webhook %{url}."
+      token_sources:
+        settings: "Đã cấu hình"
+        env: "Từ biến môi trường"
+        missing: "Chưa cấu hình"
+      webhook_sources:
+        settings: "Đã kết nối"
+        env: "Từ biến môi trường"
+        missing: "Chưa kết nối"
+      errors:
+        token_blank: "Hãy nhập token."
+        token_rejected: "Telegram không chấp nhận token này: %{error}"
+        app_host_missing: "Chưa đặt APP_HOST trên máy chủ nên không có địa chỉ webhook."
+        webhook_failed: "Không kết nối được webhook: %{error}"
     r2_check:
       action: "Kiểm tra kết nối R2"
       submitting: "Đang kiểm tra…"

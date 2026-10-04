@@ -31,8 +31,9 @@ module AppConfig
 
   def openai_api_key = ENV["OPENAI_API_KEY"].presence
   def gemini_api_key = ENV["GEMINI_API_KEY"].presence
-  def telegram_bot_token = ENV["TELEGRAM_BOT_TOKEN"].presence
-  def telegram_webhook_secret = ENV["TELEGRAM_WEBHOOK_SECRET"].presence
+  # Set under Cài đặt → Telegram (encrypted in AppSecret); ENV is the fallback.
+  def telegram_bot_token = AppSecret.get("telegram_bot_token") || ENV["TELEGRAM_BOT_TOKEN"].presence
+  def telegram_webhook_secret = AppSecret.get("telegram_webhook_secret") || ENV["TELEGRAM_WEBHOOK_SECRET"].presence
   R2_ENV = %w[R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY R2_BUCKET R2_ENDPOINT].freeze
   def r2_missing_env = R2_ENV.select { |key| ENV[key].blank? }
   def r2_configured? = r2_missing_env.empty?

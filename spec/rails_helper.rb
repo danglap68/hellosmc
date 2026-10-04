@@ -43,7 +43,10 @@ RSpec.configure do |config|
   end
 
   # Admin settings start from their defaults in every example.
-  config.before { AppSetting.reset_cache! }
+  config.before do
+    AppSetting.reset_cache!
+    AppSecret.reset_cache!
+  end
 
   # Deterministic secrets regardless of the developer's .env.
   config.around do |example|
@@ -52,6 +55,7 @@ RSpec.configure do |config|
       "GEMINI_API_KEY" => nil,
       "TELEGRAM_BOT_TOKEN" => "123456:TEST-TOKEN",
       "TELEGRAM_WEBHOOK_SECRET" => nil,
+      "APP_HOST" => nil,
       "R2_ACCESS_KEY_ID" => nil,
       "R2_SECRET_ACCESS_KEY" => nil,
       "R2_BUCKET" => nil,

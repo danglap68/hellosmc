@@ -21,7 +21,7 @@ module Webhooks
     def authorized?
       secret = AppConfig.telegram_webhook_secret
       if secret.nil?
-        Rails.logger.warn("[telegram] TELEGRAM_WEBHOOK_SECRET is not set") if Rails.env.production?
+        Rails.logger.warn("[telegram] webhook secret is not set (Cài đặt → Telegram → Kết nối webhook)") if Rails.env.production?
         return !Rails.env.production?
       end
 

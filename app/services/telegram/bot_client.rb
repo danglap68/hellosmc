@@ -12,7 +12,7 @@ module Telegram
     ALLOWED_UPDATES = %w[message edited_message channel_post edited_channel_post].freeze
 
     def initialize(token: AppConfig.telegram_bot_token)
-      raise Error, "TELEGRAM_BOT_TOKEN is not configured" if token.blank?
+      raise Error, "Telegram bot token is not configured (Cài đặt → Telegram)" if token.blank?
 
       @token = token
       @api = Telegram::Bot::Api.new(token)

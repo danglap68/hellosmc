@@ -40,6 +40,8 @@ Rails.application.routes.draw do
     end
     resource :settings, only: [ :show, :update ] do
       post :check_r2
+      patch :telegram_token
+      post :telegram_webhook
     end
 
     authenticate :user, ->(user) { user.admin? && user.active? } do

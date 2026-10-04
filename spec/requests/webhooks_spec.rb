@@ -31,6 +31,20 @@ RSpec.describe "Telegram webhook" do
     end
   end
 
+  context "with a secret stored under Cài đặt" do
+    before do
+      ENV["TELEGRAM_WEBHOOK_SECRET"] = "from-env"
+      AppSecret.set!("telegram_webhook_secret", "from-settings")
+    end
+
+    it "prefers it over the environment" do
+      deliver(update, "X-Telegram-Bot-Api-Secret-Token" => "from-settings")
+      expect(response).to have_http_status(:ok)
+      deliver(update, "X-Telegram-Bot-Api-Secret-Token" => "from-env")
+      expect(response).to have_http_status(:unauthorized)
+    end
+  end
+
   it "rejects malformed JSON" do
     post "/webhooks/telegram", params: "{not json", headers: { "CONTENT_TYPE" => "application/json" }
     expect(response).to have_http_status(:bad_request)

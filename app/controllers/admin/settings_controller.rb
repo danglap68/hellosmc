@@ -1,6 +1,7 @@
 module Admin
   # Business/operational settings (stored in the database, audited).
-  # Secrets stay in ENV; this page only shows whether they are configured.
+  # API keys stay in ENV and the page only shows whether they are set; the
+  # Telegram bot token and webhook secret are managed here, encrypted (AppSecret).
   class SettingsController < BaseController
     permission :settings
 
@@ -29,7 +30,37 @@ module Admin
       end
     end
 
+    # Stores the bot token once Telegram accepts it. On the production server
+    # the webhook is registered right away, so a new bot starts receiving.
+    def telegram_token
+      username = Telegram::Connection.save_token!(params[:telegram_bot_token], actor: current_user)
+      messages = [ t("settings.telegram.token_saved", bot: username) ]
+      if Rails.env.production?
+        messages << t("settings.telegram.webhook_registered", url: Telegram::Connection.register_webhook!(actor: current_user))
+      end
+      redirect_to admin_settings_path, notice: messages.join(" ")
+    rescue Telegram::Connection::Error => e
+      saved = t("settings.telegram.token_saved", bot: username) if username
+      redirect_to admin_settings_path, alert: [ saved, e.message ].compact.join(" ")
+    end
+
+    def telegram_webhook
+      url = Telegram::Connection.register_webhook!(actor: current_user)
+      redirect_to admin_settings_path, notice: t("settings.telegram.webhook_registered", url: url)
+    rescue Telegram::Connection::Error => e
+      redirect_to admin_settings_path, alert: e.message
+    end
+
     private
+
+    # :settings when stored under Cài đặt, :env when only the environment has it.
+    def secret_source(key, env)
+      if AppSecret.get(key)
+        :settings
+      elsif ENV[env].present?
+        :env
+      end
+    end
 
     def r2_failure_message(step)
       hint = step.hint && t("settings.r2_check.hints.#{step.hint}", keys: step.error.message)
@@ -38,9 +69,12 @@ module Admin
     end
 
     def load_sidebar
+      @telegram = {
+        token: secret_source("telegram_bot_token", "TELEGRAM_BOT_TOKEN"),
+        webhook: secret_source("telegram_webhook_secret", "TELEGRAM_WEBHOOK_SECRET"),
+        webhook_url: Telegram::Connection.webhook_url
+      }
       @services = {
-        telegram_bot: AppConfig.telegram_bot_token.present?,
-        telegram_webhook_secret: AppConfig.telegram_webhook_secret.present?,
         openai: AppConfig.openai_api_key.present?,
         gemini: AppConfig.gemini_api_key.present?,
         r2: AppConfig.r2_configured?,

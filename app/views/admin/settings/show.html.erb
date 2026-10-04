@@ -52,6 +52,48 @@
     <div class="card mb-3">
       <div class="card-header">
         <div>
+          <h3 class="card-title"><%= icon("brand-telegram") %> <%= t("settings.telegram.title") %></h3>
+          <div class="text-secondary small"><%= t("settings.telegram.help") %></div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="d-flex align-items-center mb-2">
+          <span class="fw-medium"><%= t("settings.telegram.token") %></span>
+          <span class="ms-auto"><%= render "secret_badge", source: @telegram[:token], scope: "settings.telegram.token_sources" %></span>
+        </div>
+        <% if can?(:manage, :settings) %>
+          <%= form_with url: telegram_token_admin_settings_path, method: :patch do |form| %>
+            <div class="input-group">
+              <%= form.password_field :telegram_bot_token, class: "form-control", required: true, autocomplete: "off",
+                                      placeholder: t("settings.telegram.token_placeholder") %>
+              <%= form.button t("actions.save"), class: "btn btn-primary", data: { turbo_submits_with: t("settings.telegram.checking") } %>
+            </div>
+            <small class="form-hint"><%= t("settings.telegram.token_hint") %></small>
+          <% end %>
+        <% end %>
+      </div>
+      <div class="card-body">
+        <div class="d-flex align-items-center mb-1">
+          <span class="fw-medium"><%= t("settings.telegram.webhook") %></span>
+          <span class="ms-auto"><%= render "secret_badge", source: @telegram[:webhook], scope: "settings.telegram.webhook_sources" %></span>
+        </div>
+        <div class="small text-secondary mb-2 text-break">
+          <% if @telegram[:webhook_url] %><code><%= @telegram[:webhook_url] %></code><% else %><%= t("settings.telegram.app_host_missing") %><% end %>
+        </div>
+        <% if can?(:manage, :settings) %>
+          <%= button_to telegram_webhook_admin_settings_path, class: "btn btn-outline-primary btn-sm",
+                disabled: @telegram[:webhook_url].nil? || @telegram[:token].nil?,
+                data: { turbo_submits_with: t("settings.telegram.registering") } do %>
+            <%= icon("plug-connected") %> <%= t("settings.telegram.register_webhook") %>
+          <% end %>
+          <div class="small text-secondary mt-2"><%= t("settings.telegram.webhook_hint") %></div>
+        <% end %>
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header">
+        <div>
           <h3 class="card-title"><%= icon("plug-connected") %> <%= t("settings.services.title") %></h3>
           <div class="text-secondary small"><%= t("settings.services.help") %></div>
         </div>

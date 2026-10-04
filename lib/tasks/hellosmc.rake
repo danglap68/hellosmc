@@ -1,12 +1,10 @@
 namespace :telegram do
-  desc "Register the production webhook: bin/rails 'telegram:set_webhook[https://example.com/webhooks/telegram]'"
+  desc "Register the webhook with a new secret (same as Cài đặt → Telegram): bin/rails 'telegram:set_webhook[https://host/webhooks/telegram]'"
   task :set_webhook, [ :url ] => :environment do |_task, args|
-    url = args[:url].presence || "https://#{ENV.fetch('APP_HOST')}/webhooks/telegram"
-    secret = AppConfig.telegram_webhook_secret
-    abort "Set TELEGRAM_WEBHOOK_SECRET first." if secret.nil? && Rails.env.production?
-
-    Telegram::BotClient.new.set_webhook(url: url, secret_token: secret)
+    url = Telegram::Connection.register_webhook!(actor: nil, url: args[:url].presence || Telegram::Connection.webhook_url)
     puts "Webhook set to #{url}"
+  rescue Telegram::Connection::Error => e
+    abort e.message
   end
 
   desc "Remove the webhook (required before local polling)"
