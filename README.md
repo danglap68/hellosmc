@@ -175,7 +175,7 @@ needed before the app can reach its database:
 | `OPENAI_API_KEY`, `GEMINI_API_KEY` | OCR providers |
 | `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_ENDPOINT` | Image storage |
 | `SMTP_ADDRESS`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD` | Password-reset emails, e.g. Resend (`smtp.resend.com`, user `resend`, password = API key). Required in production; in development only used when real sending is switched on in `config/environments/development.rb`. |
-| `DATABASE_URL`, `REDIS_URL`, `RAILS_MASTER_KEY`, `APP_HOST` | Infrastructure (production). Development/test use the local PostgreSQL socket; optional `DB_HOST`/`DB_PORT`/`DB_USERNAME`/`DB_PASSWORD` override it (see `docker-compose.yml`). |
+| `DATABASE_URL`, `REDIS_URL`, `SECRET_KEY_BASE` (`bin/rails secret`), `APP_HOST` | Infrastructure (production). Development/test use the local PostgreSQL socket; optional `DB_HOST`/`DB_PORT`/`DB_USERNAME`/`DB_PASSWORD` override it (see `docker-compose.yml`). |
 
 **Admin settings** (**Cài đặt**, admins only, stored in `app_settings`, every change audited, applied within
 30 seconds by web and workers):

@@ -1,9 +1,21 @@
 # Coolify deployment (build pack "Docker Compose", compose location
-# /docker-compose.coolify.yml). Set the variables below under Environment
-# Variables in Coolify (${VAR:?} ones are required) and give the `web` service
-# its domain; Coolify's proxy reaches it on port 80, nothing is published.
+# /docker-compose.coolify.yml): the web app and the Sidekiq worker. PostgreSQL
+# and Redis are separate Coolify database resources (so Coolify's scheduled
+# backups apply); enable "Connect To Predefined Network" on this resource so
+# their internal hostnames resolve.
 #
-# First boot of `web` creates the database, loads the schema and seeds card
+# Set the variables below under Environment Variables in Coolify and give the
+# `web` service its domain; Coolify's proxy reaches it on port 80, nothing is
+# published.
+#
+# Required: SECRET_KEY_BASE (`bin/rails secret`; signs sessions and cookies),
+# DATABASE_URL, REDIS_URL (the databases' internal URLs), APP_HOST, TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET,
+# R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET, R2_ENDPOINT. The image
+# build needs none of them, so make them runtime-only (untick "Available at
+# Buildtime"): build-time variables are passed to `docker build` as build args
+# and end up in the image history.
+#
+# First boot of `web` loads the schema into the empty database and seeds card
 # types and the first admin (SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD; remove the
 # password from Coolify once you can sign in).
 #
@@ -14,29 +26,24 @@ services:
     build: .
     environment:
       RAILS_ENV: production
-      RAILS_MASTER_KEY: ${RAILS_MASTER_KEY:?}
-      DATABASE_URL: postgres://hellosmc:${POSTGRES_PASSWORD:?}@postgres:5432/hellosmc_production
-      REDIS_URL: redis://redis:6379/0
-      APP_HOST: ${APP_HOST:?}
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?}
-      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:?}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      APP_HOST: ${APP_HOST}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:?}
-      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:?}
-      R2_BUCKET: ${R2_BUCKET:?}
-      R2_ENDPOINT: ${R2_ENDPOINT:?}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}
+      R2_BUCKET: ${R2_BUCKET}
+      R2_ENDPOINT: ${R2_ENDPOINT}
       SMTP_ADDRESS: ${SMTP_ADDRESS:-}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USERNAME: ${SMTP_USERNAME:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:80/health"]
       interval: 30s
@@ -50,54 +57,20 @@ services:
     command: ["bundle", "exec", "sidekiq", "-C", "config/sidekiq.yml"]
     environment:
       RAILS_ENV: production
-      RAILS_MASTER_KEY: ${RAILS_MASTER_KEY:?}
-      DATABASE_URL: postgres://hellosmc:${POSTGRES_PASSWORD:?}@postgres:5432/hellosmc_production
-      REDIS_URL: redis://redis:6379/0
-      APP_HOST: ${APP_HOST:?}
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?}
-      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:?}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      APP_HOST: ${APP_HOST}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:?}
-      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:?}
-      R2_BUCKET: ${R2_BUCKET:?}
-      R2_ENDPOINT: ${R2_ENDPOINT:?}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}
+      R2_BUCKET: ${R2_BUCKET}
+      R2_ENDPOINT: ${R2_ENDPOINT}
       SMTP_ADDRESS: ${SMTP_ADDRESS:-}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USERNAME: ${SMTP_USERNAME:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
     restart: unless-stopped
-
-  postgres:
-    image: postgres:17
-    environment:
-      POSTGRES_USER: hellosmc
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
-      POSTGRES_DB: hellosmc_production
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U hellosmc"]
-      interval: 5s
-      retries: 10
-    restart: unless-stopped
-
-  redis:
-    image: redis:7-alpine
-    command: ["redis-server", "--appendonly", "yes"]
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      retries: 10
-    restart: unless-stopped
-
-volumes:
-  postgres_data:
-  redis_data:
