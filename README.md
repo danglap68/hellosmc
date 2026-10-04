@@ -172,7 +172,7 @@ needed before the app can reach its database:
 | `OPENAI_API_KEY`, `GEMINI_API_KEY` | OCR providers |
 | `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_ENDPOINT` | Image storage |
 | `SMTP_ADDRESS`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD` | Password-reset emails (production) |
-| `DATABASE_URL`, `REDIS_URL`, `RAILS_MASTER_KEY`, `APP_HOST` | Infrastructure (production). Development uses `DB_HOST`/`DB_PORT`/`DB_USERNAME`/`DB_PASSWORD` so a production URL can never reach the test suite. |
+| `DATABASE_URL`, `REDIS_URL`, `RAILS_MASTER_KEY`, `APP_HOST` | Infrastructure (production). Development/test use the local PostgreSQL socket; optional `DB_HOST`/`DB_PORT`/`DB_USERNAME`/`DB_PASSWORD` override it (see `docker-compose.yml`). |
 
 **Admin settings** (**Cài đặt**, admins only, stored in `app_settings`, every change audited, applied within
 30 seconds by web and workers):

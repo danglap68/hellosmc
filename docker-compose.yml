@@ -1,7 +1,8 @@
 # Local development services. Rails, Sidekiq and the Telegram poller run natively.
 #   docker compose up -d
-# If PostgreSQL/Redis already run on the host, change the published ports
-# (e.g. POSTGRES_PORT=5433) and set DB_PORT accordingly in .env.
+# Rails uses the host's PostgreSQL socket by default. To use this container
+# instead, set DB_HOST=localhost DB_USERNAME=postgres DB_PASSWORD=postgres in .env
+# (plus DB_PORT if you change POSTGRES_PORT because PostgreSQL already runs on the host).
 services:
   postgres:
     image: postgres:17

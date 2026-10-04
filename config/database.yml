@@ -1,5 +1,6 @@
-# Development and test connect through DB_* variables so that a DATABASE_URL
-# meant for production can never point the test suite at a real database.
+# Development and test use the local PostgreSQL socket; the optional DB_*
+# variables override it (e.g. for the PostgreSQL in docker-compose.yml).
+# Never set DATABASE_URL locally: it would point the test suite at that database.
 default: &default
   adapter: postgresql
   encoding: unicode
