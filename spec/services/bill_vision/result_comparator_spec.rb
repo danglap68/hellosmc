@@ -29,4 +29,12 @@ RSpec.describe BillVision::ResultComparator do
     validator["documents"][0]["terminal_or_merchant_id"] = "000124"
     expect(described_class.call(primary: normalize(primary), validator: normalize(validator)).differences).to include("merchant_identity")
   end
+
+  it "does not mistake absent merchant names for matching identities" do
+    primary = extraction_fixture("normal_settlement")
+    primary["documents"][0].merge!("merchant_name" => nil, "terminal_or_merchant_id" => "MID001")
+    validator = primary.deep_dup
+    validator["documents"][0]["terminal_or_merchant_id"] = nil
+    expect(described_class.call(primary: normalize(primary), validator: normalize(validator)).differences).to include("merchant_identity")
+  end
 end

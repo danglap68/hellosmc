@@ -25,7 +25,11 @@ module BillVision
     def extract(image)
       payload = post_json(connection(@base_url), "/v1/chat/completions", request_body(image),
                           headers: { "Authorization" => "Bearer #{@api_key}" })
-      message = payload.dig("choices", 0, "message") || {}
+      unless payload.is_a?(Hash) && payload["choices"].is_a?(Array) &&
+          payload["choices"].first.is_a?(Hash) && payload["choices"].first["message"].is_a?(Hash)
+        raise InvalidExtraction.new("openai response envelope is invalid", raw: payload, model: model)
+      end
+      message = payload.dig("choices", 0, "message")
       if message["refusal"].present?
         raise InvalidExtraction.new("openai refused extraction", raw: payload, model: payload["model"] || model,
                                     reason: "primary_refused")
@@ -36,6 +40,8 @@ module BillVision
       end
 
       begin
+        raise PermanentError, "openai answer is not text" unless message["content"].is_a?(String)
+
         data = parse_content(message["content"])
         raise PermanentError, "openai answer does not match the extraction schema" unless OutputSchema.valid?(data)
       rescue PermanentError => e

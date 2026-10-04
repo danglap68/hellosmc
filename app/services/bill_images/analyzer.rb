@@ -53,7 +53,9 @@ module BillImages
 
       exhausted
     rescue BillVision::PermanentError => e
-      self.class.mark_failed!(@bill_image, e)
+      unless self.class.mark_failed!(@bill_image, e, run_id: @run_id)
+        return Result.new(status: :in_progress, bill_image: @bill_image)
+      end
       Result.new(status: :failed, bill_image: @bill_image)
     rescue BillVision::TransientError => e
       record_transient(e)
@@ -66,11 +68,18 @@ module BillImages
       raise error
     end
 
-    def self.mark_failed!(bill_image, error)
-      bill_image.update!(ocr_status: "failed", processing_error: error.message.truncate(2000),
-                         metadata: bill_image.metadata.merge("ocr_retryable" => !error.is_a?(BillVision::PermanentError)))
+    def self.mark_failed!(bill_image, error, run_id: nil, job_id: nil, stale_before: nil)
+      bill_image.with_lock do
+        return false if run_id && (!bill_image.ocr_processing? || bill_image.metadata.dig("vision_pipeline", "run_id") != run_id)
+        return false if job_id && (!bill_image.ocr_failed? || bill_image.metadata["ocr_claim"] != job_id)
+        return false if stale_before && (!bill_image.ocr_processing? || bill_image.updated_at >= stale_before)
+
+        bill_image.update!(ocr_status: "failed", processing_error: error.message.truncate(2000),
+                           metadata: bill_image.metadata.merge("ocr_retryable" => !error.is_a?(BillVision::PermanentError)))
+      end
       StructuredLog.error("ocr.failed", bill_image_id: bill_image.id, error_class: error.class.name,
                                         error: error.message.truncate(300))
+      true
     end
 
     private
@@ -117,11 +126,14 @@ module BillImages
     end
 
     def owns_run?
-      @run_id.present? && @bill_image.metadata.dig("vision_pipeline", "run_id") == @run_id
+      @bill_image.ocr_processing? && @run_id.present? && @bill_image.metadata.dig("vision_pipeline", "run_id") == @run_id
     end
 
     def exhausted
       @bill_image.with_lock do
+        return Result.new(status: :in_progress, bill_image: @bill_image) if @run_id && !owns_run?
+        return Result.new(status: :in_progress, bill_image: @bill_image) if !@run_id && @bill_image.ocr_runs_remaining?
+
         normalized = @bill_image.normalized_extraction.presence ||
           BillVision::Normalizer.call({}, provider: AppConfig.vision_provider, model: AppConfig.primary_vision_model)
         normalized = normalized.deep_dup

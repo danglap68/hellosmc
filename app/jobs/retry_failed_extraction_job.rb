@@ -16,8 +16,9 @@ class RetryFailedExtractionJob < ApplicationJob
 
   def release_stuck
     BillImage.analyzable.where(ocr_status: "processing").where(updated_at: ...STUCK_AFTER.ago).find_each do |bill_image|
-      BillImages::Analyzer.mark_failed!(bill_image, StandardError.new("OCR run abandoned (stuck in processing)"))
-      BuildTransactionJob.perform_later(bill_image.id)
+      if BillImages::Analyzer.mark_failed!(bill_image, StandardError.new("OCR run abandoned (stuck in processing)"), stale_before: STUCK_AFTER.ago)
+        BuildTransactionJob.perform_later(bill_image.id)
+      end
     end
   end
 

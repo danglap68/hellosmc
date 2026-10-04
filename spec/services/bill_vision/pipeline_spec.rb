@@ -58,7 +58,8 @@ RSpec.describe BillVision::Pipeline do
     expect(validator.with { |req|
       body = JSON.parse(req.body)
       body["max_completion_tokens"] == 700 && body["reasoning_effort"] == "low" &&
-        body.dig("messages", 1, "content", 0, "text") == BillVision::Prompt::USER && !body.to_json.include?("11445000")
+        body["messages"].size == 2 && body.dig("messages", 0, "content") == BillVision::Prompt::SYSTEM &&
+        body.dig("messages", 1, "content", 0, "text") == BillVision::Prompt::USER
     }).to have_been_requested.once
     expect(Transactions::Builder.call(bill_image: bill_image).sole).to be_approved
   end
@@ -125,6 +126,31 @@ RSpec.describe BillVision::Pipeline do
     expect(metadata["deterministic_business_review_reasons"]).to include("dealer_unmapped")
   end
 
+  it "does not spend a validator call on malformed output when the dealer is unmapped" do
+    chat.update!(dealer: nil)
+    stub_model("gpt-6-luna", content: "invalid JSON")
+    analyze
+    expect(metadata["calls"]["validator"]).to eq(0)
+    expect(metadata["deterministic_business_review_reasons"]).to include("dealer_unmapped")
+    expect(bill_image).to be_ocr_needs_review
+  end
+
+  it "confirms equivalent MID formatting without modifying the primary identifier" do
+    create(:merchant_alias, merchant: merchant, alias_type: "merchant_id", alias: "MID001")
+    primary_data = blurry.deep_dup
+    primary_data["documents"][0].merge!("terminal_or_merchant_id" => "mid-001", "merchant_name" => nil)
+    primary_data["documents"][0]["confidence"].merge!("terminal_or_merchant_id" => 0.5, "merchant_name" => 0)
+    validator_data = clean.deep_dup
+    validator_data["documents"][0].merge!("terminal_or_merchant_id" => "MID 001", "merchant_name" => nil)
+    validator_data["documents"][0]["confidence"].merge!("terminal_or_merchant_id" => 0.99, "merchant_name" => 0)
+    stub_model("gpt-6-luna", data: primary_data)
+    stub_model("gpt-6.1-sol", data: validator_data)
+    analyze
+    expect(bill_image.documents.first["terminal_or_merchant_id"]).to eq("mid-001")
+    expect(metadata["validation_result"]).to eq("agreed")
+    expect(Transactions::Builder.call(bill_image: bill_image).sole).to be_approved
+  end
+
   it "does not escalate missing or ambiguous fee configuration" do
     default_rule.destroy!
     stub_model("gpt-6-luna", data: blurry)
@@ -160,6 +186,38 @@ RSpec.describe BillVision::Pipeline do
     expect(Transactions::Builder.call(bill_image: bill_image).sole.review_reason_codes).to include("primary_output_truncated")
   end
 
+  it "ends after one malformed validator response and retains its raw output and usage" do
+    primary = stub_model("gpt-6-luna", data: blurry)
+    validator = stub_model("gpt-6.1-sol", content: "not JSON")
+    AnalyzeBillImageJob.perform_now(bill_image.id)
+    expect(primary).to have_been_requested.once
+    expect(validator).to have_been_requested.once
+    expect(AnalyzeBillImageJob).not_to have_been_enqueued
+    expect(metadata["validation_result"]).to eq("validator_failed")
+    expect(metadata.dig("validator", "raw_output", "choices", 0, "message", "content")).to eq("not JSON")
+    expect(metadata.dig("validator", "usage", "total_tokens")).to eq(500)
+  end
+
+  it "keeps review when the validator is still unreadable after one call" do
+    stub_model("gpt-6-luna", data: blurry)
+    validator = stub_model("gpt-6.1-sol", data: blurry)
+    analyze
+    expect(validator).to have_been_requested.once
+    expect(metadata["validation_result"]).to eq("unresolved")
+    expect(Transactions::Builder.call(bill_image: bill_image).sole).to be_needs_review
+  end
+
+  it "preserves refusal metadata and does not reread a refused primary response" do
+    request = stub_request(:post, endpoint).to_return(body: {
+      "model" => "gpt-6-luna", "choices" => [ { "message" => { "refusal" => "Cannot extract" } } ], "usage" => token_usage
+    }.to_json)
+    analyze
+    expect(request).to have_been_requested.once
+    expect(metadata["calls"]["validator"]).to eq(0)
+    expect(metadata.dig("primary", "usage", "output_tokens")).to eq(200)
+    expect(Transactions::Builder.call(bill_image: bill_image).sole.review_reason_codes).to include("primary_refused")
+  end
+
   it "keeps review when both models agree on missing facts" do
     data = clean.deep_dup
     data["documents"][0]["total_amount_vnd"] = nil
@@ -193,6 +251,41 @@ RSpec.describe BillVision::Pipeline do
     expect(bill_image.metadata["vision_history"].size).to eq(2)
   end
 
+  it "caps actual ActiveJob timeout retries at three network attempts" do
+    primary = stub_request(:post, endpoint).to_timeout
+    perform_enqueued_jobs(only: AnalyzeBillImageJob) { AnalyzeBillImageJob.perform_later(bill_image.id) }
+    expect(primary).to have_been_requested.times(3)
+    expect(bill_image.reload.ocr_attempts).to eq(3)
+    expect(bill_image).to be_ocr_failed
+    expect(AnalyzeBillImageJob).not_to have_been_enqueued
+    expect(BuildTransactionJob).to have_been_enqueued.with(bill_image.id)
+    expect(metadata["calls"]).to eq("primary" => 1, "validator" => 0)
+  end
+
+  it "honors a lower configured run cap even for forced jobs" do
+    AppSetting.create!(key: "max_ocr_attempts", value: "1")
+    primary = stub_model("gpt-6-luna", data: blurry)
+    validator = stub_model("gpt-6.1-sol")
+    3.times { BillImages::Analyzer.call(bill_image, force: true) }
+    expect(primary).to have_been_requested.once
+    expect(validator).to have_been_requested.once
+    expect(bill_image.reload.ocr_attempts).to eq(1)
+    expect(bill_image).to be_ocr_needs_review
+  end
+
+  it "retains Gemini extraction without calling OpenAI validation" do
+    AppSetting.create!(key: "vision_provider", value: "gemini")
+    ENV["GEMINI_API_KEY"] = "test-gemini-key"
+    request = stub_request(:post, %r{generativelanguage.googleapis.com/v1beta/models/.*:generateContent}).to_return(body: {
+      "candidates" => [ { "content" => { "parts" => [ { "text" => blurry.to_json } ] } } ], "modelVersion" => "gemini-test"
+    }.to_json)
+    analyze
+    expect(request).to have_been_requested.once
+    expect(bill_image.ocr_provider).to eq("gemini")
+    expect(metadata["calls"]).to eq("primary" => 1, "validator" => 0)
+    expect(bill_image).to be_ocr_needs_review
+  end
+
   it "honors disabling validation without changing Gemini or offline provider selection" do
     AppSetting.create!(key: "vision_validation_enabled", value: "false")
     primary = stub_model("gpt-6-luna", data: blurry)
@@ -203,11 +296,16 @@ RSpec.describe BillVision::Pipeline do
   end
 
   it "does not automatically retry permanent authentication errors or log echoed secrets" do
-    stub_model("gpt-6-luna", status: 401)
+    secret = "echoed-private-credential"
+    stub_request(:post, endpoint).to_return(status: 401, body: { "error" => secret }.to_json)
+    allow(StructuredLog).to receive(:error).and_call_original
     analyze
     expect(bill_image).to be_ocr_failed
     expect(bill_image.metadata["ocr_retryable"]).to be(false)
     RetryFailedExtractionJob.perform_now
     expect(AnalyzeBillImageJob).not_to have_been_enqueued
+    expect(bill_image.processing_error).not_to include(secret)
+    expect(bill_image.metadata.to_json).not_to include(secret)
+    expect(StructuredLog).to have_received(:error).with("ocr.failed", hash_including(error: "openai HTTP 401"))
   end
 end

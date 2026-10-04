@@ -55,4 +55,17 @@ RSpec.describe SettingsForm do
   it "validates the sender email" do
     expect(form("mailer_sender" => "not-an-email")).not_to be_valid
   end
+
+  it "rejects a run budget above three" do
+    subject = form("max_ocr_attempts" => "4")
+    expect(subject).not_to be_valid
+    expect(subject.errors[:max_ocr_attempts]).to be_present
+  end
+
+  it "displays and persists the effective ceiling when old settings exceed it" do
+    AppSetting.create!(key: "max_ocr_attempts", value: "10")
+    expect(described_class.new["max_ocr_attempts"]).to eq("3")
+    expect(form.save(actor: admin)).to be(true)
+    expect(AppSetting.get("max_ocr_attempts")).to eq(3)
+  end
 end

@@ -39,7 +39,11 @@ module BillVision
       normalized = Normalizer.call({}, provider: primary.provider, model: primary.model)
       @budget.record!("primary" => snapshot(primary, normalized).merge("error" => e.reason))
       @review_reasons << e.reason
-      if e.reason == "malformed_primary_extraction" && AppConfig.vision_validation_enabled?
+      decision = ValidationPolicy.call(normalized: normalized, bill_image: @bill_image)
+      @budget.record!("visual_validation_reasons" => [ e.reason ],
+                      "deterministic_business_review_reasons" => decision.deterministic_business_review_reasons)
+      if e.reason == "malformed_primary_extraction" && AppConfig.vision_validation_enabled? &&
+          AppConfig.vision_validation_mode == "risk_based" && decision.deterministic_business_review_reasons.empty?
         validate(primary, normalized, [ e.reason ], comparable: false)
       else
         @budget.record!("validation_result" => "unresolved", "validation_reason" => [ e.reason ], "validation_triggered" => false)
@@ -114,6 +118,8 @@ module BillVision
       end
       Normalizer.call(vision.data, provider: vision.provider, model: vision.model)
     rescue ArgumentError, TypeError, NoMethodError
+      raise PermanentError, "#{vision.provider} normalization failed" unless vision.provider == "openai"
+
       raise InvalidExtraction.new("OCR normalization failed", raw: vision.raw, model: vision.model)
     end
 
@@ -129,6 +135,11 @@ module BillVision
             VietnameseText.normalize(doc["merchant_name"]) == VietnameseText.normalize(other["merchant_name"]) &&
             other.dig("confidence", "merchant_name").to_f >= AppConfig.ocr_auto_approve_threshold
           confirmed |= [ "merchant_name" ]
+        end
+        identifier = VietnameseText.normalize_identifier(doc["terminal_or_merchant_id"])
+        if identifier.present? && identifier == VietnameseText.normalize_identifier(other["terminal_or_merchant_id"]) &&
+            other.dig("confidence", "terminal_or_merchant_id").to_f >= AppConfig.ocr_auto_approve_threshold
+          confirmed |= [ "terminal_or_merchant_id" ]
         end
         doc["validation_confirmed_fields"] = confirmed
         remaining = doc.fetch("low_confidence_fields") - confirmed
@@ -159,8 +170,9 @@ module BillVision
     end
 
     def usage(raw)
-      values = raw.to_h["usage"].to_h
-      { input_tokens: values["prompt_tokens"], cached_input_tokens: values.dig("prompt_tokens_details", "cached_tokens"),
+      values = raw.is_a?(Hash) && raw["usage"].is_a?(Hash) ? raw["usage"] : {}
+      cached = values["prompt_tokens_details"].is_a?(Hash) ? values["prompt_tokens_details"]["cached_tokens"] : nil
+      { input_tokens: values["prompt_tokens"], cached_input_tokens: cached,
         output_tokens: values["completion_tokens"], total_tokens: values["total_tokens"] }.compact
     end
 

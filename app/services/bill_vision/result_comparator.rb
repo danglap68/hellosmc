@@ -41,9 +41,9 @@ module BillVision
         else
           left_name = VietnameseText.normalize(left["merchant_name"])
           right_name = VietnameseText.normalize(right["merchant_name"])
-          left_name == right_name
+          left_name.present? && left_name == right_name
         end
-      differences << "merchant_identity" unless merchant_agrees
+      differences << "merchant_identity" if !merchant_agrees && (left["document_type"] == "settlement" || right["document_type"] == "settlement")
       # Batch number is not required, but conflicting printed lots matter.
       if left["lot_number"].present? && right["lot_number"].present? && left["lot_number"] != right["lot_number"]
         differences << "lot_number"

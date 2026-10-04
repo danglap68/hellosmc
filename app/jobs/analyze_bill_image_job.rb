@@ -5,8 +5,7 @@ class AnalyzeBillImageJob < ApplicationJob
   # marked failed and still surfaces as a failed transaction for a human.
   retry_on BillVision::TransientError, wait: :polynomially_longer, attempts: 3 do |job, error|
     bill_image = BillImage.find_by(id: job.arguments.first)
-    if bill_image
-      BillImages::Analyzer.mark_failed!(bill_image, error)
+    if bill_image && BillImages::Analyzer.mark_failed!(bill_image, error, job_id: job.job_id)
       BuildTransactionJob.perform_later(bill_image.id)
     end
   end

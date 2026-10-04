@@ -7,7 +7,11 @@ class SettingsForm
 
   def initialize(params = nil)
     @values = AppSetting::DEFINITIONS.to_h do |key, definition|
-      value = key == "primary_vision_model" ? AppConfig.primary_vision_model : AppSetting.get(key)
+      value = case key
+      when "primary_vision_model" then AppConfig.primary_vision_model
+      when "max_ocr_attempts" then AppConfig.max_ocr_attempts
+      else AppSetting.get(key)
+      end
       [ key, display_value(definition, value) ]
     end
     params&.each { |key, value| @values[key.to_s] = value.to_s if @values.key?(key.to_s) }

@@ -43,4 +43,34 @@ RSpec.describe "Admin transactions" do
     expect(transaction.reload).to be_processing
     expect(AnalyzeBillImageJob).to have_been_enqueued
   end
+
+  it "rejects direct reprocessing requests when the bill has exhausted its lifetime budget" do
+    transaction.bill_image.update!(ocr_attempts: 3)
+    post reprocess_admin_transaction_path(transaction)
+    expect(transaction.reload).to be_needs_review
+    expect(AnalyzeBillImageJob).not_to have_been_enqueued
+    expect(flash[:alert]).to be_present
+  end
+
+  it "keeps legacy extraction readable without new validation metadata" do
+    transaction.bill_image.update!(ocr_model: "gpt-4.1")
+    get admin_transaction_path(transaction)
+    expect(response).to have_http_status(:ok)
+    expect(response.body).to include("gpt-4.1")
+    expect(response.body).not_to include(I18n.t("vision_validation.title"))
+  end
+
+  it "shows a concise Vietnamese validation summary with expandable audit data" do
+    transaction.bill_image.update!(metadata: { "vision_pipeline" => {
+      "primary" => { "model" => "gpt-6-luna", "raw_output" => { "content" => "audit-content" } },
+      "validator" => { "model" => "gpt-6.1-sol" }, "validation_triggered" => true,
+      "validation_reason" => [ "amount_unreadable" ], "validation_result" => "disagreed"
+    } })
+    get admin_transaction_path(transaction)
+    expect(response).to have_http_status(:ok)
+    expect(response.body).to include("gpt-6-luna", "gpt-6.1-sol", I18n.t("review_reasons.amount_unreadable"), I18n.t("vision_validation.results.disagreed"))
+    audit = Nokogiri::HTML(response.body).at_css("details")
+    expect(audit["open"]).to be_nil
+    expect(audit.text).to include("audit-content")
+  end
 end

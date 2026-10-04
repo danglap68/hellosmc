@@ -48,4 +48,27 @@ RSpec.describe BillVision::OpenaiProvider do
   it "requires an API key" do
     expect { described_class.new(api_key: nil) }.to raise_error(BillVision::PermanentError)
   end
+
+  it "refuses token limits outside the hard envelope before sending a request" do
+    [ 0, 701, "700" ].each do |limit|
+      expect { described_class.new(api_key: "test", max_output_tokens: limit) }.to raise_error(BillVision::PermanentError)
+    end
+  end
+
+  it "retains malformed response envelopes as non-retryable extraction failures" do
+    stub_openai(body: { "choices" => "invalid", "usage" => { "total_tokens" => 20 } })
+    expect { provider.extract(image) }.to raise_error(BillVision::InvalidExtraction) { |error|
+      expect(error.raw.dig("usage", "total_tokens")).to eq(20)
+    }
+    stub_openai(body: [])
+    expect { provider.extract(image) }.to raise_error(BillVision::InvalidExtraction)
+  end
+
+  it "does not accept schema drift or non-text message content" do
+    invalid = extraction_fixture("normal_settlement").merge("fee" => "AI must not decide this")
+    stub_openai(body: { "choices" => [ { "message" => { "content" => invalid.to_json } } ] })
+    expect { provider.extract(image) }.to raise_error(BillVision::InvalidExtraction)
+    stub_openai(body: { "choices" => [ { "message" => { "content" => [] } } ] })
+    expect { provider.extract(image) }.to raise_error(BillVision::InvalidExtraction)
+  end
 end

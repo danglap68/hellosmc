@@ -83,6 +83,32 @@ RSpec.describe BillImages::Analyzer do
     expect(described_class.call(bill_image, job_id: "job-1").status).to eq(:in_progress)
     expect(BillVision::Extractor).not_to have_received(:call)
   end
+
+  it "skips a concurrent duplicate delivery of the same job" do
+    bill_image.update!(ocr_status: "processing", metadata: { "ocr_claim" => "job-1" })
+    stub_vision(extraction_fixture("normal_settlement"))
+    expect(described_class.call(bill_image, force: true, job_id: "job-1").status).to eq(:in_progress)
+    expect(BillVision::Extractor).not_to have_received(:call)
+  end
+
+  it "ignores a late permanent failure from a worker that lost ownership" do
+    allow(BillVision::Extractor).to receive(:call) do
+      bill_image.update!(ocr_status: "processing", metadata: bill_image.metadata.merge(
+        "vision_pipeline" => { "run_id" => "new-run", "calls" => { "primary" => 0, "validator" => 0 } }
+      ))
+      raise BillVision::PermanentError, "old failure"
+    end
+    expect(described_class.call(bill_image, job_id: "old-job").status).to eq(:in_progress)
+    expect(bill_image.reload).to be_ocr_processing
+    expect(bill_image.processing_error).to be_nil
+    expect(bill_image.metadata.dig("vision_pipeline", "run_id")).to eq("new-run")
+  end
+
+  it "does not let an exhausted old retry callback overwrite another job's run" do
+    bill_image.update!(ocr_status: "processing", metadata: { "ocr_claim" => "new-job" })
+    expect(described_class.mark_failed!(bill_image, BillVision::TransientError.new("old timeout"), job_id: "old-job")).to be(false)
+    expect(bill_image.reload).to be_ocr_processing
+  end
 end
 
 RSpec.describe RetryFailedExtractionJob do
