@@ -15,7 +15,7 @@ module Transactions
       @doc = document
       @bill_image = bill_image
       @dealer_result = dealer_result || Dealers::Resolver.call(bill_image: bill_image)
-      @reasons = []
+      @reasons = Array(@doc["vision_review_reasons"]).dup
     end
 
     def call
@@ -162,6 +162,8 @@ module Transactions
     # Below the auto threshold needs review; below the review threshold the
     # value is considered unreadable.
     def flag_confidence(field, reason_prefix)
+      return if Array(@doc["validation_confirmed_fields"]).include?(field)
+
       confidence = BigDecimal(@doc.dig("confidence", field).to_s.presence || "0")
       if confidence < AppConfig.ocr_review_threshold
         @reasons << "#{reason_prefix}_unreadable"

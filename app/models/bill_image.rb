@@ -22,6 +22,10 @@ class BillImage < ApplicationRecord
     Array(normalized_extraction&.dig("documents"))
   end
 
+  def ocr_runs_remaining?
+    ocr_attempts < AppConfig.max_ocr_attempts
+  end
+
   def telegram_chat
     telegram_message&.telegram_chat
   end

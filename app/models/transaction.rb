@@ -78,7 +78,7 @@ class Transaction < ApplicationRecord
   end
 
   def reprocessable?
-    status.in?(REPROCESSABLE_STATUSES) && bill_image.present? && bill_image.image.attached?
+    status.in?(REPROCESSABLE_STATUSES) && bill_image.present? && bill_image.image.attached? && bill_image.ocr_runs_remaining?
   end
 
   def open_review

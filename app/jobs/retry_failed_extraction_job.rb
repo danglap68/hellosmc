@@ -23,6 +23,7 @@ class RetryFailedExtractionJob < ApplicationJob
 
   def retry_failed
     BillImage.analyzable.where(ocr_status: "failed").where("ocr_attempts < ?", AppConfig.max_ocr_attempts)
+      .where("metadata->>'ocr_retryable' IS DISTINCT FROM 'false'")
       .find_each do |bill_image|
         reprocess_transactions(bill_image)
         AnalyzeBillImageJob.perform_later(bill_image.id, force: true)

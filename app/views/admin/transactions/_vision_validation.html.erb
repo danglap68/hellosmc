@@ -1,0 +1,27 @@
+<%# locals: (bill_image:) %>
+<% if (pipeline = bill_image&.metadata&.dig("vision_pipeline")).present? %>
+  <div class="mt-3 border-top pt-3">
+    <h4 class="mb-2"><%= t("vision_validation.title") %></h4>
+    <dl class="row small mb-0">
+      <dt class="col-5"><%= t("vision_validation.primary") %></dt>
+      <dd class="col-7"><%= pipeline.dig("primary", "model") || bill_image.ocr_model || "—" %></dd>
+      <dt class="col-5"><%= t("vision_validation.validator") %></dt>
+      <dd class="col-7"><%= pipeline.dig("validator", "model") || t("vision_validation.not_used") %></dd>
+      <dt class="col-5"><%= t("vision_validation.triggered") %></dt>
+      <dd class="col-7"><%= yes_no(pipeline["validation_triggered"]) %></dd>
+      <dt class="col-5"><%= t("vision_validation.result") %></dt>
+      <dd class="col-7"><%= t("vision_validation.results.#{pipeline['validation_result'] || 'pending'}") %></dd>
+      <% if Array(pipeline["validation_reason"]).any? %>
+        <dt class="col-5"><%= t("vision_validation.reason") %></dt>
+        <dd class="col-7"><%= pipeline["validation_reason"].map { |reason| review_reason_label(reason) }.join(", ") %></dd>
+      <% end %>
+    </dl>
+    <details class="mt-2">
+      <summary class="small text-secondary"><%= t("vision_validation.audit_details") %></summary>
+      <%= json_block(pipeline) %>
+      <% if Array(bill_image.metadata["vision_history"]).any? %>
+        <%= json_block(bill_image.metadata["vision_history"]) %>
+      <% end %>
+    </details>
+  </div>
+<% end %>

@@ -11,9 +11,18 @@ module AppConfig
   def ocr_review_threshold = AppSetting.get("ocr_review_threshold")
   def vision_provider = AppSetting.get("vision_provider")
   def openai_vision_model = AppSetting.get("openai_vision_model")
+  # Preserve an explicitly stored legacy model until the primary setting is
+  # saved. Old gpt-4.1 records and existing operator choices remain readable.
+  def primary_vision_model
+    AppSetting.stored_values["primary_vision_model"].presence ||
+      AppSetting.stored_values["openai_vision_model"].presence || AppSetting.get("primary_vision_model")
+  end
+  def validator_vision_model = AppSetting.get("validator_vision_model")
+  def vision_validation_enabled? = AppSetting.get("vision_validation_enabled")
+  def vision_validation_mode = AppSetting.get("vision_validation_mode")
   def gemini_vision_model = AppSetting.get("gemini_vision_model")
   def vision_timeout_seconds = AppSetting.get("vision_timeout_seconds")
-  def max_ocr_attempts = AppSetting.get("max_ocr_attempts")
+  def max_ocr_attempts = AppSetting.get("max_ocr_attempts").clamp(1, BillVision::CallBudget::MAX_OCR_RUNS_PER_BILL)
   def merchant_fuzzy_threshold = AppSetting.get("merchant_fuzzy_threshold")
   # Possible duplicate: same merchant + amount within this many minutes.
   def duplicate_window_minutes = AppSetting.get("duplicate_window_minutes")

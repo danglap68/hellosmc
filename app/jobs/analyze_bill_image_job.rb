@@ -3,7 +3,7 @@ class AnalyzeBillImageJob < ApplicationJob
 
   # Transient provider failures are retried; when retries run out the bill is
   # marked failed and still surfaces as a failed transaction for a human.
-  retry_on BillVision::TransientError, wait: :polynomially_longer, attempts: 5 do |job, error|
+  retry_on BillVision::TransientError, wait: :polynomially_longer, attempts: 3 do |job, error|
     bill_image = BillImage.find_by(id: job.arguments.first)
     if bill_image
       BillImages::Analyzer.mark_failed!(bill_image, error)

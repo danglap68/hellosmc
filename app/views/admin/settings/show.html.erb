@@ -23,7 +23,7 @@
               <div class="alert alert-warning"><%= icon("alert-triangle") %> <%= t("settings.provider_key_missing", env: "#{AppConfig.vision_provider.upcase}_API_KEY") %></div>
             <% end %>
             <div class="row">
-              <% AppSetting::DEFINITIONS.values.select { |definition| definition.group == group }.each do |definition| %>
+              <% AppSetting::DEFINITIONS.values.select { |definition| definition.group == group && definition.key != "openai_vision_model" }.each do |definition| %>
                 <div class="<%= definition.type == :boolean ? 'col-12' : 'col-md-6' %>">
                   <%= render "field", form: form, definition: definition %>
                 </div>

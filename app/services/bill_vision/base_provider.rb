@@ -36,12 +36,13 @@ module BillVision
     def handle_http_errors(response)
       return if response.status.between?(200, 299)
 
-      detail = response.body.to_s.truncate(500)
+      # Provider error bodies can echo credentials. Log/store the status,
+      # never an untrusted HTTP error body or Authorization header.
       if response.status == 429 || response.status >= 500
-        raise TransientError, "#{name} HTTP #{response.status}: #{detail}"
+        raise TransientError, "#{name} HTTP #{response.status}"
       end
 
-      raise PermanentError, "#{name} HTTP #{response.status}: #{detail}"
+      raise PermanentError, "#{name} HTTP #{response.status}"
     end
 
     def parse_content(text)

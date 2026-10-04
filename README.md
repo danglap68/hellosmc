@@ -24,7 +24,7 @@ It is not an ERP. PostgreSQL is the source of truth; Excel is an output.
 |---|---|---|
 | Telegram ingestion | `app/services/telegram/*`, `bin/telegram_bot`, `Webhooks::TelegramController` | Normalize, persist, enqueue. No business logic. Polling locally, webhook in production; both call `Telegram::UpdateReceiver`. |
 | Storage | Active Storage → R2 | Private bucket. Admin UI serves images via `Admin::BillImagesController` (auth required, 5-minute presigned URLs). Active Storage public routes are disabled. |
-| OCR | `app/services/bill_vision/*` | `BillVision::Extractor.call(image:)`; providers `openai` (default), `gemini`, `fake` (offline). Strict JSON schema; output normalized by `BillVision::Normalizer`. Raw provider output is always kept. |
+| OCR | `app/services/bill_vision/*` | `BillVision::Pipeline` orchestrates bounded primary/validator extraction; `Extractor` stays vendor-neutral. Providers: `openai` (default), `gemini`, `fake` (offline). Strict JSON, normalization, original responses and token usage are retained. |
 | Rule engine | `Dealers::Resolver`, `Merchants::Resolver`, `CardTypes::Resolver`, `FeeRules::Resolver` | Deterministic. Ambiguity never resolves silently. |
 | Accounting | `Transactions::Calculator`, `Evaluator`, `Builder` | One settlement = one transaction (`bill_image_id + source_index` is unique). Applied rates are snapshotted. |
 | Review | `Transactions::Corrector`, `Approver`, `StatusUpdater`, `Reprocessor` | Every correction recalculates and is audited (before/after). |
@@ -141,7 +141,40 @@ ignores case and diacritics; tags are configurable per card type under **Loại 
 ### Vision provider setup
 
 Put `OPENAI_API_KEY` (and/or `GEMINI_API_KEY`) in the environment, then choose the provider and model under
-**Cài đặt → Đọc bill (OCR)** (defaults: OpenAI, `gpt-4.1`). The page refuses a provider whose key is missing.
+**Cài đặt → Đọc bill (OCR)** (defaults: OpenAI, primary `gpt-6-luna`, validator `gpt-6.1-sol`). The page refuses a provider whose key is missing.
+
+OpenAI reads each image once with the primary model. `BillVision::ValidationPolicy` first checks normalized
+facts and the existing deterministic evaluator. Only visual risks (missing/unreadable fields, unknown
+document type, abnormal date, fuzzy merchant text, multiple settlements or malformed extraction) can
+trigger one independent validator reading. A soft confidence such as 0.91 alone does not trigger it;
+below the configured readability threshold, the field is considered unreadable. Dealer/fee/card
+configuration problems go directly to review. Duplicate detection never triggers another model call.
+
+`ResultComparator` compares integer amounts, normalized dates/times, Vietnamese merchant names and MID/TID,
+including document counts and conflicting batch numbers. It handles reordered documents without merging
+them. Agreement can confirm matching, present OCR fields when the validator reads them confidently; it
+never replaces primary facts, invents missing data, clears business review reasons or bypasses
+`Transactions::Evaluator`. Disagreement, malformed primary data, a validator failure or exhausted budget
+go to human review. Gemini and the offline provider retain their one-provider behavior.
+
+Every outbound call consumes a reserved slot **before** the request: primary <= 1, validator <= 1,
+total <= 2 per run. All runs, including Sidekiq transient retries and explicit reprocessing, share a
+hard limit of 3 per bill (an admin can lower it). A transient primary retry starts another counted run;
+the HTTP client has no hidden retries. Validator errors end the run in review and are not retried.
+Thus a bill makes at most 6 model requests, even across job retries or worker crashes. Permanent
+authentication/model/request failures are not picked up by automatic housekeeping retries.
+
+Both OpenAI requests use `max_completion_tokens: 700` with strict JSON-schema output. This cap includes
+reasoning tokens, so a truncated/refused result goes to review with no dynamic increase or retry.
+Luna uses reasoning `none`; Sol uses `low`. The timeout remains an admin setting (default 60 seconds).
+
+The current primary/validator raw and normalized results, validation reasons/outcome, reserved call counts
+and response token usage live in `BillImage.metadata["vision_pipeline"]`. Prior runs are retained in
+`vision_history`. Existing `raw_extraction`, `normalized_extraction`, `ocr_provider` and `ocr_model` remain
+compatible and always refer to the primary. Transaction/review pages show a concise validation summary,
+with raw data and usage behind an expandable audit section. Structured logs record request type, model,
+bill ID and available usage without credentials. An explicitly saved legacy `openai_vision_model` remains
+effective until the administrator saves the new primary-model setting; historical gpt-4.1 records are untouched.
 
 Check OCR quality on real bills before relying on auto-approval (nothing is saved):
 
@@ -184,7 +217,8 @@ needed before the app can reach its database:
 
 | Setting | Default |
 |---|---|
-| OCR provider / OpenAI model / Gemini model | OpenAI / `gpt-4.1` / `gemini-2.5-flash` |
+| OCR provider / primary OpenAI / validator OpenAI / Gemini | OpenAI / `gpt-6-luna` / `gpt-6.1-sol` / `gemini-2.5-flash` |
+| Vision validation enabled / mode | true / risk_based |
 | Auto-approve threshold / minimum readable threshold | 92% / 70% |
 | OCR timeout / maximum OCR runs per bill | 60 s / 3 |
 | Fuzzy merchant suggestion threshold | 88% |

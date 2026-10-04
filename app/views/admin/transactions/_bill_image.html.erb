@@ -15,3 +15,4 @@
 <% else %>
   <%= empty_state t("bill_images.missing"), nil, icon_name: "photo-off" %>
 <% end %>
+<%= render "admin/transactions/vision_validation", bill_image: bill_image %>

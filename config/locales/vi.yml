@@ -552,6 +552,10 @@ vi:
     keys:
       vision_provider: "Nhà cung cấp OCR"
       openai_vision_model: "Mô hình OpenAI"
+      primary_vision_model: "Mô hình OpenAI đọc bill"
+      validator_vision_model: "Mô hình OpenAI kiểm tra lại"
+      vision_validation_enabled: "Cho phép đọc lại ảnh khi có rủi ro"
+      vision_validation_mode: "Cách kiểm tra OCR"
       gemini_vision_model: "Mô hình Gemini"
       ocr_auto_approve_threshold: "Ngưỡng tự động duyệt"
       ocr_review_threshold: "Ngưỡng đọc được tối thiểu"
@@ -566,11 +570,15 @@ vi:
     hints:
       vision_provider: "Cần khai báo API key tương ứng trên máy chủ."
       openai_vision_model: "Ví dụ: gpt-4.1"
+      primary_vision_model: "Mặc định gpt-6-luna. Đọc ảnh một lần trong mỗi lượt OCR."
+      validator_vision_model: "Mặc định gpt-6.1-sol. Đọc ảnh độc lập tối đa một lần khi cần kiểm tra."
+      vision_validation_enabled: "Chỉ đọc lại khi có dấu hiệu ảnh hoặc dữ liệu OCR không rõ; không gọi thêm model để xử lý lỗi cấu hình."
+      vision_validation_mode: "Chỉ kiểm tra khi có rủi ro, không đọc lại mọi bill."
       gemini_vision_model: "Ví dụ: gemini-2.5-flash"
       ocr_auto_approve_threshold: "Các trường quan trọng (tổng tiền, hộ kinh doanh, ngày giờ) phải đạt ngưỡng này mới được tự động duyệt."
       ocr_review_threshold: "Dưới ngưỡng này, giá trị được coi là không đọc được. Phải nhỏ hơn hoặc bằng ngưỡng tự động duyệt."
       vision_timeout_seconds: "Quá thời gian này, lần gọi OCR được thử lại."
-      max_ocr_attempts: "Bill lỗi OCR được tự động chạy lại đến khi đạt số lần này."
+      max_ocr_attempts: "Tối đa 3 lượt cho mỗi bill, tính cả thử lại khi lỗi và yêu cầu chạy lại. Mỗi lượt tối đa 2 lần gọi model."
       merchant_fuzzy_threshold: "Tên gần giống từ mức này trở lên được gợi ý (luôn cần người xác nhận)."
       duplicate_window_minutes: "Cùng hộ kinh doanh và cùng số tiền trong khoảng này được đánh dấu có thể trùng."
       max_receipt_age_days: "Bill cũ hơn số ngày này phải kiểm tra thủ công."
@@ -584,6 +592,8 @@ vi:
       max_receipt_age_days: "ngày"
       max_bill_image_mb: "MB"
     options:
+      vision_validation_mode:
+        risk_based: "Chỉ khi có rủi ro"
       vision_provider:
         openai: "OpenAI"
         gemini: "Google Gemini"
@@ -654,6 +664,24 @@ vi:
         permission: "Token không có quyền Object Read & Write trên bucket này."
         endpoint: "Không kết nối được R2_ENDPOINT, kiểm tra account ID trong địa chỉ."
 
+  vision_validation:
+    title: "Kiểm tra kết quả OCR"
+    primary: "Model đọc bill"
+    validator: "Model kiểm tra lại"
+    triggered: "Đã đọc lại ảnh"
+    result: "Kết quả kiểm tra"
+    reason: "Lý do đọc lại"
+    not_used: "Không sử dụng"
+    audit_details: "Xem dữ liệu OCR, token và lịch sử xử lý"
+    results:
+      pending: "Chưa hoàn tất"
+      skipped: "Không cần đọc lại"
+      agreed: "Hai model cùng đọc được các thông tin chính"
+      disagreed: "Hai model đọc khác nhau — cần kiểm tra"
+      unresolved: "Vẫn chưa đủ thông tin — cần kiểm tra"
+      validator_failed: "Lần đọc lại bị lỗi — cần kiểm tra"
+      budget_exhausted: "Đã hết số lần gọi model cho phép"
+
   extraction_fields:
     document_type: "Loại chứng từ"
     total_amount_vnd: "Tổng tiền"
@@ -664,6 +692,13 @@ vi:
     terminal_or_merchant_id: "MID / TID"
 
   review_reasons:
+    model_disagreement: "Hai model OCR đọc khác nhau — cần kiểm tra ảnh gốc"
+    validator_failed: "Model kiểm tra lại bị lỗi — cần kiểm tra thủ công"
+    validation_budget_exhausted: "Đã hết số lần xử lý OCR cho phép — cần kiểm tra thủ công"
+    malformed_primary_extraction: "Kết quả OCR ban đầu không đúng cấu trúc"
+    primary_output_truncated: "Kết quả OCR vượt giới hạn độ dài — cần kiểm tra thủ công"
+    primary_refused: "Model từ chối đọc ảnh — cần kiểm tra thủ công"
+    multiple_settlement_documents: "Ảnh có nhiều bill kết toán"
     document_type_uncertain: "Không chắc đây là bill kết toán"
     document_type_unknown: "Không nhận diện được loại chứng từ"
     document_type_low_confidence: "Độ tin cậy loại chứng từ thấp"
