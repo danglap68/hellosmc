@@ -1,0 +1,12 @@
+vi:
+  ui:
+    skip_to_content: "Đến nội dung chính"
+    main_navigation: "Điều hướng chính"
+    breadcrumbs: "Đường dẫn"
+    daily_bill_stats: "Thống kê xử lý bill hôm nay"
+    appearance:
+      label: "Giao diện"
+      option: "Giao diện %{mode}"
+      light: "Sáng"
+      dark: "Tối"
+      system: "Hệ thống"

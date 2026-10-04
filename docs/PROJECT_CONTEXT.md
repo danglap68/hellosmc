@@ -1,4 +1,4 @@
-# HelloSMC — Project context
+# SMC — Project context
 
 Background, business rules and the decisions taken while building the MVP. Read this before changing
 resolution, calculation or export behaviour.
@@ -7,7 +7,7 @@ resolution, calculation or export behaviour.
 
 SMC receives settlement-bill photos in Telegram groups (one group per dealer). Staff read each bill —
 total, settlement date/time, lot number, merchant (HKD), card type, applicable fee — and type the values
-into accounting Excel files. HelloSMC automates that, keeps the original evidence, and leaves a full audit trail.
+into accounting Excel files. SMC automates that, keeps the original evidence, and leaves a full audit trail.
 
 ## Business rules (as implemented)
 

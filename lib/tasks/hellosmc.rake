@@ -27,6 +27,16 @@ namespace :hellosmc do
     GenerateDailyExcelJob.perform_now
   end
 
+  desc "Check the Cloudflare R2 credentials: write, read, presigned URL and delete a test object"
+  task check_r2: :environment do
+    result = R2Check.call
+    result.steps.each do |step|
+      puts "#{step.ok? ? 'OK  ' : 'FAIL'} #{step.name}#{" - #{step.error.class}: #{step.error.message}" unless step.ok?}"
+    end
+    abort "R2 check failed." unless result.ok?
+    puts "R2 OK (#{result.duration_ms} ms)"
+  end
+
   desc "Retry OCR for failed bill images that still have attempts left"
   task retry_failed_extractions: :environment do
     RetryFailedExtractionJob.perform_now

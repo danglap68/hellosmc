@@ -5,43 +5,43 @@
     <%= form_with url: admin_transactions_path, method: :get, data: { turbo_frame: "_top" } do %>
       <div class="row g-2">
         <div class="col-md-4 col-lg-3">
-          <label class="form-label"><%= t("transactions.filters.q") %></label>
-          <input type="search" name="q" value="<%= @filter[:q] %>" class="form-control" placeholder="<%= t('transactions.filters.q_placeholder') %>">
+          <label class="form-label" for="transaction_q"><%= t("transactions.filters.q") %></label>
+          <input type="search" id="transaction_q" name="q" value="<%= @filter[:q] %>" class="form-control" placeholder="<%= t('transactions.filters.q_placeholder') %>">
         </div>
         <div class="col-md-4 col-lg-2">
-          <label class="form-label"><%= Transaction.human_attribute_name(:dealer) %></label>
+          <label class="form-label" for="dealer_id"><%= Transaction.human_attribute_name(:dealer) %></label>
           <%= select_tag :dealer_id, options_for_select(dealer_options, @filter[:dealer_id]), include_blank: t("common.all"), class: "form-select" %>
         </div>
         <div class="col-md-4 col-lg-3">
-          <label class="form-label"><%= Transaction.human_attribute_name(:merchant) %></label>
+          <label class="form-label" for="merchant_id"><%= Transaction.human_attribute_name(:merchant) %></label>
           <%= select_tag :merchant_id, options_for_select(merchant_options, @filter[:merchant_id]), include_blank: t("common.all"), class: "form-select" %>
         </div>
         <div class="col-md-4 col-lg-2">
-          <label class="form-label"><%= Transaction.human_attribute_name(:status) %></label>
+          <label class="form-label" for="status"><%= Transaction.human_attribute_name(:status) %></label>
           <%= select_tag :status, options_for_select(enum_options(:transaction, :status, Transaction::STATUSES), @filter[:status]), include_blank: t("common.all"), class: "form-select" %>
         </div>
         <div class="col-md-4 col-lg-2">
-          <label class="form-label"><%= Transaction.human_attribute_name(:card_type) %></label>
+          <label class="form-label" for="card_type_id"><%= Transaction.human_attribute_name(:card_type) %></label>
           <%= select_tag :card_type_id, options_for_select(card_type_options, @filter[:card_type_id]), include_blank: t("common.all"), class: "form-select" %>
         </div>
         <div class="col-6 col-md-3 col-lg-2">
-          <label class="form-label"><%= t("transactions.filters.date_from") %></label>
-          <input type="date" name="date_from" value="<%= @filter[:date_from] %>" class="form-control">
+          <label class="form-label" for="date_from"><%= t("transactions.filters.date_from") %></label>
+          <input type="date" id="date_from" name="date_from" value="<%= @filter[:date_from] %>" class="form-control">
         </div>
         <div class="col-6 col-md-3 col-lg-2">
-          <label class="form-label"><%= t("transactions.filters.date_to") %></label>
-          <input type="date" name="date_to" value="<%= @filter[:date_to] %>" class="form-control">
+          <label class="form-label" for="date_to"><%= t("transactions.filters.date_to") %></label>
+          <input type="date" id="date_to" name="date_to" value="<%= @filter[:date_to] %>" class="form-control">
         </div>
         <div class="col-6 col-md-3 col-lg-2">
-          <label class="form-label"><%= t("transactions.filters.amount_min") %></label>
-          <input type="text" inputmode="numeric" name="amount_min" value="<%= @filter[:amount_min] %>" class="form-control" data-controller="amount-input" data-action="input->amount-input#format">
+          <label class="form-label" for="amount_min"><%= t("transactions.filters.amount_min") %></label>
+          <input type="text" inputmode="numeric" id="amount_min" name="amount_min" value="<%= @filter[:amount_min] %>" class="form-control" data-controller="amount-input" data-action="input->amount-input#format">
         </div>
         <div class="col-6 col-md-3 col-lg-2">
-          <label class="form-label"><%= t("transactions.filters.amount_max") %></label>
-          <input type="text" inputmode="numeric" name="amount_max" value="<%= @filter[:amount_max] %>" class="form-control" data-controller="amount-input" data-action="input->amount-input#format">
+          <label class="form-label" for="amount_max"><%= t("transactions.filters.amount_max") %></label>
+          <input type="text" inputmode="numeric" id="amount_max" name="amount_max" value="<%= @filter[:amount_max] %>" class="form-control" data-controller="amount-input" data-action="input->amount-input#format">
         </div>
         <div class="col-md-6 col-lg-2">
-          <label class="form-label"><%= t("transactions.filters.telegram_chat") %></label>
+          <label class="form-label" for="telegram_chat_id"><%= t("transactions.filters.telegram_chat") %></label>
           <%= select_tag :telegram_chat_id, options_for_select(TelegramChat.ordered.map { |chat| [chat.display_name, chat.id] }, @filter[:telegram_chat_id]), include_blank: t("common.all"), class: "form-select" %>
         </div>
         <div class="col-md-6 col-lg-2 d-flex align-items-end gap-2">

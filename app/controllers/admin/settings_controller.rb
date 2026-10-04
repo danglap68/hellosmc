@@ -4,7 +4,7 @@ module Admin
   class SettingsController < BaseController
     permission :settings
 
-    before_action :load_sidebar
+    before_action :load_sidebar, only: %i[show update]
 
     def show
       @form = SettingsForm.new
@@ -19,7 +19,23 @@ module Admin
       end
     end
 
+    # Writes, reads and deletes a test object to prove the R2_* credentials work.
+    def check_r2
+      result = R2Check.call
+      if result.ok?
+        redirect_to admin_settings_path, notice: t("settings.r2_check.ok", ms: result.duration_ms)
+      else
+        redirect_to admin_settings_path, alert: r2_failure_message(result.failure)
+      end
+    end
+
     private
+
+    def r2_failure_message(step)
+      hint = step.hint && t("settings.r2_check.hints.#{step.hint}", keys: step.error.message)
+      t("settings.r2_check.failed", step: t("settings.r2_check.steps.#{step.name}"), hint: hint,
+                                    error: "#{step.error.class.name}: #{step.error.message.truncate(300)}").squish
+    end
 
     def load_sidebar
       @services = {

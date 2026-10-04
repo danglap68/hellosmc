@@ -32,10 +32,20 @@ Rails.application.configure do
   # R2 as soon as its credentials are present (recommended), local disk otherwise.
   config.active_storage.service = ENV["R2_BUCKET"].present? ? :cloudflare_r2 : :local
 
-  # Don't care if the mailer can't send.
-  config.action_mailer.raise_delivery_errors = false
-  # Each email opens in a new browser tab; all sent emails are listed at /letter_opener.
+  # Email delivery: keep exactly one of the two blocks below uncommented,
+  # then restart the server.
+
+  # 1) Local testing: emails are not sent; each opens in a new browser tab and
+  #    all of them are listed at /letter_opener.
   config.action_mailer.delivery_method = :letter_opener
+  config.action_mailer.raise_delivery_errors = false
+
+  # 2) Real sending through Resend, with SMTP_* from .env (settings in
+  #    config/application.rb). Errors are raised so a rejected sender or bad
+  #    API key is visible.
+  # config.action_mailer.delivery_method = :smtp
+  # config.action_mailer.raise_delivery_errors = true
+
   config.action_mailer.perform_deliveries = true
 
   # Make template changes take effect immediately.

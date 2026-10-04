@@ -51,7 +51,11 @@ RSpec.configure do |config|
       "OPENAI_API_KEY" => "test-openai-key",
       "GEMINI_API_KEY" => nil,
       "TELEGRAM_BOT_TOKEN" => "123456:TEST-TOKEN",
-      "TELEGRAM_WEBHOOK_SECRET" => nil
+      "TELEGRAM_WEBHOOK_SECRET" => nil,
+      "R2_ACCESS_KEY_ID" => nil,
+      "R2_SECRET_ACCESS_KEY" => nil,
+      "R2_BUCKET" => nil,
+      "R2_ENDPOINT" => nil
     }
     original = overrides.keys.index_with { |key| ENV[key] }
     overrides.each { |key, value| value.nil? ? ENV.delete(key) : ENV[key] = value }

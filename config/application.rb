@@ -45,6 +45,17 @@ module Hellosmc
 
     config.active_job.queue_adapter = :sidekiq
 
+    # Outgoing email server, e.g. Resend: smtp.resend.com, user "resend", password = API key.
+    # Production always sends through it; development only when SMTP_ADDRESS is set.
+    config.action_mailer.smtp_settings = {
+      address: ENV["SMTP_ADDRESS"],
+      port: ENV.fetch("SMTP_PORT", 587).to_i,
+      user_name: ENV["SMTP_USERNAME"],
+      password: ENV["SMTP_PASSWORD"],
+      authentication: :plain,
+      enable_starttls_auto: true
+    }
+
     # Bill images are private: no public Active Storage routes. Images are
     # served through authenticated admin endpoints (see Admin::BillImagesController).
     config.active_storage.draw_routes = false

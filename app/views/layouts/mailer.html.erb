@@ -1,13 +1,67 @@
 <!DOCTYPE html>
-<html>
+<html lang="vi">
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="x-apple-disable-message-reformatting">
+    <meta name="format-detection" content="telephone=no,date=no,address=no,email=no">
+    <meta name="color-scheme" content="light">
+    <meta name="supported-color-schemes" content="light">
+    <title><%= message.subject %></title>
     <style>
-      /* Email styles need to be inline */
+      :root { color-scheme: light; }
+      body { margin: 0; padding: 0; width: 100% !important; }
+      @media (max-width: 600px) {
+        .email-outer { padding: 24px 12px !important; }
+        .email-card { padding: 28px 22px !important; }
+      }
     </style>
   </head>
+  <body style="margin:0;padding:0;background-color:#f4f6fa;-webkit-text-size-adjust:100%;">
+    <% if content_for?(:preheader) %>
+      <div style="display:none;max-height:0;max-width:0;overflow:hidden;opacity:0;mso-hide:all;font-size:1px;line-height:1px;color:#f4f6fa;">
+        <%= yield :preheader %><%= raw("&#847;&zwnj;&nbsp;" * 40) %>
+      </div>
+    <% end %>
 
-  <body>
-    <%= yield %>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f6fa;">
+      <tr>
+        <td align="center" class="email-outer" style="padding:40px 16px;">
+          <!--[if mso]><table role="presentation" width="560" align="center" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;">
+            <tr>
+              <td style="padding:0 4px 20px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td width="32" height="32" align="center" valign="middle" bgcolor="<%= MailerHelper::PRIMARY %>"
+                        style="width:32px;height:32px;border-radius:8px;background-color:<%= MailerHelper::PRIMARY %>;font-family:<%= MailerHelper::FONT %>;font-size:16px;line-height:32px;font-weight:700;color:#ffffff;">
+                      <%= t("app.name").first %>
+                    </td>
+                    <td style="padding-left:10px;font-family:<%= MailerHelper::FONT %>;font-size:18px;line-height:32px;font-weight:700;color:#0f172a;">
+                      <%= t("app.name") %>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="email-card" bgcolor="#ffffff"
+                  style="padding:40px;background-color:#ffffff;border:1px solid #e5e8ef;border-radius:12px;">
+                <%= yield %>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:24px 4px 0;<%= MailerHelper::SMALL %>font-size:12px;line-height:18px;color:#94a3b8;">
+                <%= t("app.name") %> · <%= t("app.footer") %><br>
+                <%= t("mailer.automated") %>
+              </td>
+            </tr>
+          </table>
+          <!--[if mso]></td></tr></table><![endif]-->
+        </td>
+      </tr>
+    </table>
   </body>
 </html>

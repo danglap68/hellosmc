@@ -59,15 +59,7 @@ Rails.application.configure do
 
   # Set host to be used by links generated in mailer templates.
   config.action_mailer.default_url_options = { host: ENV.fetch("APP_HOST", "example.com"), protocol: "https" }
-  config.action_mailer.delivery_method = :smtp
-  config.action_mailer.smtp_settings = {
-    address: ENV["SMTP_ADDRESS"],
-    port: ENV.fetch("SMTP_PORT", 587).to_i,
-    user_name: ENV["SMTP_USERNAME"],
-    password: ENV["SMTP_PASSWORD"],
-    authentication: :plain,
-    enable_starttls_auto: true
-  }
+  config.action_mailer.delivery_method = :smtp # SMTP_* settings: config/application.rb
   config.cache_store = :redis_cache_store, { url: ENV.fetch("REDIS_URL", "redis://localhost:6379/0") }
 
   # Specify outgoing SMTP server. Remember to add smtp/* credentials via bin/rails credentials:edit.

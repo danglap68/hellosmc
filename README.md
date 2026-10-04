@@ -1,4 +1,4 @@
-# HelloSMC — Settlement Bill Automation
+# SMC — Settlement Bill Automation
 
 Internal tool for SMC that turns settlement-bill photos posted in Telegram groups into
 auditable accounting transactions:
@@ -119,7 +119,8 @@ bin/telegram_bot                          # Telegram long polling (local develop
 Sign in at `/users/sign_in`. Sidekiq UI: `/admin/sidekiq` (admins). Health: `/health`.
 
 In development, emails (e.g. password resets) are not sent: each one opens in a new browser tab
-(letter_opener) and all of them are listed at `/letter_opener`.
+(letter_opener) and all of them are listed at `/letter_opener`. To send them for real through Resend,
+fill `SMTP_*` in `.env` and swap the two email blocks in `config/environments/development.rb`.
 
 ### Telegram bot setup
 
@@ -154,6 +155,8 @@ The prompt and JSON schema live in `app/services/bill_vision/prompt.rb`.
 2. Create an R2 API token with *Object Read & Write* on that bucket.
 3. Set `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`,
    `R2_ENDPOINT=https://<account_id>.r2.cloudflarestorage.com`.
+4. Check the credentials: **Cài đặt → Kiểm tra kết nối R2**, or `bin/rails hellosmc:check_r2`. Both write, read,
+   fetch through a presigned URL and delete a test object under `healthchecks/`, and name the failing step.
 
 Production always stores on R2; development uses R2 as soon as `R2_BUCKET` is set, local disk otherwise.
 Bill images are stored under `bills/YYYY/MM/DD/`, exports under `exports/YYYY/MM/`. The app refuses to boot
@@ -171,7 +174,7 @@ needed before the app can reach its database:
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET` | Telegram bot; webhook secret is required in production |
 | `OPENAI_API_KEY`, `GEMINI_API_KEY` | OCR providers |
 | `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_ENDPOINT` | Image storage |
-| `SMTP_ADDRESS`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD` | Password-reset emails (production) |
+| `SMTP_ADDRESS`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD` | Password-reset emails, e.g. Resend (`smtp.resend.com`, user `resend`, password = API key). Required in production; in development only used when real sending is switched on in `config/environments/development.rb`. |
 | `DATABASE_URL`, `REDIS_URL`, `RAILS_MASTER_KEY`, `APP_HOST` | Infrastructure (production). Development/test use the local PostgreSQL socket; optional `DB_HOST`/`DB_PORT`/`DB_USERNAME`/`DB_PASSWORD` override it (see `docker-compose.yml`). |
 
 **Admin settings** (**Cài đặt**, admins only, stored in `app_settings`, every change audited, applied within

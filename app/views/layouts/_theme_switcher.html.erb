@@ -1,0 +1,9 @@
+<div class="theme-switcher d-print-none" role="group" aria-label="<%= t("ui.appearance.label") %>">
+  <% [["light", "sun"], ["dark", "moon"], ["system", "device-desktop"]].each do |value, icon_name| %>
+    <% label = t("ui.appearance.#{value}") %>
+    <button type="button" class="btn theme-option" data-theme-value="<%= value %>"
+            aria-label="<%= t("ui.appearance.option", mode: label.downcase) %>" aria-pressed="false" title="<%= label %>">
+      <%= icon(icon_name) %><span class="theme-option-label"><%= label %></span>
+    </button>
+  <% end %>
+</div>

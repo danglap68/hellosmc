@@ -8,36 +8,29 @@
   <% end %>
 <% end %>
 
-<div class="row row-deck row-cards mb-3">
-  <% [
-       [:bills_today, @stats.bills_today, "photo", "primary", nil],
-       [:processed_today, @stats.processed_today, "checks", "azure", nil],
-       [:needs_review, @stats.needs_review, "scan", "yellow", (can?(:manage, :reviews) ? admin_reviews_path : nil)],
-       [:hold, @stats.hold, "player-pause", "orange", (can?(:manage, :reviews) ? admin_reviews_path(queue: "hold") : nil)],
-       [:failed, @stats.failed, "alert-octagon", "red", (can?(:manage, :reviews) ? admin_reviews_path(queue: "failed") : nil)]
-     ].each do |key, value, icon_name, color, path| %>
-    <div class="col-sm-6 col-lg">
-      <div class="card card-sm">
-        <div class="card-body">
-          <div class="row align-items-center">
-            <div class="col-auto"><span class="bg-<%= color %> text-white avatar"><%= icon(icon_name) %></span></div>
-            <div class="col">
-              <div class="font-weight-medium fs-2"><%= path ? link_to(value, path, class: "text-reset") : value %></div>
-              <div class="text-secondary"><%= t("dashboard.cards.#{key}") %></div>
-            </div>
-          </div>
-        </div>
+<section class="card dashboard-metrics mb-3" aria-label="<%= t("ui.daily_bill_stats") %>">
+  <dl class="metric-grid mb-0">
+    <% [
+         [:bills_today, @stats.bills_today, "photo", "primary", nil],
+         [:processed_today, @stats.processed_today, "checks", "green", nil],
+         [:needs_review, @stats.needs_review, "scan", "yellow", (can?(:manage, :reviews) ? admin_reviews_path : nil)],
+         [:hold, @stats.hold, "player-pause", "orange", (can?(:manage, :reviews) ? admin_reviews_path(queue: "hold") : nil)],
+         [:failed, @stats.failed, "alert-octagon", "red", (can?(:manage, :reviews) ? admin_reviews_path(queue: "failed") : nil)]
+       ].each do |key, value, icon_name, color, path| %>
+      <div class="dashboard-metric">
+        <dt class="metric-label"><%= icon(icon_name, "text-#{color}") %><%= t("dashboard.cards.#{key}") %></dt>
+        <dd class="metric-value"><%= path ? link_to(value, path, class: "text-reset", aria: { label: "#{t("dashboard.cards.#{key}")}: #{value}" }) : value %></dd>
       </div>
-    </div>
-  <% end %>
-</div>
+    <% end %>
+  </dl>
+</section>
 
 <div class="row row-deck row-cards mb-3">
   <div class="col-md-6">
     <div class="card">
       <div class="card-body">
-        <div class="subheader"><%= t("dashboard.cards.total_amount_today") %></div>
-        <div class="h1 mb-0 money"><%= format_vnd(@stats.total_amount_today) %></div>
+        <div class="amount-label"><%= t("dashboard.cards.total_amount_today") %></div>
+        <div class="amount-value money"><%= format_vnd(@stats.total_amount_today) %></div>
         <div class="text-secondary small"><%= t("dashboard.cards.total_amount_hint") %></div>
       </div>
     </div>
@@ -45,8 +38,8 @@
   <div class="col-md-6">
     <div class="card">
       <div class="card-body">
-        <div class="subheader"><%= t("dashboard.cards.total_approved_amount_today") %></div>
-        <div class="h1 mb-0 money text-green"><%= format_vnd(@stats.total_approved_amount_today) %></div>
+        <div class="amount-label"><%= t("dashboard.cards.total_approved_amount_today") %></div>
+        <div class="amount-value money text-green"><%= format_vnd(@stats.total_approved_amount_today) %></div>
         <div class="text-secondary small"><%= t("dashboard.cards.total_approved_hint") %></div>
       </div>
     </div>
@@ -120,16 +113,18 @@
       <div class="card-header"><h3 class="card-title"><%= t("dashboard.top_dealers") %></h3></div>
       <% top = @stats.top_dealers %>
       <% if top.any? %>
-        <table class="table card-table table-vcenter">
-          <tbody>
-            <% top.each do |(_id, name, count, total)| %>
-              <tr>
-                <td><%= name %><div class="small text-secondary"><%= t("dashboard.transaction_count", count: count) %></div></td>
-                <td class="text-end money"><%= format_vnd(total) %></td>
-              </tr>
-            <% end %>
-          </tbody>
-        </table>
+        <div class="table-responsive">
+          <table class="table card-table table-vcenter">
+            <tbody>
+              <% top.each do |(_id, name, count, total)| %>
+                <tr>
+                  <td><%= name %><div class="small text-secondary"><%= t("dashboard.transaction_count", count: count) %></div></td>
+                  <td class="text-end money"><%= format_vnd(total) %></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
       <% else %>
         <div class="card-body"><%= empty_state t("common.no_data") %></div>
       <% end %>

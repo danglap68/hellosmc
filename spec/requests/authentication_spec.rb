@@ -44,5 +44,11 @@ RSpec.describe "Authentication" do
     expect {
       post user_password_path, params: { user: { email: "admin@hellosmc.vn" } }
     }.to change(ActionMailer::Base.deliveries, :count).by(1)
+
+    mail = ActionMailer::Base.deliveries.last
+    expect(mail.subject).to eq("Đặt lại mật khẩu SMC")
+    expect(mail.parts.map(&:mime_type)).to contain_exactly("text/plain", "text/html")
+    expect(mail.html_part.body.decoded).to include("Đặt mật khẩu mới", "/users/password/edit?reset_password_token=")
+    expect(mail.text_part.body.decoded).to include("/users/password/edit?reset_password_token=")
   end
 end

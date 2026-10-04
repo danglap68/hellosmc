@@ -1,6 +1,6 @@
 vi:
   app:
-    name: "HelloSMC"
+    name: "SMC"
     tagline: "Tự động hoá xử lý bill kết toán"
     footer: "Hệ thống xử lý bill kết toán nội bộ"
     timezone_label: "giờ Việt Nam"
@@ -116,13 +116,33 @@ vi:
       stale: "Giao dịch vừa được người khác cập nhật. Vui lòng tải lại trang và kiểm tra lại."
 
   auth:
-    sign_in_title: "Đăng nhập HelloSMC"
+    sign_in_title: "Đăng nhập SMC"
     no_signup: "Tài khoản do quản trị viên cấp. Liên hệ quản trị viên nếu cần truy cập."
     forgot_help: "Nhập email, hệ thống sẽ gửi hướng dẫn đặt lại mật khẩu."
+
+  mailer:
+    hello: "Xin chào %{name},"
+    automated: "Email này được gửi tự động, vui lòng không trả lời."
+    link_fallback: "Nút không hoạt động? Sao chép đường dẫn sau vào trình duyệt:"
 
   devise:
     failure:
       account_inactive: "Tài khoản đã bị vô hiệu hoá. Vui lòng liên hệ quản trị viên."
+    mailer:
+      reset_password_instructions:
+        user_subject: "Đặt lại mật khẩu SMC"
+        preheader: "Liên kết đặt mật khẩu mới có hiệu lực trong %{hours} giờ."
+        heading: "Đặt lại mật khẩu"
+        intro_html: "Có yêu cầu đặt mật khẩu mới cho tài khoản <strong>%{email}</strong> trên %{app}. Nhấn nút bên dưới để tạo mật khẩu mới."
+        cta: "Đặt mật khẩu mới"
+        expiry: "Liên kết có hiệu lực trong %{hours} giờ và chỉ dùng được một lần."
+        ignore: "Nếu bạn không yêu cầu, hãy bỏ qua email này. Mật khẩu hiện tại của bạn vẫn giữ nguyên."
+      password_change:
+        user_subject: "Mật khẩu SMC đã được thay đổi"
+        preheader: "Mật khẩu tài khoản của bạn vừa được thay đổi."
+        heading: "Mật khẩu đã được thay đổi"
+        message_html: "Mật khẩu của tài khoản <strong>%{email}</strong> trên %{app} đã được thay đổi lúc %{time}."
+        warning: "Nếu không phải bạn thực hiện, hãy liên hệ quản trị viên ngay."
 
   dashboard:
     title: "Tổng quan"
@@ -589,6 +609,25 @@ vi:
         gemini: "GEMINI_API_KEY"
         r2: "R2_*"
         smtp: "SMTP_*"
+    r2_check:
+      action: "Kiểm tra kết nối R2"
+      submitting: "Đang kiểm tra…"
+      help: "Ghi, đọc, mở qua link tạm rồi xoá một file thử trong bucket (thư mục healthchecks/)."
+      ok: "Kết nối Cloudflare R2 hoạt động: ghi, đọc, link tạm và xoá file thử đều thành công (%{ms} ms)."
+      failed: "Kiểm tra R2 thất bại ở bước “%{step}”. %{hint} Chi tiết: %{error}"
+      steps:
+        configuration: "Cấu hình"
+        upload: "Ghi file"
+        download: "Đọc file"
+        presigned_url: "Mở qua link tạm"
+        delete: "Xoá file"
+      hints:
+        missing: "Thiếu biến môi trường %{keys}."
+        access_key: "R2_ACCESS_KEY_ID không đúng."
+        secret_key: "R2_SECRET_ACCESS_KEY không đúng."
+        bucket: "Không tìm thấy bucket, kiểm tra R2_BUCKET."
+        permission: "Token không có quyền Object Read & Write trên bucket này."
+        endpoint: "Không kết nối được R2_ENDPOINT, kiểm tra account ID trong địa chỉ."
 
   extraction_fields:
     document_type: "Loại chứng từ"

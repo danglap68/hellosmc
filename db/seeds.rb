@@ -16,7 +16,7 @@
 end
 puts "Card types: #{CardType.pluck(:key).join(', ')}"
 
-admin_email = ENV.fetch("SEED_ADMIN_EMAIL", "admin@example.com")
+admin_email = ENV.fetch("SEED_ADMIN_EMAIL", "danglap686868@gmail.com")
 unless User.exists?(email: admin_email)
   password = ENV["SEED_ADMIN_PASSWORD"].presence
   if password.nil?

@@ -1,7 +1,7 @@
 <% content_for :title, t(".forgot_your_password") %>
 <div class="card card-md">
   <div class="card-body">
-    <h2 class="h2 text-center mb-4"><%= t(".forgot_your_password") %></h2>
+    <h1 class="auth-title mb-4"><%= t(".forgot_your_password") %></h1>
     <p class="text-secondary mb-4"><%= t("auth.forgot_help") %></p>
     <%= form_for(resource, as: resource_name, url: password_path(resource_name), html: { method: :post }) do |f| %>
       <%= render "devise/shared/error_messages", resource: resource %>

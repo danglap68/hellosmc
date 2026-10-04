@@ -4,18 +4,20 @@
     <title><%= content_for?(:title) ? "#{yield(:title)} · #{t('app.name')}" : t("app.name") %></title>
     <%= render "layouts/head" %>
   </head>
-  <body class="d-flex flex-column">
-    <div class="page page-center">
-      <div class="container container-tight py-4">
-        <div class="text-center mb-4">
-          <span class="navbar-brand navbar-brand-autodark fs-2 fw-bold">
-            <%= icon("receipt-2", "text-primary me-1") %><%= t("app.name") %>
+  <body class="app-ui auth-layout d-flex flex-column">
+    <a href="#main-content" class="skip-link"><%= t("ui.skip_to_content") %></a>
+    <header class="auth-toolbar"><%= render "layouts/theme_switcher" %></header>
+    <main class="page page-center" id="main-content" tabindex="-1">
+      <div class="container container-tight auth-container py-4">
+        <div class="auth-brand mb-4">
+          <span class="app-brand">
+            <span class="brand-mark"><%= icon("receipt-2") %></span><%= t("app.name") %>
           </span>
           <div class="text-secondary mt-1"><%= t("app.tagline") %></div>
         </div>
         <%= render "layouts/flash" %>
         <%= yield %>
       </div>
-    </div>
+    </main>
   </body>
 </html>

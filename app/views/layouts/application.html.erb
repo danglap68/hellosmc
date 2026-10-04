@@ -4,15 +4,17 @@
     <title><%= content_for?(:title) ? "#{yield(:title)} · #{t('app.name')}" : t("app.name") %></title>
     <%= render "layouts/head" %>
   </head>
-  <body>
+  <body class="app-ui">
+    <a href="#main-content" class="skip-link"><%= t("ui.skip_to_content") %></a>
     <div class="page">
       <div class="page-wrapper">
-        <div class="page-body">
+        <main class="page-body" id="main-content" tabindex="-1">
           <div class="container-xl">
+            <div class="d-flex justify-content-end mb-3"><%= render "layouts/theme_switcher" %></div>
             <%= render "layouts/flash" %>
             <%= yield %>
           </div>
-        </div>
+        </main>
       </div>
     </div>
   </body>

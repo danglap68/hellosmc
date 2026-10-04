@@ -1,4 +1,5 @@
 require "rails_helper"
+require "aws-sdk-s3"
 
 RSpec.describe "Settings" do
   include_context "accounting setup"
@@ -23,6 +24,24 @@ RSpec.describe "Settings" do
       expect(transaction.review_reason_codes).to include("amount_low_confidence")
     end
 
+    it "reports a working R2 connection" do
+      steps = R2Check::STEPS.map { |name| R2Check::Step.new(name: name, error: nil) }
+      allow(R2Check).to receive(:call).and_return(R2Check::Result.new(steps: steps, duration_ms: 120))
+
+      post check_r2_admin_settings_path
+      expect(response).to redirect_to(admin_settings_path)
+      expect(flash[:notice]).to include("Kết nối Cloudflare R2 hoạt động", "120 ms")
+    end
+
+    it "explains which R2 step failed and why" do
+      error = Aws::S3::Errors::SignatureDoesNotMatch.new(nil, "signature mismatch")
+      steps = [ R2Check::Step.new(name: :configuration, error: nil), R2Check::Step.new(name: :upload, error: error) ]
+      allow(R2Check).to receive(:call).and_return(R2Check::Result.new(steps: steps, duration_ms: 50))
+
+      post check_r2_admin_settings_path
+      expect(flash[:alert]).to include("Ghi file", "R2_SECRET_ACCESS_KEY không đúng", "signature mismatch")
+    end
+
     it "re-renders with Vietnamese errors" do
       patch admin_settings_path, params: { settings: SettingsForm.new.values.merge("ocr_review_threshold" => "95") }
       expect(response).to have_http_status(:unprocessable_content)
@@ -35,5 +54,9 @@ RSpec.describe "Settings" do
     patch admin_settings_path, params: { settings: { "duplicate_window_minutes" => "60" } }
     expect(response).to have_http_status(:forbidden)
     expect(AppConfig.duplicate_window_minutes).to eq(10)
+
+    expect(R2Check).not_to receive(:call)
+    post check_r2_admin_settings_path
+    expect(response).to have_http_status(:forbidden)
   end
 end

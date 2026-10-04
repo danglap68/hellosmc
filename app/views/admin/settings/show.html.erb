@@ -74,6 +74,15 @@
           <td class="text-end"><code><%= t("settings.services.storage_values.#{@storage_service}", default: @storage_service) %></code></td>
         </tr>
       </table>
+      <% if can?(:manage, :settings) %>
+        <div class="card-footer">
+          <%= button_to check_r2_admin_settings_path, class: "btn btn-outline-primary btn-sm",
+                data: { turbo_submits_with: t("settings.r2_check.submitting") } do %>
+            <%= icon("cloud-check") %> <%= t("settings.r2_check.action") %>
+          <% end %>
+          <div class="small text-secondary mt-2"><%= t("settings.r2_check.help") %></div>
+        </div>
+      <% end %>
     </div>
 
     <div class="card mb-3">

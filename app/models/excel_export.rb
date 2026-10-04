@@ -19,9 +19,9 @@ class ExcelExport < ApplicationRecord
 
   def filename
     if export_date == end_date
-      "hellosmc-#{export_date.strftime('%Y%m%d')}.xlsx"
+      "smc-#{export_date.strftime('%Y%m%d')}.xlsx"
     else
-      "hellosmc-#{export_date.strftime('%Y%m%d')}-#{end_date.strftime('%Y%m%d')}.xlsx"
+      "smc-#{export_date.strftime('%Y%m%d')}-#{end_date.strftime('%Y%m%d')}.xlsx"
     end
   end
 

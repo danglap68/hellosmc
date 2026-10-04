@@ -38,7 +38,9 @@ Rails.application.routes.draw do
     resources :users, except: [ :show ] do
       member { post :send_reset_password }
     end
-    resource :settings, only: [ :show, :update ]
+    resource :settings, only: [ :show, :update ] do
+      post :check_r2
+    end
 
     authenticate :user, ->(user) { user.admin? && user.active? } do
       mount Sidekiq::Web => "/sidekiq"

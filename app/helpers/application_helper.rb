@@ -120,7 +120,7 @@ module ApplicationHelper
 
     is_active = active.nil? ? current_page?(path) || request.path.start_with?("#{path}/") : active
     content_tag(:li, class: [ "nav-item", ("active" if is_active) ].compact.join(" ")) do
-      link_to(path, class: "nav-link") do
+      link_to(path, class: "nav-link", aria: { current: ("page" if is_active) }) do
         safe_join([
           content_tag(:span, icon(icon_name), class: "nav-link-icon d-md-none d-lg-inline-block"),
           content_tag(:span, label, class: "nav-link-title")
