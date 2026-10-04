@@ -1,0 +1,7 @@
+<% content_for :title, t("merchants.edit.title", name: @merchant.name) %>
+<% content_for :breadcrumbs do %>
+  <li class="breadcrumb-item"><%= link_to t("navigation.merchants"), admin_merchants_path %></li>
+  <li class="breadcrumb-item"><%= link_to @merchant.name, admin_merchant_path(@merchant) %></li>
+  <li class="breadcrumb-item active"><%= t("actions.edit") %></li>
+<% end %>
+<div class="row"><div class="col-lg-8"><%= render "form", merchant: @merchant %></div></div>

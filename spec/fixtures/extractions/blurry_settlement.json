@@ -1,0 +1,23 @@
+{
+  "documents": [
+    {
+      "document_type": "settlement",
+      "total_amount_vnd": 11445000,
+      "lot_number": null,
+      "transaction_date": "2026-10-04",
+      "transaction_time": "10:57:25",
+      "merchant_name": "HỘ KINH DOANH THIÊN KIM GV",
+      "terminal_or_merchant_id": null,
+      "confidence": {
+        "document_type": 0.9,
+        "total_amount_vnd": 0.62,
+        "lot_number": 0,
+        "transaction_date": 0.81,
+        "transaction_time": 0.78,
+        "merchant_name": 0.74,
+        "terminal_or_merchant_id": 0
+      }
+    }
+  ],
+  "notes": "Image is blurry"
+}

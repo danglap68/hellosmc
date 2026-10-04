@@ -1,0 +1,18 @@
+<% content_for :title, t(".forgot_your_password") %>
+<div class="card card-md">
+  <div class="card-body">
+    <h2 class="h2 text-center mb-4"><%= t(".forgot_your_password") %></h2>
+    <p class="text-secondary mb-4"><%= t("auth.forgot_help") %></p>
+    <%= form_for(resource, as: resource_name, url: password_path(resource_name), html: { method: :post }) do |f| %>
+      <%= render "devise/shared/error_messages", resource: resource %>
+      <div class="mb-3">
+        <%= f.label :email, class: "form-label" %>
+        <%= f.email_field :email, autofocus: true, autocomplete: "email", class: "form-control" %>
+      </div>
+      <div class="form-footer">
+        <button type="submit" class="btn btn-primary w-100"><%= icon("mail") %> <%= t(".send_me_reset_password_instructions") %></button>
+      </div>
+    <% end %>
+  </div>
+</div>
+<div class="text-center text-secondary mt-3"><%= link_to t("devise.shared.links.sign_in"), new_session_path(resource_name) %></div>

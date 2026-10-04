@@ -1,0 +1,15 @@
+<%= tabler_form_with model: [:admin, telegram_chat] do |form| %>
+  <div class="card">
+    <div class="card-body">
+      <%= form.error_summary %>
+      <%= form.field :telegram_chat_id, required: true, hint: t("telegram_chats.form.chat_id_hint") %>
+      <%= form.field :name %>
+      <%= form.select_field :dealer_id, dealer_options, { include_blank: t("telegram_chats.unmapped") }, hint: t("telegram_chats.form.dealer_hint") %>
+      <%= form.switch_field :active, hint: t("telegram_chats.form.active_hint") %>
+    </div>
+    <div class="card-footer d-flex gap-2">
+      <%= form.submit_button %>
+      <%= link_to t("actions.cancel"), admin_telegram_chats_path, class: "btn btn-link" %>
+    </div>
+  </div>
+<% end %>

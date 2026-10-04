@@ -1,0 +1,8 @@
+<div class="text-center mt-3">
+  <% if controller_name != "sessions" %>
+    <%= link_to t("devise.shared.links.sign_in"), new_session_path(resource_name) %>
+  <% end %>
+  <% if devise_mapping.recoverable? && controller_name != "passwords" %>
+    <%= link_to t("devise.shared.links.forgot_your_password"), new_password_path(resource_name) %>
+  <% end %>
+</div>

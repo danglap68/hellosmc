@@ -1,0 +1,31 @@
+<% content_for :title, t(".sign_in") %>
+<div class="card card-md">
+  <div class="card-body">
+    <h2 class="h2 text-center mb-4"><%= t("auth.sign_in_title") %></h2>
+    <%= form_for(resource, as: resource_name, url: session_path(resource_name), html: { autocomplete: "on" }) do |f| %>
+      <div class="mb-3">
+        <%= f.label :email, class: "form-label" %>
+        <%= f.email_field :email, autofocus: true, autocomplete: "email", class: "form-control", placeholder: "email@congty.vn" %>
+      </div>
+      <div class="mb-2">
+        <label class="form-label" for="user_password">
+          <%= User.human_attribute_name(:password) %>
+          <span class="form-label-description"><%= link_to t("devise.shared.links.forgot_your_password"), new_password_path(resource_name) %></span>
+        </label>
+        <%= f.password_field :password, autocomplete: "current-password", class: "form-control" %>
+      </div>
+      <% if devise_mapping.rememberable? %>
+        <div class="mb-2">
+          <label class="form-check">
+            <%= f.check_box :remember_me, class: "form-check-input" %>
+            <span class="form-check-label"><%= User.human_attribute_name(:remember_me) %></span>
+          </label>
+        </div>
+      <% end %>
+      <div class="form-footer">
+        <button type="submit" class="btn btn-primary w-100"><%= icon("login") %> <%= t(".sign_in") %></button>
+      </div>
+    <% end %>
+  </div>
+</div>
+<div class="text-center text-secondary mt-3 small"><%= t("auth.no_signup") %></div>

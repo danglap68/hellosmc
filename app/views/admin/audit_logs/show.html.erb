@@ -1,0 +1,59 @@
+<% content_for :title, t("audit_logs.show.title", id: @audit_log.id) %>
+<% content_for :breadcrumbs do %>
+  <li class="breadcrumb-item"><%= link_to t("navigation.audit_logs"), admin_audit_logs_path %></li>
+  <li class="breadcrumb-item active">#<%= @audit_log.id %></li>
+<% end %>
+
+<div class="row row-cards">
+  <div class="col-lg-4">
+    <div class="card">
+      <div class="card-body">
+        <dl class="row mb-0">
+          <dt class="col-5"><%= AuditLog.human_attribute_name(:action) %></dt><dd class="col-7"><%= audit_action_label(@audit_log.action) %><div class="small text-secondary"><code><%= @audit_log.action %></code></div></dd>
+          <dt class="col-5"><%= AuditLog.human_attribute_name(:actor) %></dt><dd class="col-7"><%= audit_actor(@audit_log) %></dd>
+          <dt class="col-5"><%= AuditLog.human_attribute_name(:created_at) %></dt><dd class="col-7"><%= format_datetime(@audit_log.created_at) %></dd>
+          <dt class="col-5"><%= AuditLog.human_attribute_name(:auditable) %></dt>
+          <dd class="col-7">
+            <% if @audit_log.auditable_type == "Transaction" %>
+              <%= link_to "#{Transaction.model_name.human} ##{@audit_log.auditable_id}", admin_transaction_path(@audit_log.auditable_id) %>
+            <% elsif @audit_log.auditable_type %>
+              <%= auditable_label(@audit_log.auditable_type) %> #<%= @audit_log.auditable_id %>
+            <% else %>—<% end %>
+          </dd>
+        </dl>
+      </div>
+    </div>
+    <% if @audit_log.metadata.present? %>
+      <div class="card mt-3">
+        <div class="card-header"><h3 class="card-title"><%= AuditLog.human_attribute_name(:metadata) %></h3></div>
+        <div class="card-body"><%= json_block(@audit_log.metadata) %></div>
+      </div>
+    <% end %>
+  </div>
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header"><h3 class="card-title"><%= t("audit_logs.show.diff") %></h3></div>
+      <% before = @audit_log.before_data || {} %>
+      <% after = @audit_log.after_data || {} %>
+      <% keys = (before.keys | after.keys) %>
+      <% if keys.any? %>
+        <div class="table-responsive">
+          <table class="table card-table table-diff">
+            <thead><tr><th><%= t("audit_logs.show.field") %></th><th><%= AuditLog.human_attribute_name(:before_data) %></th><th><%= AuditLog.human_attribute_name(:after_data) %></th></tr></thead>
+            <tbody>
+              <% keys.each do |key| %>
+                <tr class="<%= 'changed' if before[key] != after[key] && @audit_log.before_data %>">
+                  <td><code><%= key %></code></td>
+                  <td><%= @audit_log.before_data ? audit_value(before[key]) : "" %></td>
+                  <td><%= @audit_log.after_data ? audit_value(after[key]) : "" %></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      <% else %>
+        <div class="card-body text-secondary"><%= t("common.no_data") %></div>
+      <% end %>
+    </div>
+  </div>
+</div>

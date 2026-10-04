@@ -1,0 +1,18 @@
+<%# locals: (transaction:) %>
+<% codes = transaction.review_reason_codes %>
+<% if codes.any? && !transaction.finalized? %>
+  <div class="alert alert-warning">
+    <h4 class="alert-title"><%= icon("alert-triangle") %> <%= t("transactions.review_reasons_title") %></h4>
+    <ul class="mb-0">
+      <% codes.each do |code| %>
+        <li><%= review_reason_label(code) %></li>
+      <% end %>
+    </ul>
+    <% if (ids = Array(transaction.source_data["possible_duplicate_ids"])).any? %>
+      <div class="mt-2">
+        <%= t("transactions.possible_duplicates") %>:
+        <%= safe_join(ids.map { |id| link_to("##{id}", admin_transaction_path(id)) }, ", ") %>
+      </div>
+    <% end %>
+  </div>
+<% end %>

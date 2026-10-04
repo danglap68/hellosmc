@@ -1,0 +1,66 @@
+<% content_for :title, @dealer.name %>
+<% content_for :breadcrumbs do %>
+  <li class="breadcrumb-item"><%= link_to t("navigation.dealers"), admin_dealers_path %></li>
+  <li class="breadcrumb-item active"><%= @dealer.name %></li>
+<% end %>
+<% content_for :actions do %>
+  <% if can?(:manage, :dealers) %>
+    <%= link_to edit_admin_dealer_path(@dealer), class: "btn" do %><%= icon("edit") %> <%= t("actions.edit") %><% end %>
+    <%= button_to admin_dealer_path(@dealer), method: :delete, class: "btn btn-outline-danger", form: { data: { turbo_confirm: t("actions.confirm_delete") } } do %><%= icon("trash") %> <%= t("actions.delete") %><% end %>
+  <% end %>
+<% end %>
+
+<div class="row row-cards">
+  <div class="col-lg-4">
+    <div class="card">
+      <div class="card-body">
+        <dl class="row mb-0">
+          <dt class="col-5"><%= Dealer.human_attribute_name(:code) %></dt><dd class="col-7"><code><%= @dealer.code %></code></dd>
+          <dt class="col-5"><%= Dealer.human_attribute_name(:default_card_type) %></dt><dd class="col-7"><%= @dealer.default_card_type&.name || "—" %></dd>
+          <dt class="col-5"><%= Dealer.human_attribute_name(:active) %></dt><dd class="col-7"><%= active_badge(@dealer.active?) %></dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-8">
+    <div class="card mb-3">
+      <div class="card-header">
+        <h3 class="card-title"><%= icon("brand-telegram") %> <%= t("dealers.telegram_groups") %></h3>
+        <% if can?(:manage, :telegram_chats) %><div class="card-actions"><%= link_to t("dealers.show.map_group"), admin_telegram_chats_path(filter: "unmapped") %></div><% end %>
+      </div>
+      <% if @telegram_chats.any? %>
+        <table class="table card-table">
+          <% @telegram_chats.each do |chat| %>
+            <tr><td><%= link_to chat.display_name, admin_telegram_chat_path(chat) %></td><td><code><%= chat.telegram_chat_id %></code></td><td><%= active_badge(chat.active?) %></td></tr>
+          <% end %>
+        </table>
+      <% else %>
+        <div class="card-body text-secondary"><%= t("dealers.show.no_groups") %></div>
+      <% end %>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header">
+        <h3 class="card-title"><%= icon("building-store") %> <%= t("dealers.merchants") %></h3>
+        <% if can?(:manage, :merchants) %><div class="card-actions"><%= link_to t("merchants.index.new"), new_admin_merchant_path(dealer_id: @dealer.id) %></div><% end %>
+      </div>
+      <% if @merchants.any? %>
+        <table class="table card-table">
+          <% @merchants.each do |merchant| %>
+            <tr><td><%= link_to merchant.name, admin_merchant_path(merchant) %></td><td><code><%= merchant.code %></code></td><td><%= active_badge(merchant.active?) %></td></tr>
+          <% end %>
+        </table>
+      <% else %>
+        <div class="card-body text-secondary"><%= t("merchants.index.empty") %></div>
+      <% end %>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title"><%= icon("percentage") %> <%= t("navigation.fee_rules") %></h3>
+        <% if can?(:manage, :fee_rules) %><div class="card-actions"><%= link_to t("fee_rules.index.new"), new_admin_fee_rule_path(dealer_id: @dealer.id) %></div><% end %>
+      </div>
+      <%= render "admin/fee_rules/table", fee_rules: @fee_rules %>
+    </div>
+  </div>
+</div>

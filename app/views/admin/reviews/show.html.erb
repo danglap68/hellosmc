@@ -1,0 +1,83 @@
+<% content_for :title, t("reviews.show.title", id: @transaction.id) %>
+<% content_for :breadcrumbs do %>
+  <li class="breadcrumb-item"><%= link_to t("navigation.reviews"), admin_reviews_path %></li>
+  <li class="breadcrumb-item active">#<%= @transaction.id %></li>
+<% end %>
+<% content_for :actions do %>
+  <%= link_to admin_transaction_path(@transaction), class: "btn btn-outline-secondary" do %><%= icon("eye") %> <%= t("reviews.show.details") %><% end %>
+  <% if @next_transaction %>
+    <%= link_to admin_review_path(@next_transaction), class: "btn btn-outline-primary" do %><%= t("reviews.show.next") %> <%= icon("arrow-right") %><% end %>
+  <% end %>
+<% end %>
+
+<div class="row row-cards">
+  <div class="col-lg-6">
+    <div class="card review-sticky">
+      <div class="card-header">
+        <h3 class="card-title"><%= t("transactions.show.bill_image") %></h3>
+        <div class="card-actions"><%= status_badge(@transaction.status) %></div>
+      </div>
+      <div class="card-body">
+        <%= render "admin/transactions/bill_image", bill_image: @transaction.bill_image, large: true %>
+        <% if (text = @transaction.telegram_message&.effective_text).present? %>
+          <div class="mt-3"><%= icon("brand-telegram") %> <%= t("reviews.show.message_text") %>: <code><%= text %></code></div>
+        <% end %>
+        <% if (count = @transaction.bill_image&.documents&.size.to_i) > 1 %>
+          <div class="alert alert-info mt-3 mb-0"><%= t("reviews.show.multiple_settlements", count: count, position: @transaction.source_index + 1) %></div>
+        <% end %>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <%= render "admin/transactions/review_reasons", transaction: @transaction %>
+
+    <% if @transaction.editable? %>
+      <%= tabler_form_with model: @transaction, url: admin_review_path(@transaction), method: :patch do |form| %>
+        <div class="card">
+          <div class="card-header"><h3 class="card-title"><%= t("reviews.show.fields") %></h3></div>
+          <div class="card-body">
+            <%= form.error_summary %>
+            <%= render "admin/transactions/correction_fields", form: form, transaction: @transaction %>
+
+            <% if @transaction.amount_after_base_fee_vnd %>
+              <div class="card card-sm bg-green-lt mb-0">
+                <div class="card-body">
+                  <div class="row">
+                    <div class="col"><div class="text-secondary small"><%= Transaction.human_attribute_name(:applied_base_fee_rate) %></div><strong><%= format_rate(@transaction.applied_base_fee_rate) %></strong></div>
+                    <div class="col"><div class="text-secondary small"><%= Transaction.human_attribute_name(:amount_after_base_fee_vnd) %></div><strong class="money"><%= format_vnd(@transaction.amount_after_base_fee_vnd) %></strong></div>
+                  </div>
+                  <div class="small text-secondary mt-1"><%= t("reviews.show.calculation_preview_hint") %></div>
+                </div>
+              </div>
+            <% end %>
+          </div>
+          <div class="card-footer">
+            <div class="btn-list">
+              <button type="submit" name="decision" value="approve" class="btn btn-success"
+                      data-turbo-confirm="<%= t('reviews.confirm.approve') %>"><%= icon("check") %> <%= t("actions.save_and_approve") %></button>
+              <button type="submit" name="decision" value="save_draft" class="btn btn-outline-primary"><%= icon("device-floppy") %> <%= t("actions.save_draft") %></button>
+              <% if @transaction.can_transition_to?("hold") %>
+                <button type="submit" name="decision" value="hold" class="btn btn-outline-warning"><%= icon("player-pause") %> <%= t("actions.hold") %></button>
+              <% end %>
+              <% if @transaction.can_transition_to?("rejected") %>
+                <button type="submit" name="decision" value="reject" class="btn btn-outline-danger"
+                        data-turbo-confirm="<%= t('transactions.confirm.reject') %>"><%= icon("x") %> <%= t("actions.reject") %></button>
+              <% end %>
+              <% if @transaction.reprocessable? %>
+                <button type="submit" name="decision" value="rerun_ocr" class="btn btn-ghost-secondary"
+                        data-turbo-confirm="<%= t('transactions.confirm.reprocess') %>"><%= icon("refresh") %> <%= t("actions.rerun_ocr") %></button>
+              <% end %>
+            </div>
+          </div>
+        </div>
+      <% end %>
+    <% else %>
+      <div class="card">
+        <div class="card-body">
+          <%= empty_state t("reviews.show.not_reviewable"), t("reviews.show.current_status_html", status: status_badge(@transaction.status)).html_safe, icon_name: "lock" %>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</div>

@@ -1,0 +1,6 @@
+<% content_for :title, t("fee_rules.new.title") %>
+<% content_for :breadcrumbs do %>
+  <li class="breadcrumb-item"><%= link_to t("navigation.fee_rules"), admin_fee_rules_path %></li>
+  <li class="breadcrumb-item active"><%= t("actions.new") %></li>
+<% end %>
+<div class="row"><div class="col-lg-9"><%= render "form", fee_rule: @fee_rule %></div></div>

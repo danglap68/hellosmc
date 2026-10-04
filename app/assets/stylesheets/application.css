@@ -1,0 +1,70 @@
+/*
+ * Small additions on top of Tabler. Keep this file minimal: prefer Tabler
+ * utility classes and components in views.
+ */
+
+.navbar-vertical .nav-section-title {
+  padding: 1rem 0.75rem 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--tblr-gray-500);
+}
+
+.json-block {
+  max-height: 28rem;
+  overflow: auto;
+  padding: 0.75rem;
+  font-size: 0.75rem;
+  color: var(--tblr-body-color);
+  background: var(--tblr-bg-surface-secondary);
+  border: 1px solid var(--tblr-border-color);
+  border-radius: var(--tblr-border-radius);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.bill-viewer {
+  position: relative;
+  overflow: auto;
+  max-height: calc(100vh - 14rem);
+  min-height: 24rem;
+  background: var(--tblr-bg-surface-secondary);
+  border-radius: var(--tblr-border-radius);
+  text-align: center;
+}
+
+.bill-viewer img {
+  max-width: 100%;
+  transform-origin: top center;
+  transition: transform 0.15s ease-out;
+}
+
+.bill-thumb {
+  width: 3rem;
+  height: 3rem;
+  object-fit: cover;
+  border-radius: var(--tblr-border-radius);
+}
+
+.money {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.table-diff td {
+  vertical-align: top;
+  word-break: break-word;
+}
+
+.table-diff tr.changed td {
+  background: var(--tblr-yellow-lt);
+}
+
+@media (min-width: 992px) {
+  .review-sticky {
+    position: sticky;
+    top: 1rem;
+  }
+}

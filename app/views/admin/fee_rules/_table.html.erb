@@ -1,0 +1,42 @@
+<%# locals: (fee_rules:) %>
+<% if fee_rules.any? %>
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th><%= t("fee_rules.targeting") %></th>
+          <th><%= FeeRule.human_attribute_name(:card_type) %></th>
+          <th class="text-end"><%= FeeRule.human_attribute_name(:base_fee_rate) %></th>
+          <th class="text-end"><%= FeeRule.human_attribute_name(:dealer_rate) %></th>
+          <th><%= t("fee_rules.validity") %></th>
+          <th><%= FeeRule.human_attribute_name(:priority) %></th>
+          <th><%= FeeRule.human_attribute_name(:active) %></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% fee_rules.each do |rule| %>
+          <tr class="<%= 'text-secondary' unless rule.active? %>">
+            <td><%= link_to "##{rule.id}", admin_fee_rule_path(rule) %></td>
+            <td>
+              <span class="badge bg-blue-lt"><%= t("fee_rules.levels.#{rule.specificity_level}") %></span>
+              <div class="small">
+                <%= [rule.merchant&.name, rule.dealer&.name].compact.join(" · ").presence || t("fee_rules.everyone") %>
+              </div>
+            </td>
+            <td><%= rule.card_type&.name || t("fee_rules.any_card_type") %></td>
+            <td class="text-end fw-bold"><%= format_rate(rule.base_fee_rate) %></td>
+            <td class="text-end"><%= format_rate(rule.dealer_rate) %></td>
+            <td class="text-nowrap small">
+              <%= format_date(rule.effective_from) %> → <%= rule.effective_until ? format_date(rule.effective_until) : t("fee_rules.open_ended") %>
+            </td>
+            <td><%= rule.priority %></td>
+            <td><%= active_badge(rule.active?) %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+<% else %>
+  <div class="card-body"><%= empty_state t("fee_rules.index.empty") %></div>
+<% end %>

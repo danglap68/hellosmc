@@ -1,0 +1,40 @@
+<% content_for :title, t("fee_rules.show.title", id: @fee_rule.id) %>
+<% content_for :breadcrumbs do %>
+  <li class="breadcrumb-item"><%= link_to t("navigation.fee_rules"), admin_fee_rules_path %></li>
+  <li class="breadcrumb-item active">#<%= @fee_rule.id %></li>
+<% end %>
+<% content_for :actions do %>
+  <% if can?(:manage, :fee_rules) %>
+    <%= link_to edit_admin_fee_rule_path(@fee_rule), class: "btn" do %><%= icon("edit") %> <%= t("actions.edit") %><% end %>
+    <%= button_to admin_fee_rule_path(@fee_rule), method: :delete, class: "btn btn-outline-danger", form: { data: { turbo_confirm: t("actions.confirm_delete") } } do %><%= icon("trash") %> <%= t("actions.delete") %><% end %>
+  <% end %>
+<% end %>
+
+<div class="row row-cards">
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-body">
+        <dl class="row mb-0">
+          <dt class="col-6"><%= t("fee_rules.specificity") %></dt><dd class="col-6"><span class="badge bg-blue-lt"><%= t("fee_rules.levels.#{@fee_rule.specificity_level}") %></span></dd>
+          <dt class="col-6"><%= FeeRule.human_attribute_name(:dealer) %></dt><dd class="col-6"><%= @fee_rule.dealer&.name || t("fee_rules.form.any_dealer") %></dd>
+          <dt class="col-6"><%= FeeRule.human_attribute_name(:merchant) %></dt><dd class="col-6"><%= @fee_rule.merchant&.name || t("fee_rules.form.any_merchant") %></dd>
+          <dt class="col-6"><%= FeeRule.human_attribute_name(:card_type) %></dt><dd class="col-6"><%= @fee_rule.card_type&.name || t("fee_rules.any_card_type") %></dd>
+          <dt class="col-6"><%= FeeRule.human_attribute_name(:base_fee_rate) %></dt><dd class="col-6 fw-bold"><%= format_rate(@fee_rule.base_fee_rate) %> <span class="text-secondary small">(<code><%= @fee_rule.base_fee_rate.to_s("F") %></code>)</span></dd>
+          <dt class="col-6"><%= FeeRule.human_attribute_name(:dealer_rate) %></dt><dd class="col-6"><%= format_rate(@fee_rule.dealer_rate) %></dd>
+          <dt class="col-6"><%= FeeRule.human_attribute_name(:effective_from) %></dt><dd class="col-6"><%= format_datetime(@fee_rule.effective_from) %></dd>
+          <dt class="col-6"><%= FeeRule.human_attribute_name(:effective_until) %></dt><dd class="col-6"><%= @fee_rule.effective_until ? format_datetime(@fee_rule.effective_until) : t("fee_rules.open_ended") %></dd>
+          <dt class="col-6"><%= FeeRule.human_attribute_name(:priority) %></dt><dd class="col-6"><%= @fee_rule.priority %></dd>
+          <dt class="col-6"><%= FeeRule.human_attribute_name(:active) %></dt><dd class="col-6"><%= active_badge(@fee_rule.active?) %></dd>
+          <dt class="col-6"><%= t("fee_rules.form.note") %></dt><dd class="col-6"><%= @fee_rule.note || "—" %></dd>
+          <dt class="col-6"><%= t("fee_rules.show.used_by") %></dt><dd class="col-6"><%= link_to t("dashboard.transaction_count", count: @transaction_count), admin_transactions_path %></dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header"><h3 class="card-title"><%= icon("history") %> <%= t("navigation.audit_logs") %></h3></div>
+      <%= render "admin/audit_logs/timeline", audit_logs: @audit_logs %>
+    </div>
+  </div>
+</div>

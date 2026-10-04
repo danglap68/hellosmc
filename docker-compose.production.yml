@@ -1,0 +1,61 @@
+# Example single-VPS deployment (2 vCPU / 4 GB is enough; OCR runs on an external API).
+#   docker compose -f docker-compose.production.yml --env-file .env.production up -d --build
+# Put a TLS-terminating reverse proxy (Caddy, Nginx, Cloudflare Tunnel) in front of `web`.
+x-app: &app
+  build: .
+  image: hellosmc:latest
+  env_file: .env.production
+  environment:
+    RAILS_ENV: production
+    DATABASE_URL: postgres://hellosmc:${POSTGRES_PASSWORD}@postgres:5432/hellosmc_production
+    REDIS_URL: redis://redis:6379/0
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  restart: unless-stopped
+
+services:
+  web:
+    <<: *app
+    ports:
+      - "127.0.0.1:3000:80"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  worker:
+    <<: *app
+    command: ["bundle", "exec", "sidekiq", "-C", "config/sidekiq.yml"]
+
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: hellosmc
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: hellosmc_production
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hellosmc"]
+      interval: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:

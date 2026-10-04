@@ -1,0 +1,7 @@
+<% content_for :title, t("dealers.edit.title", name: @dealer.name) %>
+<% content_for :breadcrumbs do %>
+  <li class="breadcrumb-item"><%= link_to t("navigation.dealers"), admin_dealers_path %></li>
+  <li class="breadcrumb-item"><%= link_to @dealer.name, admin_dealer_path(@dealer) %></li>
+  <li class="breadcrumb-item active"><%= t("actions.edit") %></li>
+<% end %>
+<div class="row"><div class="col-lg-8"><%= render "form", dealer: @dealer %></div></div>

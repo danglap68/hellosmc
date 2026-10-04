@@ -1,0 +1,40 @@
+<% content_for :title, t("card_types.index.title") %>
+<% content_for :actions do %>
+  <% if can?(:manage, :card_types) %>
+    <%= link_to new_admin_card_type_path, class: "btn btn-primary" do %><%= icon("plus") %> <%= t("card_types.index.new") %><% end %>
+  <% end %>
+<% end %>
+<div class="alert alert-info"><%= icon("info-circle") %> <%= t("card_types.index.help") %></div>
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table">
+      <thead>
+        <tr>
+          <th><%= CardType.human_attribute_name(:key) %></th>
+          <th><%= CardType.human_attribute_name(:name) %></th>
+          <th><%= CardType.human_attribute_name(:aliases) %></th>
+          <th><%= CardType.human_attribute_name(:position) %></th>
+          <th><%= CardType.human_attribute_name(:active) %></th>
+          <th class="w-1"></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @card_types.each do |card_type| %>
+          <tr>
+            <td><code><%= card_type.key %></code><% if card_type.key == CardType::DEFAULT_KEY %> <span class="badge bg-azure-lt"><%= t("card_types.default") %></span><% end %></td>
+            <td><%= card_type.name %></td>
+            <td><%= card_type.match_tokens.map { |token| content_tag(:code, token) }.join(" ").html_safe %></td>
+            <td><%= card_type.position %></td>
+            <td><%= active_badge(card_type.active?) %></td>
+            <td class="text-nowrap">
+              <% if can?(:manage, :card_types) %>
+                <%= link_to t("actions.edit"), edit_admin_card_type_path(card_type), class: "btn btn-sm" %>
+                <%= button_to t("actions.delete"), admin_card_type_path(card_type), method: :delete, class: "btn btn-sm btn-ghost-danger", form_class: "d-inline", form: { data: { turbo_confirm: t("actions.confirm_delete") } } %>
+              <% end %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+</div>

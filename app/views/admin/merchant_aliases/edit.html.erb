@@ -1,0 +1,24 @@
+<% content_for :title, t("merchant_aliases.edit.title") %>
+<% content_for :breadcrumbs do %>
+  <li class="breadcrumb-item"><%= link_to t("navigation.merchants"), admin_merchants_path %></li>
+  <li class="breadcrumb-item"><%= link_to @merchant.name, admin_merchant_path(@merchant) %></li>
+  <li class="breadcrumb-item active"><%= @merchant_alias.alias %></li>
+<% end %>
+<div class="row">
+  <div class="col-lg-6">
+    <%= tabler_form_with model: @merchant_alias, url: admin_merchant_merchant_alias_path(@merchant, @merchant_alias), method: :patch do |form| %>
+      <div class="card">
+        <div class="card-body">
+          <%= form.error_summary %>
+          <%= form.field :alias, required: true %>
+          <%= form.select_field :alias_type, enum_options(:merchant_alias, :alias_type, MerchantAlias::ALIAS_TYPES) %>
+          <%= form.switch_field :active %>
+        </div>
+        <div class="card-footer d-flex gap-2">
+          <%= form.submit_button %>
+          <%= link_to t("actions.cancel"), admin_merchant_path(@merchant), class: "btn btn-link" %>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</div>

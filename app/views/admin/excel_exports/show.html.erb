@@ -1,0 +1,63 @@
+<% content_for :title, t("excel_exports.show.title", id: @excel_export.id) %>
+<% content_for :breadcrumbs do %>
+  <li class="breadcrumb-item"><%= link_to t("navigation.excel_exports"), admin_excel_exports_path %></li>
+  <li class="breadcrumb-item active">#<%= @excel_export.id %></li>
+<% end %>
+<% content_for :actions do %>
+  <% if @excel_export.completed? && @excel_export.file.attached? %>
+    <%= link_to download_admin_excel_export_path(@excel_export), class: "btn btn-primary", data: { turbo: false } do %><%= icon("download") %> <%= t("actions.download") %><% end %>
+  <% end %>
+<% end %>
+
+<% unless @excel_export.completed? || @excel_export.failed? %>
+  <% turbo_refreshes_with scroll: :preserve %>
+  <div class="alert alert-info" data-controller="auto-refresh" data-action="turbo:visit@document->auto-refresh#stop">
+    <%= icon("loader-2") %> <%= t("excel_exports.show.generating") %>
+  </div>
+<% end %>
+
+<div class="row row-cards">
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-body">
+        <dl class="row mb-0">
+          <dt class="col-6"><%= t("excel_exports.date_range") %></dt>
+          <dd class="col-6"><%= format_date(@excel_export.export_date) %> → <%= format_date(@excel_export.end_date) %></dd>
+          <dt class="col-6"><%= ExcelExport.human_attribute_name(:status) %></dt><dd class="col-6"><%= export_status_badge(@excel_export.status) %></dd>
+          <dt class="col-6"><%= ExcelExport.human_attribute_name(:transaction_count) %></dt><dd class="col-6"><%= @excel_export.transaction_count %></dd>
+          <dt class="col-6"><%= ExcelExport.human_attribute_name(:generated_by) %></dt><dd class="col-6"><%= @excel_export.generated_by&.display_name || t("audit_logs.system") %></dd>
+          <dt class="col-6"><%= ExcelExport.human_attribute_name(:generated_at) %></dt><dd class="col-6"><%= format_datetime(@excel_export.generated_at) %></dd>
+          <% if @excel_export.error_message.present? %>
+            <dt class="col-6"><%= ExcelExport.human_attribute_name(:error_message) %></dt><dd class="col-6 text-red"><%= @excel_export.error_message %></dd>
+          <% end %>
+        </dl>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header"><h3 class="card-title"><%= t("excel_exports.show.totals") %></h3></div>
+      <% by_dealer = @excel_export.metadata.dig("totals", "by_dealer") || {} %>
+      <% if by_dealer.any? %>
+        <div class="table-responsive">
+          <table class="table card-table">
+            <thead><tr><th><%= t("excel_exports.show.dealer") %></th><th class="text-end"><%= t("excel_exports.show.success_count") %></th><th class="text-end"><%= Transaction.human_attribute_name(:transaction_amount_vnd) %></th><th class="text-end"><%= Transaction.human_attribute_name(:amount_after_base_fee_vnd) %></th><th class="text-end"><%= t("excel_exports.show.hold_count") %></th></tr></thead>
+            <tbody>
+              <% by_dealer.each do |dealer_name, row| %>
+                <tr>
+                  <td><%= dealer_name %></td>
+                  <td class="text-end"><%= row["success_count"] %></td>
+                  <td class="text-end money"><%= format_vnd(row["transaction_amount_vnd"]) %></td>
+                  <td class="text-end money"><%= format_vnd(row["amount_after_base_fee_vnd"]) %></td>
+                  <td class="text-end"><%= row["hold_count"] %></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      <% else %>
+        <div class="card-body text-secondary"><%= t("common.no_data") %></div>
+      <% end %>
+    </div>
+  </div>
+</div>

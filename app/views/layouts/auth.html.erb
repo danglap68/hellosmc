@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <title><%= content_for?(:title) ? "#{yield(:title)} · #{t('app.name')}" : t("app.name") %></title>
+    <%= render "layouts/head" %>
+  </head>
+  <body class="d-flex flex-column">
+    <div class="page page-center">
+      <div class="container container-tight py-4">
+        <div class="text-center mb-4">
+          <span class="navbar-brand navbar-brand-autodark fs-2 fw-bold">
+            <%= icon("receipt-2", "text-primary me-1") %><%= t("app.name") %>
+          </span>
+          <div class="text-secondary mt-1"><%= t("app.tagline") %></div>
+        </div>
+        <%= render "layouts/flash" %>
+        <%= yield %>
+      </div>
+    </div>
+  </body>
+</html>

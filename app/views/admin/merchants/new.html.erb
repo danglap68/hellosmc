@@ -1,0 +1,6 @@
+<% content_for :title, t("merchants.new.title") %>
+<% content_for :breadcrumbs do %>
+  <li class="breadcrumb-item"><%= link_to t("navigation.merchants"), admin_merchants_path %></li>
+  <li class="breadcrumb-item active"><%= t("actions.new") %></li>
+<% end %>
+<div class="row"><div class="col-lg-8"><%= render "form", merchant: @merchant %></div></div>

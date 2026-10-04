@@ -1,0 +1,52 @@
+<% content_for :title, t("dealers.index.title") %>
+<% content_for :actions do %>
+  <% if can?(:manage, :dealers) %>
+    <%= link_to new_admin_dealer_path, class: "btn btn-primary" do %><%= icon("plus") %> <%= t("dealers.index.new") %><% end %>
+  <% end %>
+<% end %>
+
+<div class="card">
+  <div class="card-header">
+    <%= form_with url: admin_dealers_path, method: :get, class: "ms-auto" do %>
+      <div class="input-icon">
+        <input type="search" name="q" value="<%= params[:q] %>" class="form-control" placeholder="<%= t('actions.search') %>">
+        <span class="input-icon-addon"><%= icon("search") %></span>
+      </div>
+    <% end %>
+  </div>
+  <% if @dealers.any? %>
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table">
+        <thead>
+          <tr>
+            <th><%= Dealer.human_attribute_name(:name) %></th>
+            <th><%= Dealer.human_attribute_name(:code) %></th>
+            <th><%= t("dealers.telegram_groups") %></th>
+            <th><%= t("dealers.merchants") %></th>
+            <th><%= Dealer.human_attribute_name(:default_card_type) %></th>
+            <th><%= Dealer.human_attribute_name(:active) %></th>
+            <th class="w-1"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @dealers.each do |dealer| %>
+            <tr>
+              <td><%= link_to dealer.name, admin_dealer_path(dealer) %></td>
+              <td><code><%= dealer.code %></code></td>
+              <td><%= @chat_counts[dealer.id].to_i %></td>
+              <td><%= @merchant_counts[dealer.id].to_i %></td>
+              <td><%= dealer.default_card_type&.name || "—" %></td>
+              <td><%= active_badge(dealer.active?) %></td>
+              <td class="text-nowrap">
+                <% if can?(:manage, :dealers) %><%= link_to t("actions.edit"), edit_admin_dealer_path(dealer), class: "btn btn-sm" %><% end %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+    <%= pagination(@pagy) %>
+  <% else %>
+    <div class="card-body"><%= empty_state t("dealers.index.empty") %></div>
+  <% end %>
+</div>

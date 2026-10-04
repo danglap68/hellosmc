@@ -1,0 +1,69 @@
+<% content_for :title, t("reviews.index.title") %>
+<% content_for :actions do %>
+  <% if can?(:manage, :bill_uploads) %>
+    <%= link_to new_admin_bill_upload_path, class: "btn btn-outline-primary" do %><%= icon("upload") %> <%= t("navigation.bill_uploads") %><% end %>
+  <% end %>
+<% end %>
+
+<div class="card">
+  <div class="card-header">
+    <ul class="nav nav-tabs card-header-tabs">
+      <% Admin::ReviewsController::QUEUES.each_key do |queue| %>
+        <li class="nav-item">
+          <%= link_to admin_reviews_path(queue: queue), class: "nav-link #{'active' if @queue == queue}" do %>
+            <%= t("reviews.queues.#{queue}") %>
+            <span class="badge bg-<%= ApplicationHelper::STATUS_COLORS[queue] %>-lt ms-2"><%= @counts[queue].to_i %></span>
+          <% end %>
+        </li>
+      <% end %>
+    </ul>
+  </div>
+  <% if @transactions.any? %>
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table">
+        <thead>
+          <tr>
+            <th class="w-1"></th>
+            <th>ID</th>
+            <th><%= t("reviews.index.received_at") %></th>
+            <th><%= Transaction.human_attribute_name(:dealer) %></th>
+            <th><%= Transaction.human_attribute_name(:merchant) %></th>
+            <th class="text-end"><%= Transaction.human_attribute_name(:transaction_amount_vnd) %></th>
+            <th><%= t("reviews.index.reasons") %></th>
+            <th><%= Transaction.human_attribute_name(:confidence_score) %></th>
+            <th class="w-1"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @transactions.each do |transaction| %>
+            <tr>
+              <td>
+                <% if transaction.bill_image&.image&.attached? %>
+                  <%= image_tag admin_bill_image_path(transaction.bill_image), class: "bill-thumb", alt: "", loading: "lazy" %>
+                <% else %>
+                  <span class="avatar"><%= icon("photo-off") %></span>
+                <% end %>
+              </td>
+              <td><%= link_to "##{transaction.id}", admin_transaction_path(transaction) %></td>
+              <td class="text-nowrap"><%= format_datetime(transaction.created_at) %></td>
+              <td><%= transaction.dealer&.name || content_tag(:span, t("review_reasons.dealer_unmapped"), class: "text-orange") %></td>
+              <td><%= transaction.merchant&.name || content_tag(:span, transaction.raw_merchant_name || "—", class: "text-secondary") %></td>
+              <td class="text-end money"><%= format_vnd(transaction.transaction_amount_vnd) %></td>
+              <td class="small">
+                <% transaction.review_reason_codes.first(3).each do |code| %>
+                  <span class="badge bg-yellow-lt mb-1"><%= review_reason_label(code) %></span>
+                <% end %>
+                <% if transaction.review_reason_codes.size > 3 %><span class="text-secondary">+<%= transaction.review_reason_codes.size - 3 %></span><% end %>
+              </td>
+              <td><%= confidence_badge(transaction.confidence_score) %></td>
+              <td><%= link_to t("actions.review"), admin_review_path(transaction), class: "btn btn-sm btn-primary" %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+    <%= pagination(@pagy) %>
+  <% else %>
+    <div class="card-body"><%= empty_state t("reviews.index.empty"), nil, icon_name: "mood-happy" %></div>
+  <% end %>
+</div>

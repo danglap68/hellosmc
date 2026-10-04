@@ -1,0 +1,30 @@
+<% content_for :title, t("fee_rules.index.title") %>
+<% content_for :actions do %>
+  <% if can?(:manage, :fee_rules) %>
+    <%= link_to new_admin_fee_rule_path, class: "btn btn-primary" do %><%= icon("plus") %> <%= t("fee_rules.index.new") %><% end %>
+  <% end %>
+<% end %>
+
+<div class="alert alert-info">
+  <h4 class="alert-title"><%= icon("info-circle") %> <%= t("fee_rules.index.how_title") %></h4>
+  <ol class="mb-1">
+    <% FeeRule::SPECIFICITY_LEVELS.each do |level| %>
+      <li><%= t("fee_rules.levels.#{level}") %></li>
+    <% end %>
+  </ol>
+  <div class="small"><%= t("fee_rules.index.how_priority") %></div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <%= form_with url: admin_fee_rules_path, method: :get, class: "row g-2 w-100" do %>
+      <div class="col-md-3"><%= select_tag :dealer_id, options_for_select(dealer_options, params[:dealer_id]), include_blank: t("merchants.index.all_dealers"), class: "form-select" %></div>
+      <div class="col-md-3"><%= select_tag :merchant_id, options_for_select(merchant_options, params[:merchant_id]), include_blank: t("fee_rules.index.all_merchants"), class: "form-select" %></div>
+      <div class="col-md-2"><%= select_tag :card_type_id, options_for_select(card_type_options, params[:card_type_id]), include_blank: t("fee_rules.any_card_type"), class: "form-select" %></div>
+      <div class="col-md-2"><%= select_tag :state, options_for_select([[t("fee_rules.index.state_current"), "current"], [t("common.inactive"), "inactive"]], params[:state]), include_blank: t("common.all"), class: "form-select" %></div>
+      <div class="col-md-2"><button class="btn w-100" type="submit"><%= icon("filter") %> <%= t("actions.filter") %></button></div>
+    <% end %>
+  </div>
+  <%= render "table", fee_rules: @fee_rules %>
+  <%= pagination(@pagy) %>
+</div>

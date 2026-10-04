@@ -1,0 +1,138 @@
+<% content_for :title, t("dashboard.title") %>
+<% content_for :actions do %>
+  <% if can?(:manage, :bill_uploads) %>
+    <%= link_to new_admin_bill_upload_path, class: "btn btn-outline-primary" do %><%= icon("upload") %> <%= t("navigation.bill_uploads") %><% end %>
+  <% end %>
+  <% if can?(:manage, :reviews) %>
+    <%= link_to admin_reviews_path, class: "btn btn-primary" do %><%= icon("scan") %> <%= t("dashboard.open_review") %><% end %>
+  <% end %>
+<% end %>
+
+<div class="row row-deck row-cards mb-3">
+  <% [
+       [:bills_today, @stats.bills_today, "photo", "primary", nil],
+       [:processed_today, @stats.processed_today, "checks", "azure", nil],
+       [:needs_review, @stats.needs_review, "scan", "yellow", (can?(:manage, :reviews) ? admin_reviews_path : nil)],
+       [:hold, @stats.hold, "player-pause", "orange", (can?(:manage, :reviews) ? admin_reviews_path(queue: "hold") : nil)],
+       [:failed, @stats.failed, "alert-octagon", "red", (can?(:manage, :reviews) ? admin_reviews_path(queue: "failed") : nil)]
+     ].each do |key, value, icon_name, color, path| %>
+    <div class="col-sm-6 col-lg">
+      <div class="card card-sm">
+        <div class="card-body">
+          <div class="row align-items-center">
+            <div class="col-auto"><span class="bg-<%= color %> text-white avatar"><%= icon(icon_name) %></span></div>
+            <div class="col">
+              <div class="font-weight-medium fs-2"><%= path ? link_to(value, path, class: "text-reset") : value %></div>
+              <div class="text-secondary"><%= t("dashboard.cards.#{key}") %></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  <% end %>
+</div>
+
+<div class="row row-deck row-cards mb-3">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-body">
+        <div class="subheader"><%= t("dashboard.cards.total_amount_today") %></div>
+        <div class="h1 mb-0 money"><%= format_vnd(@stats.total_amount_today) %></div>
+        <div class="text-secondary small"><%= t("dashboard.cards.total_amount_hint") %></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-body">
+        <div class="subheader"><%= t("dashboard.cards.total_approved_amount_today") %></div>
+        <div class="h1 mb-0 money text-green"><%= format_vnd(@stats.total_approved_amount_today) %></div>
+        <div class="text-secondary small"><%= t("dashboard.cards.total_approved_hint") %></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row row-cards">
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title"><%= t("dashboard.latest_transactions") %></h3>
+        <div class="card-actions"><%= link_to t("actions.view_all"), admin_transactions_path %></div>
+      </div>
+      <% transactions = @stats.latest_transactions %>
+      <% if transactions.any? %>
+        <div class="table-responsive">
+          <table class="table table-vcenter card-table">
+            <thead>
+              <tr>
+                <th><%= Transaction.human_attribute_name(:transaction_at) %></th>
+                <th><%= Transaction.human_attribute_name(:merchant) %></th>
+                <th class="text-end"><%= Transaction.human_attribute_name(:transaction_amount_vnd) %></th>
+                <th><%= Transaction.human_attribute_name(:status) %></th>
+              </tr>
+            </thead>
+            <tbody>
+              <% transactions.each do |transaction| %>
+                <tr>
+                  <td class="text-nowrap"><%= link_to format_datetime(transaction.transaction_at), admin_transaction_path(transaction) %></td>
+                  <td>
+                    <div><%= transaction.merchant&.name || content_tag(:span, transaction.raw_merchant_name || "—", class: "text-secondary") %></div>
+                    <div class="small text-secondary"><%= transaction.dealer&.name %></div>
+                  </td>
+                  <td class="text-end money"><%= format_vnd(transaction.transaction_amount_vnd) %></td>
+                  <td><%= status_badge(transaction.status) %></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      <% else %>
+        <div class="card-body"><%= empty_state t("dashboard.no_transactions") %></div>
+      <% end %>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card mb-3">
+      <div class="card-header"><h3 class="card-title"><%= t("dashboard.latest_review_items") %></h3></div>
+      <% items = @stats.latest_review_items %>
+      <% if items.any? %>
+        <div class="list-group list-group-flush">
+          <% items.each do |transaction| %>
+            <%= link_to (can?(:manage, :reviews) ? admin_review_path(transaction) : admin_transaction_path(transaction)), class: "list-group-item list-group-item-action" do %>
+              <div class="d-flex justify-content-between">
+                <span><%= transaction.merchant&.name || transaction.raw_merchant_name || t("common.unknown_merchant") %></span>
+                <span class="money"><%= format_vnd(transaction.transaction_amount_vnd) %></span>
+              </div>
+              <div class="small text-secondary">
+                <%= transaction.review_reason_codes.first(2).map { |code| review_reason_label(code) }.join(" · ") %>
+              </div>
+            <% end %>
+          <% end %>
+        </div>
+      <% else %>
+        <div class="card-body"><%= empty_state t("dashboard.review_queue_empty"), nil, icon_name: "mood-happy" %></div>
+      <% end %>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h3 class="card-title"><%= t("dashboard.top_dealers") %></h3></div>
+      <% top = @stats.top_dealers %>
+      <% if top.any? %>
+        <table class="table card-table table-vcenter">
+          <tbody>
+            <% top.each do |(_id, name, count, total)| %>
+              <tr>
+                <td><%= name %><div class="small text-secondary"><%= t("dashboard.transaction_count", count: count) %></div></td>
+                <td class="text-end money"><%= format_vnd(total) %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      <% else %>
+        <div class="card-body"><%= empty_state t("common.no_data") %></div>
+      <% end %>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,24 @@
+<div class="dropdown">
+  <button class="btn btn-sm btn-ghost-secondary btn-icon" data-bs-toggle="dropdown" aria-label="<%= t('actions.more') %>"><%= icon("dots-vertical") %></button>
+  <div class="dropdown-menu dropdown-menu-end">
+    <%= link_to admin_transaction_path(transaction), class: "dropdown-item" do %><%= icon("eye", "dropdown-item-icon") %> <%= t("actions.view") %><% end %>
+    <% if can?(:manage, :transactions) %>
+      <% if transaction.editable? %>
+        <%= link_to admin_review_path(transaction), class: "dropdown-item" do %><%= icon("scan", "dropdown-item-icon") %> <%= t("actions.review") %><% end %>
+        <%= link_to edit_admin_transaction_path(transaction), class: "dropdown-item" do %><%= icon("edit", "dropdown-item-icon") %> <%= t("actions.edit") %><% end %>
+      <% end %>
+      <% if transaction.status.in?(%w[needs_review hold failed]) %>
+        <%= button_to approve_admin_transaction_path(transaction), class: "dropdown-item text-green", form: { data: { turbo_confirm: t("transactions.confirm.approve") } } do %><%= icon("check", "dropdown-item-icon") %> <%= t("actions.approve") %><% end %>
+      <% end %>
+      <% if transaction.can_transition_to?("hold") %>
+        <%= button_to hold_admin_transaction_path(transaction), class: "dropdown-item text-orange" do %><%= icon("player-pause", "dropdown-item-icon") %> <%= t("actions.hold") %><% end %>
+      <% end %>
+      <% if transaction.can_transition_to?("rejected") %>
+        <%= button_to reject_admin_transaction_path(transaction), class: "dropdown-item text-red", form: { data: { turbo_confirm: t("transactions.confirm.reject") } } do %><%= icon("x", "dropdown-item-icon") %> <%= t("actions.reject") %><% end %>
+      <% end %>
+      <% if transaction.reprocessable? %>
+        <%= button_to reprocess_admin_transaction_path(transaction), class: "dropdown-item", form: { data: { turbo_confirm: t("transactions.confirm.reprocess") } } do %><%= icon("refresh", "dropdown-item-icon") %> <%= t("actions.reprocess") %><% end %>
+      <% end %>
+    <% end %>
+  </div>
+</div>

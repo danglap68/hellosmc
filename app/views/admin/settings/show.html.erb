@@ -1,0 +1,99 @@
+<% content_for :title, t("settings.title") %>
+
+<div class="row row-cards">
+  <div class="col-lg-8">
+    <%= form_with url: admin_settings_path, method: :patch, scope: :settings do |form| %>
+      <% if @form.errors.any? %>
+        <div class="alert alert-danger">
+          <h4 class="alert-title"><%= t("forms.error_summary", count: @form.errors.count) %></h4>
+          <ul class="mb-0"><% @form.errors.full_messages.uniq.each do |message| %><li><%= message %></li><% end %></ul>
+        </div>
+      <% end %>
+
+      <% AppSetting::GROUPS.each do |group| %>
+        <div class="card mb-3">
+          <div class="card-header">
+            <div>
+              <h3 class="card-title"><%= icon(t("settings.group_icons.#{group}")) %> <%= t("settings.groups.#{group}") %></h3>
+              <div class="text-secondary small"><%= t("settings.group_hints.#{group}") %></div>
+            </div>
+          </div>
+          <div class="card-body">
+            <% if group == "ocr" && !@services.fetch(AppConfig.vision_provider.to_sym, true) %>
+              <div class="alert alert-warning"><%= icon("alert-triangle") %> <%= t("settings.provider_key_missing", env: "#{AppConfig.vision_provider.upcase}_API_KEY") %></div>
+            <% end %>
+            <div class="row">
+              <% AppSetting::DEFINITIONS.values.select { |definition| definition.group == group }.each do |definition| %>
+                <div class="<%= definition.type == :boolean ? 'col-12' : 'col-md-6' %>">
+                  <%= render "field", form: form, definition: definition %>
+                </div>
+              <% end %>
+            </div>
+          </div>
+        </div>
+      <% end %>
+
+      <div class="card">
+        <div class="card-body d-flex align-items-center gap-3">
+          <button type="submit" class="btn btn-primary"><%= icon("device-floppy") %> <%= t("actions.save") %></button>
+          <span class="text-secondary small"><%= t("settings.apply_delay") %></span>
+          <% if @last_change %>
+            <span class="text-secondary small ms-auto">
+              <%= t("settings.last_change", user: @last_change.actor_name || t("audit_logs.system"), at: l(@last_change.created_at.in_time_zone, format: :short)) %>
+              · <%= link_to t("actions.view"), admin_audit_log_path(@last_change) %>
+            </span>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card mb-3">
+      <div class="card-header">
+        <div>
+          <h3 class="card-title"><%= icon("plug-connected") %> <%= t("settings.services.title") %></h3>
+          <div class="text-secondary small"><%= t("settings.services.help") %></div>
+        </div>
+      </div>
+      <table class="table card-table">
+        <% @services.each do |service, configured| %>
+          <tr>
+            <td><%= t("settings.services.#{service}") %><div class="small text-secondary"><code><%= t("settings.services.env.#{service}") %></code></div></td>
+            <td class="text-end">
+              <% if configured %>
+                <span class="badge bg-green-lt"><%= t("settings.services.configured") %></span>
+              <% else %>
+                <span class="badge bg-secondary-lt"><%= t("settings.services.missing") %></span>
+              <% end %>
+            </td>
+          </tr>
+        <% end %>
+        <tr>
+          <td><%= t("settings.services.storage") %></td>
+          <td class="text-end"><code><%= t("settings.services.storage_values.#{@storage_service}", default: @storage_service) %></code></td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header">
+        <h3 class="card-title"><%= t("navigation.card_types") %></h3>
+        <div class="card-actions"><%= link_to t("actions.manage"), admin_card_types_path %></div>
+      </div>
+      <table class="table card-table">
+        <% @card_types.each do |card_type| %>
+          <tr><td><code><%= card_type.key %></code></td><td><%= card_type.name %></td><td><%= active_badge(card_type.active?) %></td></tr>
+        <% end %>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h3 class="card-title"><%= t("settings.tools") %></h3></div>
+      <div class="list-group list-group-flush">
+        <a href="/admin/sidekiq" class="list-group-item list-group-item-action" target="_blank" rel="noopener"><%= icon("server-cog") %> <%= t("settings.sidekiq") %></a>
+        <a href="/health" class="list-group-item list-group-item-action" target="_blank" rel="noopener"><%= icon("heartbeat") %> <%= t("settings.health") %></a>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,8 @@
+<% content_for :title, t("fee_rules.edit.title", id: @fee_rule.id) %>
+<% content_for :breadcrumbs do %>
+  <li class="breadcrumb-item"><%= link_to t("navigation.fee_rules"), admin_fee_rules_path %></li>
+  <li class="breadcrumb-item"><%= link_to "##{@fee_rule.id}", admin_fee_rule_path(@fee_rule) %></li>
+  <li class="breadcrumb-item active"><%= t("actions.edit") %></li>
+<% end %>
+<div class="alert alert-warning"><%= icon("alert-triangle") %> <%= t("fee_rules.edit.snapshot_notice") %></div>
+<div class="row"><div class="col-lg-9"><%= render "form", fee_rule: @fee_rule %></div></div>

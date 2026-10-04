@@ -1,0 +1,25 @@
+<%= tabler_form_with model: [:admin, user] do |form| %>
+  <div class="card">
+    <div class="card-body">
+      <%= form.error_summary %>
+      <div class="row">
+        <div class="col-md-6"><%= form.field :email, as: :email_field, required: true, autocomplete: "off" %></div>
+        <div class="col-md-6"><%= form.field :name %></div>
+      </div>
+      <%= form.select_field :role, enum_options(:user, :role, User::ROLES), {}, required: true, hint: t("users.form.role_hint") %>
+      <div class="row">
+        <div class="col-md-6"><%= form.field :password, as: :password_field, autocomplete: "new-password",
+              hint: user.persisted? ? t("users.form.password_keep_hint") : t("users.form.password_new_hint") %></div>
+        <div class="col-md-6"><%= form.field :password_confirmation, as: :password_field, autocomplete: "new-password" %></div>
+      </div>
+      <%= form.switch_field :active, hint: t("users.form.active_hint") %>
+    </div>
+    <div class="card-footer d-flex gap-2">
+      <%= form.submit_button %>
+      <%= link_to t("actions.cancel"), admin_users_path, class: "btn btn-link" %>
+      <% if user.persisted? && user != current_user %>
+        <%= link_to t("actions.delete"), admin_user_path(user), class: "btn btn-ghost-danger ms-auto", data: { turbo_method: :delete, turbo_confirm: t("users.confirm_delete") } %>
+      <% end %>
+    </div>
+  </div>
+<% end %>

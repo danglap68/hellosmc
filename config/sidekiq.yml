@@ -1,0 +1,7 @@
+:concurrency: <%= ENV.fetch("SIDEKIQ_CONCURRENCY", 5) %>
+:timeout: 25
+:queues:
+  - [telegram, 4]
+  - [ocr, 3]
+  - [default, 2]
+  - [exports, 1]

@@ -1,0 +1,18 @@
+#!/usr/bin/env ruby
+# Local Telegram long polling. Each update goes through
+# Telegram::UpdateReceiver, like the production webhook.
+# In production, register the webhook instead and do not run this.
+# Stop with Ctrl+C (SIGINT) or SIGTERM.
+require_relative "../config/environment"
+
+$stdout.sync = true
+Rails.logger = ActiveSupport::Logger.new($stdout) if Rails.env.development?
+
+begin
+  Telegram::Poller.new.run
+rescue Telegram::BotClient::ConflictError
+  exit 1
+rescue Telegram::BotClient::Error => e
+  warn "[telegram] #{e.message}"
+  exit 1
+end

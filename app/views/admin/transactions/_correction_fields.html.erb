@@ -1,0 +1,69 @@
+<%# locals: (form:, transaction:) %>
+<%= hidden_field_tag "transaction[lock_version]", transaction.lock_version_was || transaction.lock_version %>
+<% extraction = transaction.extraction %>
+<% confidence = ->(field) { extraction.present? ? confidence_badge(extraction.dig("confidence", field)) : "".html_safe } %>
+<% ocr_hint = ->(value) { value.present? ? t("reviews.ocr_read", value: value) : nil } %>
+
+<div class="row">
+  <div class="col-md-6">
+    <%= form.select_field :dealer_id, dealer_options, { include_blank: t("reviews.choose") }, required: true %>
+  </div>
+  <div class="col-md-6">
+    <%= form.select_field :card_type_id, card_type_options, { include_blank: t("reviews.choose") },
+          label: Transaction.human_attribute_name(:card_type), required: true,
+          hint: (transaction.source_data.dig("card_type_resolution", "source") && t("reviews.card_type_source.#{transaction.source_data.dig('card_type_resolution', 'source')}")) %>
+  </div>
+</div>
+
+<%= form.select_field :merchant_id, merchant_options(Merchant.active), { include_blank: t("reviews.choose") },
+      label: safe_join([Transaction.human_attribute_name(:merchant), " ", confidence.call("merchant_name")]), required: true,
+      hint: ocr_hint.call([extraction["merchant_name"], extraction["terminal_or_merchant_id"]].compact.join(" · ").presence) %>
+
+<div class="row">
+  <div class="col-md-6">
+    <%= form.field :transaction_amount_vnd, label: safe_join([Transaction.human_attribute_name(:transaction_amount_vnd), " ", confidence.call("total_amount_vnd")]),
+          required: true, inputmode: "numeric", value: (transaction.transaction_amount_vnd && number_with_delimiter(transaction.transaction_amount_vnd, delimiter: ".")),
+          data: { controller: "amount-input", action: "input->amount-input#format" },
+          hint: ocr_hint.call(extraction["total_amount_vnd"] && format_vnd(extraction["total_amount_vnd"])) %>
+  </div>
+  <div class="col-md-6">
+    <%= form.field :lot_number, label: safe_join([Transaction.human_attribute_name(:lot_number), " ", confidence.call("lot_number")]),
+          hint: ocr_hint.call(extraction["lot_number"]) %>
+  </div>
+</div>
+
+<div class="row">
+  <% local_time = transaction.transaction_at&.in_time_zone %>
+  <div class="col-md-6">
+    <div class="mb-3">
+      <label class="form-label required" for="transaction_transaction_date"><%= t("reviews.transaction_date") %> <%= confidence.call("transaction_date") %></label>
+      <input type="date" id="transaction_transaction_date" name="transaction[transaction_date]" value="<%= local_time&.to_date&.iso8601 %>"
+             class="form-control <%= 'is-invalid' if transaction.errors[:transaction_at].any? %>">
+      <% if transaction.errors[:transaction_at].any? %><div class="invalid-feedback d-block"><%= transaction.errors[:transaction_at].to_sentence %></div><% end %>
+      <% if extraction["transaction_date"] %><small class="form-hint"><%= t("reviews.ocr_read", value: extraction["transaction_date"]) %></small><% end %>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="mb-3">
+      <label class="form-label required" for="transaction_transaction_time"><%= t("reviews.transaction_time") %> <%= confidence.call("transaction_time") %></label>
+      <input type="time" step="1" id="transaction_transaction_time" name="transaction[transaction_time]" value="<%= local_time&.strftime('%H:%M:%S') %>" class="form-control">
+      <% if extraction["transaction_time"] %><small class="form-hint"><%= t("reviews.ocr_read", value: extraction["transaction_time"]) %></small><% end %>
+    </div>
+  </div>
+</div>
+
+<% override_id = transaction.calculation_data["fee_rule_source"] == "override" ? transaction.fee_rule_id : nil %>
+<div class="mb-3">
+  <label class="form-label" for="transaction_fee_rule_id"><%= t("reviews.fee_rule_override") %></label>
+  <%= select_tag "transaction[fee_rule_id]",
+        options_for_select(FeeRule.active.includes(:merchant, :dealer, :card_type).ordered.map { |rule| ["#{fee_rule_label(rule)} · #{[rule.merchant&.name, rule.dealer&.name, rule.card_type&.name].compact.join(' / ').presence || t('fee_rules.levels.system_default')}", rule.id] }, override_id),
+        include_blank: t("reviews.fee_rule_auto"), id: "transaction_fee_rule_id",
+        class: "form-select #{'is-invalid' if transaction.errors[:fee_rule].any?}" %>
+  <% if transaction.errors[:fee_rule].any? %><div class="invalid-feedback d-block"><%= transaction.errors[:fee_rule].to_sentence %></div><% end %>
+  <small class="form-hint"><%= t("reviews.fee_rule_hint") %></small>
+</div>
+
+<div class="mb-3">
+  <label class="form-label" for="note"><%= t("reviews.note") %></label>
+  <textarea name="note" id="note" rows="2" class="form-control" placeholder="<%= t('reviews.note_placeholder') %>"><%= params[:note] %></textarea>
+</div>

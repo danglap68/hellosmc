@@ -1,0 +1,838 @@
+vi:
+  app:
+    name: "HelloSMC"
+    tagline: "Tự động hoá xử lý bill kết toán"
+    footer: "Hệ thống xử lý bill kết toán nội bộ"
+    timezone_label: "giờ Việt Nam"
+
+  date:
+    formats:
+      default: "%d/%m/%Y"
+      short: "%d/%m"
+  time:
+    formats:
+      default: "%d/%m/%Y %H:%M:%S"
+      short: "%d/%m/%Y %H:%M"
+      long: "%H:%M:%S ngày %d/%m/%Y"
+
+  navigation:
+    toggle: "Mở menu"
+    account: "Tài khoản"
+    logout: "Đăng xuất"
+    dashboard: "Tổng quan"
+    transactions: "Giao dịch"
+    reviews: "Kiểm tra OCR"
+    bill_uploads: "Tải bill lên"
+    dealers: "Đại lý / Nhóm"
+    telegram_chats: "Nhóm Telegram"
+    merchants: "Hộ kinh doanh"
+    fee_rules: "Quy tắc phí"
+    excel_exports: "Xuất Excel"
+    audit_logs: "Nhật ký thay đổi"
+    users: "Người dùng"
+    card_types: "Loại thẻ"
+    settings: "Cài đặt"
+    sections:
+      overview: "Tổng quan"
+      configuration: "Cấu hình"
+      operations: "Vận hành"
+      system: "Hệ thống"
+
+  actions:
+    save: "Lưu"
+    cancel: "Huỷ"
+    edit: "Sửa"
+    delete: "Xoá"
+    view: "Xem"
+    view_all: "Xem tất cả"
+    approve: "Duyệt"
+    hold: "Tạm giữ"
+    reject: "Từ chối"
+    reprocess: "Xử lý lại"
+    review: "Kiểm tra"
+    back: "Quay lại"
+    new: "Thêm mới"
+    add: "Thêm"
+    filter: "Lọc"
+    reset: "Xoá lọc"
+    search: "Tìm kiếm"
+    download: "Tải xuống"
+    generate: "Tạo file Excel"
+    save_draft: "Lưu nháp"
+    save_and_approve: "Lưu & duyệt"
+    rerun_ocr: "Chạy lại OCR"
+    upload: "Tải lên"
+    close: "Đóng"
+    more: "Thao tác khác"
+    manage: "Quản lý"
+    confirm_delete: "Bạn chắc chắn muốn xoá?"
+
+  common:
+    active: "Đang hoạt động"
+    inactive: "Ngừng hoạt động"
+    "yes": "Có"
+    "no": "Không"
+    all: "Tất cả"
+    no_data: "Chưa có dữ liệu"
+    confidence: "Độ tin cậy"
+    unknown_merchant: "Chưa xác định hộ kinh doanh"
+
+  forms:
+    error_summary:
+      one: "Có %{count} lỗi cần sửa"
+      other: "Có %{count} lỗi cần sửa"
+
+  flash:
+    created: "Đã tạo %{model}."
+    updated: "Đã cập nhật %{model}."
+    destroyed: "Đã xoá %{model}."
+    action_failed: "Không thể thực hiện thao tác."
+    stale: "Dữ liệu vừa được người khác cập nhật. Vui lòng tải lại trang."
+
+  errors:
+    forbidden:
+      title: "Không có quyền truy cập"
+      message: "Tài khoản của bạn không có quyền thực hiện thao tác này."
+    messages:
+      taken_by_merchant: "đã được dùng cho hộ kinh doanh %{merchant}"
+      after_effective_from: "phải sau thời điểm bắt đầu hiệu lực"
+      dealer_mismatch: "không thuộc đại lý đã chọn"
+      overlapping_rule: "Trùng phạm vi, mức ưu tiên và thời gian hiệu lực với quy tắc #%{id}. Hãy đặt ngày kết thúc cho quy tắc cũ hoặc đổi mức ưu tiên."
+      invalid_content_type: "phải là ảnh JPG, PNG hoặc WEBP"
+      too_large: "vượt quá dung lượng cho phép"
+      before_start: "phải từ ngày bắt đầu trở đi"
+      range_too_long: "không được vượt quá %{count} ngày"
+      not_editable: "Giao dịch ở trạng thái này không thể chỉnh sửa"
+      cannot_approve_from: "Không thể duyệt giao dịch ở trạng thái hiện tại"
+      invalid_transition: "Không thể chuyển trạng thái giao dịch"
+      not_reprocessable: "Không thể chạy lại OCR cho giao dịch này"
+      fee_rule_ambiguous: "có nhiều quy tắc cùng mức ưu tiên – hãy chọn tay hoặc sửa cấu hình"
+      fee_rule_not_found: "không có quy tắc phí phù hợp – hãy chọn tay hoặc thêm quy tắc"
+      already_uploaded: "đã được tải lên trước đó (ảnh #%{id})"
+      cannot_demote_self: "Bạn không thể tự hạ quyền hoặc tự vô hiệu hoá tài khoản của mình"
+      out_of_range: "phải trong khoảng %{min} – %{max}"
+      above_auto_threshold: "phải nhỏ hơn hoặc bằng ngưỡng tự động duyệt"
+      api_key_missing: "chưa có %{env} trên máy chủ"
+      stale: "Giao dịch vừa được người khác cập nhật. Vui lòng tải lại trang và kiểm tra lại."
+
+  auth:
+    sign_in_title: "Đăng nhập HelloSMC"
+    no_signup: "Tài khoản do quản trị viên cấp. Liên hệ quản trị viên nếu cần truy cập."
+    forgot_help: "Nhập email, hệ thống sẽ gửi hướng dẫn đặt lại mật khẩu."
+
+  devise:
+    failure:
+      account_inactive: "Tài khoản đã bị vô hiệu hoá. Vui lòng liên hệ quản trị viên."
+
+  dashboard:
+    title: "Tổng quan"
+    open_review: "Mở hàng chờ kiểm tra"
+    latest_transactions: "Giao dịch mới nhất"
+    latest_review_items: "Đang chờ kiểm tra"
+    top_dealers: "Đại lý dẫn đầu (30 ngày)"
+    no_transactions: "Chưa có giao dịch"
+    review_queue_empty: "Không còn bill nào cần kiểm tra"
+    transaction_count:
+      one: "%{count} giao dịch"
+      other: "%{count} giao dịch"
+    cards:
+      bills_today: "Bill nhận hôm nay"
+      processed_today: "Đã xử lý hôm nay"
+      needs_review: "Cần kiểm tra"
+      hold: "Tạm giữ"
+      failed: "Xử lý lỗi"
+      total_amount_today: "Tổng số tiền giao dịch hôm nay"
+      total_amount_hint: "Mọi giao dịch có ngày giao dịch hôm nay, trừ bị từ chối và xử lý lỗi"
+      total_approved_amount_today: "Tổng số tiền đã duyệt hôm nay"
+      total_approved_hint: "Giao dịch đã duyệt hoặc đã xuất Excel"
+
+  transactions:
+    index:
+      title: "Giao dịch"
+      empty: "Không có giao dịch"
+      empty_filtered: "Thử thay đổi bộ lọc."
+    filters:
+      q: "Tìm kiếm"
+      q_placeholder: "Số lô, tên HKD, mã GD"
+      date_from: "Từ ngày"
+      date_to: "Đến ngày"
+      amount_min: "Số tiền từ"
+      amount_max: "Số tiền đến"
+      telegram_chat: "Nhóm Telegram"
+    raw_ocr_name: "Tên đọc từ bill (OCR)"
+    auto_approved: "Tự động duyệt"
+    review_reasons_title: "Lý do cần kiểm tra"
+    possible_duplicates: "Có thể trùng với"
+    show:
+      title: "Giao dịch #%{id}"
+      bill_image: "Ảnh bill"
+      telegram_source: "Nguồn Telegram"
+      telegram_chat: "Nhóm"
+      message_edited: "Tin nhắn đã bị chỉnh sửa sau khi gửi. Hệ thống không tự xử lý lại – vui lòng kiểm tra."
+      manual_upload: "Tải lên thủ công bởi %{user}"
+      summary: "Thông tin giao dịch"
+      view_export: "Xem lần xuất"
+      calculation: "Cách tính"
+      normalized_extraction: "Dữ liệu OCR đã chuẩn hoá"
+      resolution: "Kết quả đối chiếu"
+      raw_output: "Kết quả OCR gốc"
+      reviews: "Lịch sử kiểm tra"
+    calculation:
+      formula: "Công thức"
+      base_fee_rate: "Phí gốc áp dụng"
+      dealer_formula: "Công thức tiền đại lý"
+      profit_formula: "Công thức lợi nhuận"
+      rounding: "Làm tròn"
+      rounding_value: "Làm tròn nửa lên đến đồng"
+      fee_rule: "Quy tắc phí"
+      override: "Chọn tay"
+      calculated_at: "Tính lúc"
+      snapshot: "Xem dữ liệu tính toán đã lưu"
+      not_calculated: "Chưa tính được – thiếu số tiền hoặc quy tắc phí."
+    edit:
+      title: "Sửa giao dịch #%{id}"
+      recalculate_notice: "Sau khi lưu, hệ thống tự tính lại phí theo quy tắc phí hiện hành. Mọi thay đổi đều được ghi nhật ký."
+    confirm:
+      approve: "Duyệt giao dịch này?"
+      reject: "Từ chối giao dịch này?"
+      reprocess: "Chạy lại OCR cho bill này?"
+    flash:
+      corrected: "Đã lưu chỉnh sửa và tính lại."
+      approved: "Đã duyệt giao dịch."
+      held: "Đã chuyển sang tạm giữ."
+      rejected: "Đã từ chối giao dịch."
+      reprocessing: "Đang chạy lại OCR. Kết quả sẽ hiển thị sau ít phút."
+      not_editable: "Giao dịch ở trạng thái này không thể sửa. Hãy chuyển sang tạm giữ trước."
+
+  reviews:
+    index:
+      title: "Kiểm tra OCR"
+      received_at: "Nhận lúc"
+      reasons: "Lý do"
+      empty: "Không có bill nào trong hàng chờ."
+    queues:
+      needs_review: "Cần kiểm tra"
+      hold: "Tạm giữ"
+      failed: "Xử lý lỗi"
+    show:
+      title: "Kiểm tra bill #%{id}"
+      details: "Chi tiết"
+      next: "Bill tiếp theo"
+      message_text: "Nội dung tin nhắn"
+      multiple_settlements: "Ảnh này có %{count} bill kết toán. Đây là bill thứ %{position}."
+      fields: "Thông tin cần xác nhận"
+      calculation_preview_hint: "Theo dữ liệu đã lưu gần nhất. Hệ thống tính lại khi duyệt."
+      not_reviewable: "Giao dịch này không còn trong hàng chờ kiểm tra"
+      current_status_html: "Trạng thái hiện tại: %{status}"
+    field: "Trường"
+    ocr_value: "Giá trị OCR"
+    choose: "— Chọn —"
+    ocr_read: "OCR đọc được: %{value}"
+    transaction_date: "Ngày giao dịch"
+    transaction_time: "Giờ giao dịch"
+    fee_rule_override: "Quy tắc phí"
+    fee_rule_auto: "Tự động theo quy tắc (khuyến nghị)"
+    fee_rule_hint: "Chỉ chọn tay khi quy tắc tự động không đúng. Lựa chọn sẽ được ghi nhật ký."
+    note: "Ghi chú"
+    note_placeholder: "Lý do chỉnh sửa / quyết định (không bắt buộc)"
+    card_type_source:
+      message_tag: "Lấy từ thẻ trong tin nhắn Telegram"
+      merchant_default: "Mặc định của hộ kinh doanh"
+      dealer_default: "Mặc định của đại lý"
+      system_default: "Mặc định hệ thống"
+      manual_upload: "Chọn khi tải bill lên"
+    confirm:
+      approve: "Lưu và duyệt giao dịch này?"
+    flash:
+      saved: "Đã lưu nháp."
+
+  bill_images:
+    zoom_in: "Phóng to"
+    zoom_out: "Thu nhỏ"
+    rotate: "Xoay"
+    reset: "Mặc định"
+    open_original: "Mở ảnh gốc"
+    alt: "Ảnh bill kết toán"
+    missing: "Không có ảnh bill"
+
+  bill_uploads:
+    new:
+      title: "Tải bill lên"
+      description: "Tải ảnh bill kết toán nhận ngoài Telegram hoặc để thử OCR. Bill đi qua đúng quy trình như bill từ Telegram."
+      image_hint: "JPG, PNG hoặc WEBP, tối đa %{size}."
+      card_type_auto: "Tự động (theo mặc định)"
+      card_type_hint: "Chỉ chọn khi bill thuộc loại thẻ đặc biệt như MB, Napas."
+    flash:
+      queued: "Đã nhận bill. OCR đang xử lý."
+
+  dealers:
+    telegram_groups: "Nhóm Telegram"
+    merchants: "Hộ kinh doanh"
+    index:
+      title: "Đại lý / Nhóm"
+      new: "Thêm đại lý"
+      empty: "Chưa có đại lý"
+    form:
+      name_hint: "Ví dụ: Anh Trân, Cường Duyên"
+      code_hint: "Mã ngắn, duy nhất. Ví dụ: TRAN"
+      no_default_card_type: "Không có"
+      default_card_type_hint: "Dùng khi tin nhắn không ghi loại thẻ và hộ kinh doanh không có mặc định."
+    new:
+      title: "Thêm đại lý"
+    edit:
+      title: "Sửa đại lý %{name}"
+    show:
+      map_group: "Gán nhóm Telegram"
+      no_groups: "Chưa gán nhóm Telegram nào."
+
+  telegram_chats:
+    messages: "Tin nhắn"
+    unmapped: "Chưa gán đại lý"
+    index:
+      title: "Nhóm Telegram"
+      new: "Thêm nhóm"
+      help: "Khi bot được thêm vào một nhóm, nhóm sẽ tự xuất hiện ở đây (mặc định ngừng hoạt động). Gán đại lý và bật hoạt động để bắt đầu xử lý bill."
+      empty: "Chưa có nhóm Telegram"
+      empty_hint: "Thêm bot vào nhóm và gửi một tin nhắn để nhóm xuất hiện."
+    filters:
+      all: "Tất cả"
+      unmapped: "Chưa gán đại lý"
+      inactive: "Ngừng hoạt động"
+    form:
+      chat_id_hint: "ID số của nhóm, ví dụ -1001234567890"
+      dealer_hint: "Bill từ nhóm này được tính cho đại lý đã chọn."
+      active_hint: "Chỉ nhóm đang hoạt động mới được xử lý bill."
+    new:
+      title: "Thêm nhóm Telegram"
+    edit:
+      title: "Sửa nhóm %{name}"
+    show:
+      recent_messages: "Tin nhắn gần đây"
+      stored_images: "Có %{count} ảnh được gửi khi nhóm chưa hoạt động và chưa được xử lý."
+      process_stored: "Xử lý các ảnh này"
+      process_stored_confirm: "Xử lý %{count} ảnh đã lưu của nhóm này?"
+    flash:
+      activate_first: "Hãy gán đại lý và bật hoạt động cho nhóm trước."
+      processing_stored: "Đang xử lý %{count} ảnh đã lưu."
+
+  merchants:
+    aliases: "Tên gọi khác (alias)"
+    index:
+      title: "Hộ kinh doanh"
+      new: "Thêm hộ kinh doanh"
+      empty: "Chưa có hộ kinh doanh"
+      all_dealers: "Tất cả đại lý"
+    form:
+      name_hint: "Tên dùng trong báo cáo và Excel, ví dụ: 001_ HỘ KINH DOANH THIÊN KIM GV"
+      no_dealer: "Không thuộc đại lý nào"
+      no_default_card_type: "Không có"
+      default_card_type_hint: "Dùng khi tin nhắn không ghi loại thẻ."
+    new:
+      title: "Thêm hộ kinh doanh"
+    edit:
+      title: "Sửa %{name}"
+    show:
+      aliases_help: "Thêm đúng tên in trên bill và MID/TID để hệ thống nhận diện chính xác. Hệ thống không bao giờ tự tạo hộ kinh doanh từ kết quả OCR."
+
+  merchant_aliases:
+    edit:
+      title: "Sửa alias"
+
+  fee_rules:
+    targeting: "Áp dụng cho"
+    validity: "Hiệu lực"
+    any_card_type: "Mọi loại thẻ"
+    open_ended: "không thời hạn"
+    everyone: "Mọi đại lý, mọi hộ kinh doanh"
+    specificity: "Mức áp dụng"
+    levels:
+      merchant_card_type: "HKD + loại thẻ"
+      dealer_card_type: "Đại lý + loại thẻ"
+      merchant: "HKD (mọi loại thẻ)"
+      dealer: "Đại lý (mọi loại thẻ)"
+      card_type: "Chỉ theo loại thẻ"
+      system_default: "Mặc định hệ thống"
+    index:
+      title: "Quy tắc phí"
+      new: "Thêm quy tắc phí"
+      empty: "Chưa có quy tắc phí"
+      how_title: "Thứ tự áp dụng (cụ thể nhất trước)"
+      how_priority: "Trong cùng một mức, số ưu tiên nhỏ hơn được áp dụng trước. Hai quy tắc trùng mức và trùng ưu tiên sẽ khiến giao dịch chuyển sang kiểm tra thủ công."
+      all_merchants: "Tất cả hộ kinh doanh"
+      state_current: "Đang hiệu lực"
+    form:
+      targeting: "Phạm vi áp dụng"
+      targeting_help: "Để trống một trường nghĩa là áp dụng cho tất cả."
+      any_dealer: "Mọi đại lý"
+      any_merchant: "Mọi hộ kinh doanh"
+      rates: "Mức phí"
+      percent_hint: "Nhập theo phần trăm, ví dụ 0,88 cho 0,88%."
+      dealer_rate_hint: "Không bắt buộc. Dùng để tính tiền đại lý và lợi nhuận."
+      validity: "Thời gian hiệu lực"
+      until_hint: "Để trống nếu chưa có ngày kết thúc."
+      priority_hint: "Số nhỏ hơn được ưu tiên."
+      note: "Ghi chú"
+      active_hint: "Tắt thay vì xoá để giữ lịch sử."
+    new:
+      title: "Thêm quy tắc phí"
+    edit:
+      title: "Sửa quy tắc phí #%{id}"
+      snapshot_notice: "Thay đổi quy tắc không ảnh hưởng đến giao dịch đã xử lý – mỗi giao dịch lưu lại mức phí đã áp dụng."
+    show:
+      title: "Quy tắc phí #%{id}"
+      used_by: "Đã dùng cho"
+    flash:
+      in_use: "Quy tắc đã được dùng cho giao dịch nên không thể xoá. Hãy tắt quy tắc."
+
+  card_types:
+    default: "Mặc định"
+    index:
+      title: "Loại thẻ"
+      new: "Thêm loại thẻ"
+      help: "Tin nhắn Telegram có chứa một trong các từ khoá dưới đây sẽ được gán loại thẻ tương ứng (không phân biệt hoa thường và dấu)."
+    form:
+      key_hint: "Mã kỹ thuật, chữ thường, không dấu. Không đổi được sau khi tạo."
+      aliases_hint: "Các từ khoá trong tin nhắn, cách nhau bằng dấu phẩy. Ví dụ: mb, mbbank"
+    new:
+      title: "Thêm loại thẻ"
+    edit:
+      title: "Sửa loại thẻ %{name}"
+
+  excel_exports:
+    date_range: "Khoảng ngày"
+    index:
+      title: "Xuất Excel"
+      new: "Tạo file Excel"
+      empty: "Chưa có lần xuất nào"
+    new:
+      title: "Tạo file Excel"
+      description: "Chọn khoảng ngày giao dịch. File gồm giao dịch đã duyệt (Thành công) và tạm giữ (bill hold). Giao dịch đã duyệt sẽ chuyển sang trạng thái Đã xuất Excel."
+      from: "Từ ngày"
+      to: "Đến ngày"
+      preview_today: "Hôm nay có %{count} giao dịch có thể xuất."
+      columns: "Các cột trong file"
+      unnamed_column: "(cột không tên – đại lý)"
+      status_mapping: "Trạng thái: Đã duyệt / Đã xuất Excel → “Thành công”; Tạm giữ → “bill hold”."
+    show:
+      title: "Lần xuất #%{id}"
+      generating: "Đang tạo file… trang sẽ tự cập nhật."
+      totals: "Tổng hợp theo đại lý"
+      dealer: "Đại lý"
+      success_count: "Thành công"
+      hold_count: "Bill hold"
+    flash:
+      queued: "Đang tạo file Excel."
+      not_ready: "File chưa sẵn sàng."
+
+  audit_logs:
+    system: "Hệ thống"
+    changed_fields: "Trường thay đổi"
+    index:
+      title: "Nhật ký thay đổi"
+      empty: "Chưa có nhật ký"
+    filters:
+      actor: "Người thực hiện"
+      entity: "Đối tượng"
+      action: "Hành động"
+    show:
+      title: "Nhật ký #%{id}"
+      diff: "Trước / sau"
+      field: "Trường"
+    actions:
+      transaction_created: "Tạo giao dịch"
+      transaction_rebuilt: "Xử lý lại giao dịch"
+      transaction_approved: "Duyệt giao dịch"
+      transaction_corrected: "Chỉnh sửa giao dịch"
+      transaction_held: "Tạm giữ giao dịch"
+      transaction_rejected: "Từ chối giao dịch"
+      transaction_reprocess_requested: "Yêu cầu chạy lại OCR"
+      transaction_flagged: "Đưa giao dịch về kiểm tra"
+      fee_rule_created: "Tạo quy tắc phí"
+      fee_rule_updated: "Sửa quy tắc phí"
+      fee_rule_destroyed: "Xoá quy tắc phí"
+      merchant_created: "Tạo hộ kinh doanh"
+      merchant_updated: "Sửa hộ kinh doanh"
+      merchant_destroyed: "Xoá hộ kinh doanh"
+      alias_created: "Thêm alias"
+      alias_updated: "Sửa alias"
+      alias_destroyed: "Xoá alias"
+      dealer_created: "Tạo đại lý"
+      dealer_updated: "Sửa đại lý"
+      dealer_destroyed: "Xoá đại lý"
+      telegram_chat_created: "Thêm nhóm Telegram"
+      telegram_chat_updated: "Sửa nhóm Telegram"
+      telegram_chat_destroyed: "Xoá nhóm Telegram"
+      telegram_message_edited: "Tin nhắn Telegram bị sửa"
+      telegram_chat_stored_images_processed: "Xử lý ảnh đã lưu của nhóm"
+      card_type_created: "Tạo loại thẻ"
+      card_type_updated: "Sửa loại thẻ"
+      card_type_destroyed: "Xoá loại thẻ"
+      export_generated: "Tạo file Excel"
+      export_downloaded: "Tải file Excel"
+      user_created: "Tạo người dùng"
+      user_updated: "Sửa người dùng"
+      user_destroyed: "Xoá người dùng"
+      user_password_reset_sent: "Gửi link đặt lại mật khẩu"
+      bill_image_uploaded: "Tải bill lên"
+      settings_updated: "Thay đổi cài đặt"
+
+  users:
+    you: "Bạn"
+    locked: "Bị khoá tạm"
+    send_reset: "Gửi link đặt lại mật khẩu"
+    confirm_reset: "Gửi email đặt lại mật khẩu tới %{email}?"
+    confirm_delete: "Xoá người dùng này? Nên tắt hoạt động nếu người dùng đã có lịch sử thao tác."
+    index:
+      title: "Người dùng"
+      new: "Thêm người dùng"
+    form:
+      role_hint: "Quản trị: toàn quyền. Vận hành: xử lý giao dịch, kiểm tra OCR, xuất Excel, xem cấu hình. Chỉ xem: xem tổng quan và báo cáo."
+      password_keep_hint: "Để trống nếu không đổi."
+      password_new_hint: "Để trống để hệ thống gửi email cho người dùng tự đặt mật khẩu."
+      active_hint: "Người dùng ngừng hoạt động không thể đăng nhập."
+    new:
+      title: "Thêm người dùng"
+    edit:
+      title: "Sửa người dùng %{email}"
+    flash:
+      cannot_delete_self: "Bạn không thể xoá chính mình."
+      has_history: "Người dùng đã có lịch sử thao tác, hãy tắt hoạt động thay vì xoá."
+      reset_sent: "Đã gửi link đặt lại mật khẩu tới %{email}."
+
+  settings:
+    title: "Cài đặt"
+    tools: "Công cụ"
+    sidekiq: "Hàng đợi xử lý (Sidekiq)"
+    health: "Kiểm tra tình trạng hệ thống"
+    apply_delay: "Thay đổi có hiệu lực trong vòng 30 giây và được ghi vào nhật ký."
+    provider_key_missing: "Nhà cung cấp OCR đang chọn chưa có %{env} trên máy chủ – bill mới sẽ bị lỗi OCR cho đến khi khai báo."
+    last_change: "Thay đổi gần nhất: %{user}, %{at}"
+    flash:
+      saved: "Đã lưu cài đặt."
+    groups:
+      ocr: "Đọc bill (OCR)"
+      matching: "Đối chiếu và kiểm tra trùng"
+      telegram: "Telegram"
+      uploads: "Ảnh bill"
+      email: "Email"
+    group_hints:
+      ocr: "Nhà cung cấp, mô hình và ngưỡng độ tin cậy để tự động duyệt."
+      matching: "Cách nhận diện hộ kinh doanh và phát hiện bill trùng."
+      telegram: "Cách xử lý nhóm Telegram mới."
+      uploads: "Giới hạn ảnh nhận từ Telegram và tải lên thủ công."
+      email: "Địa chỉ gửi email đặt lại mật khẩu."
+    group_icons:
+      ocr: "scan"
+      matching: "git-compare"
+      telegram: "brand-telegram"
+      uploads: "photo"
+      email: "mail"
+    keys:
+      vision_provider: "Nhà cung cấp OCR"
+      openai_vision_model: "Mô hình OpenAI"
+      gemini_vision_model: "Mô hình Gemini"
+      ocr_auto_approve_threshold: "Ngưỡng tự động duyệt"
+      ocr_review_threshold: "Ngưỡng đọc được tối thiểu"
+      vision_timeout_seconds: "Thời gian chờ OCR"
+      max_ocr_attempts: "Số lần chạy OCR tối đa"
+      merchant_fuzzy_threshold: "Ngưỡng gợi ý hộ kinh doanh gần đúng"
+      duplicate_window_minutes: "Khoảng thời gian kiểm tra trùng"
+      max_receipt_age_days: "Tuổi tối đa của bill"
+      telegram_auto_activate_chats: "Tự động kích hoạt nhóm Telegram mới"
+      max_bill_image_mb: "Dung lượng ảnh tối đa"
+      mailer_sender: "Email người gửi"
+    hints:
+      vision_provider: "Cần khai báo API key tương ứng trên máy chủ."
+      openai_vision_model: "Ví dụ: gpt-4.1"
+      gemini_vision_model: "Ví dụ: gemini-2.5-flash"
+      ocr_auto_approve_threshold: "Các trường quan trọng (tổng tiền, hộ kinh doanh, ngày giờ) phải đạt ngưỡng này mới được tự động duyệt."
+      ocr_review_threshold: "Dưới ngưỡng này, giá trị được coi là không đọc được. Phải nhỏ hơn hoặc bằng ngưỡng tự động duyệt."
+      vision_timeout_seconds: "Quá thời gian này, lần gọi OCR được thử lại."
+      max_ocr_attempts: "Bill lỗi OCR được tự động chạy lại đến khi đạt số lần này."
+      merchant_fuzzy_threshold: "Tên gần giống từ mức này trở lên được gợi ý (luôn cần người xác nhận)."
+      duplicate_window_minutes: "Cùng hộ kinh doanh và cùng số tiền trong khoảng này được đánh dấu có thể trùng."
+      max_receipt_age_days: "Bill cũ hơn số ngày này phải kiểm tra thủ công."
+      telegram_auto_activate_chats: "Khi tắt, nhóm mới phải được quản trị viên gán đại lý và bật trước khi xử lý bill."
+      max_bill_image_mb: "Telegram giới hạn tải file của bot ở 20 MB."
+      mailer_sender: "Hiển thị ở trường “Từ” của email."
+    units:
+      vision_timeout_seconds: "giây"
+      max_ocr_attempts: "lần"
+      duplicate_window_minutes: "phút"
+      max_receipt_age_days: "ngày"
+      max_bill_image_mb: "MB"
+    options:
+      vision_provider:
+        openai: "OpenAI"
+        gemini: "Google Gemini"
+        fake: "Giả lập (chỉ để thử, không dùng thật)"
+    services:
+      title: "Kết nối dịch vụ"
+      help: "Khoá bí mật được khai báo bằng biến môi trường trên máy chủ, không lưu trong hệ thống."
+      configured: "Đã cấu hình"
+      missing: "Chưa cấu hình"
+      telegram_bot: "Bot Telegram"
+      telegram_webhook_secret: "Mã bí mật webhook"
+      openai: "OpenAI"
+      gemini: "Google Gemini"
+      r2: "Cloudflare R2"
+      smtp: "Máy chủ email (SMTP)"
+      storage: "Kho lưu trữ ảnh đang dùng"
+      storage_values:
+        cloudflare_r2: "Cloudflare R2"
+        local: "Ổ đĩa máy chủ"
+        test: "test"
+      env:
+        telegram_bot: "TELEGRAM_BOT_TOKEN"
+        telegram_webhook_secret: "TELEGRAM_WEBHOOK_SECRET"
+        openai: "OPENAI_API_KEY"
+        gemini: "GEMINI_API_KEY"
+        r2: "R2_*"
+        smtp: "SMTP_*"
+
+  extraction_fields:
+    document_type: "Loại chứng từ"
+    total_amount_vnd: "Tổng tiền"
+    lot_number: "Số lô"
+    transaction_date: "Ngày"
+    transaction_time: "Giờ"
+    merchant_name: "Tên hộ kinh doanh"
+    terminal_or_merchant_id: "MID / TID"
+
+  review_reasons:
+    document_type_uncertain: "Không chắc đây là bill kết toán"
+    document_type_unknown: "Không nhận diện được loại chứng từ"
+    document_type_low_confidence: "Độ tin cậy loại chứng từ thấp"
+    document_type_unreadable: "Không xác định được loại chứng từ"
+    amount_missing: "Không đọc được tổng tiền"
+    amount_low_confidence: "Độ tin cậy tổng tiền thấp"
+    amount_unreadable: "Tổng tiền không rõ"
+    transaction_time_missing: "Thiếu ngày hoặc giờ giao dịch"
+    transaction_date_low_confidence: "Độ tin cậy ngày giao dịch thấp"
+    transaction_date_unreadable: "Ngày giao dịch không rõ"
+    transaction_time_low_confidence: "Độ tin cậy giờ giao dịch thấp"
+    transaction_time_unreadable: "Giờ giao dịch không rõ"
+    transaction_date_out_of_range: "Ngày giao dịch bất thường (tương lai hoặc quá cũ)"
+    dealer_unmapped: "Nhóm Telegram chưa gán đại lý"
+    dealer_inactive: "Đại lý đang ngừng hoạt động"
+    merchant_missing: "Không đọc được tên hộ kinh doanh"
+    merchant_not_found: "Không tìm thấy hộ kinh doanh phù hợp"
+    merchant_ambiguous: "Có nhiều hộ kinh doanh phù hợp"
+    merchant_fuzzy_match: "Hộ kinh doanh gần đúng – cần xác nhận"
+    merchant_low_confidence: "Độ tin cậy tên hộ kinh doanh thấp"
+    merchant_unreadable: "Tên hộ kinh doanh không rõ"
+    merchant_dealer_mismatch: "Hộ kinh doanh không thuộc đại lý của nhóm"
+    card_type_conflict: "Tin nhắn ghi nhiều loại thẻ khác nhau"
+    card_type_unknown: "Không xác định được loại thẻ"
+    fee_rule_not_found: "Không có quy tắc phí phù hợp"
+    fee_rule_ambiguous: "Có nhiều quy tắc phí cùng mức ưu tiên"
+    possible_duplicate: "Có thể trùng với giao dịch khác"
+    ocr_failed: "OCR xử lý lỗi"
+    child_receipt_after_reprocess: "Sau khi chạy lại, bill được nhận diện là bill con"
+    document_missing_after_reprocess: "Sau khi chạy lại, không còn tìm thấy bill này trong ảnh"
+    document_added_after_reprocess: "Bill mới xuất hiện khi chạy lại OCR – cần xác nhận"
+    reprocessed_multi_settlement: "Ảnh có nhiều bill kết toán – kiểm tra kỹ bill này tương ứng với bill nào trước khi duyệt hoặc từ chối"
+    too_many_documents: "Ảnh có quá nhiều bill, một số bill chưa được đọc – cần kiểm tra"
+    caption_edited: "Tin nhắn Telegram (loại thẻ) đã bị sửa sau khi xử lý"
+
+  activemodel:
+    models:
+      bill_upload_form: "Bill tải lên"
+    attributes:
+      bill_upload_form:
+        image: "Ảnh bill"
+        dealer_id: "Đại lý"
+        card_type_key: "Loại thẻ"
+        note: "Ghi chú"
+
+  activerecord:
+    models:
+      user: "Người dùng"
+      dealer: "Đại lý"
+      telegram_chat: "Nhóm Telegram"
+      merchant: "Hộ kinh doanh"
+      merchant_alias: "Alias"
+      card_type: "Loại thẻ"
+      fee_rule: "Quy tắc phí"
+      telegram_message: "Tin nhắn Telegram"
+      bill_image: "Ảnh bill"
+      transaction: "Giao dịch"
+      transaction_review: "Lượt kiểm tra"
+      audit_log: "Nhật ký"
+      excel_export: "Lần xuất Excel"
+    attributes:
+      user:
+        email: "Email"
+        name: "Họ tên"
+        role: "Vai trò"
+        active: "Hoạt động"
+        password: "Mật khẩu"
+        password_confirmation: "Xác nhận mật khẩu"
+        remember_me: "Ghi nhớ đăng nhập"
+        last_sign_in_at: "Đăng nhập lần cuối"
+      dealer:
+        name: "Tên đại lý"
+        code: "Mã"
+        active: "Hoạt động"
+        default_card_type: "Loại thẻ mặc định"
+        default_card_type_id: "Loại thẻ mặc định"
+      telegram_chat:
+        name: "Tên nhóm"
+        telegram_chat_id: "Telegram chat ID"
+        chat_type: "Loại chat"
+        dealer: "Đại lý"
+        dealer_id: "Đại lý"
+        active: "Hoạt động"
+      merchant:
+        name: "Tên hộ kinh doanh"
+        code: "Mã"
+        dealer: "Đại lý"
+        dealer_id: "Đại lý"
+        default_card_type: "Loại thẻ mặc định"
+        default_card_type_id: "Loại thẻ mặc định"
+        normalized_name: "Tên chuẩn hoá"
+        active: "Hoạt động"
+      merchant_alias:
+        alias: "Alias"
+        alias_type: "Loại alias"
+        normalized_alias: "Dạng chuẩn hoá"
+        active: "Hoạt động"
+      card_type:
+        key: "Mã"
+        name: "Tên"
+        aliases: "Từ khoá nhận diện"
+        aliases_text: "Từ khoá nhận diện"
+        position: "Thứ tự"
+        active: "Hoạt động"
+      fee_rule:
+        merchant: "Hộ kinh doanh"
+        merchant_id: "Hộ kinh doanh"
+        dealer: "Đại lý"
+        dealer_id: "Đại lý"
+        card_type: "Loại thẻ"
+        card_type_id: "Loại thẻ"
+        base_fee_rate: "Phí gốc"
+        base_fee_percent: "Phí gốc"
+        dealer_rate: "Phí đại lý"
+        dealer_percent: "Phí đại lý"
+        effective_from: "Hiệu lực từ"
+        effective_until: "Hiệu lực đến"
+        priority: "Ưu tiên"
+        active: "Hoạt động"
+        note: "Ghi chú"
+      telegram_message:
+        telegram_message_id: "Message ID"
+        sender_name: "Người gửi"
+        sent_at: "Gửi lúc"
+        message_text: "Nội dung"
+        processing_status: "Trạng thái xử lý"
+      bill_image:
+        image: "Ảnh bill"
+        ocr_status: "Trạng thái OCR"
+        ocr_provider: "Nhà cung cấp OCR"
+        source: "Nguồn"
+        file_size: "Dung lượng"
+        processing_error: "Lỗi xử lý"
+      transaction:
+        dealer: "Đại lý"
+        dealer_id: "Đại lý"
+        merchant: "Hộ kinh doanh"
+        merchant_id: "Hộ kinh doanh"
+        card_type: "Loại thẻ"
+        card_type_id: "Loại thẻ"
+        fee_rule: "Quy tắc phí"
+        fee_rule_id: "Quy tắc phí"
+        lot_number: "Số lô"
+        transaction_at: "Ngày giờ giao dịch"
+        transaction_amount_vnd: "Số tiền giao dịch"
+        applied_base_fee_rate: "Phí gốc"
+        amount_after_base_fee_vnd: "Số tiền sau khi trừ phí gốc"
+        applied_dealer_rate: "Phí đại lý"
+        dealer_amount_vnd: "Số tiền đại lý"
+        profit_amount_vnd: "Lợi nhuận"
+        status: "Trạng thái"
+        confidence_score: "Độ tin cậy"
+        approved_by: "Người duyệt"
+        approved_at: "Duyệt lúc"
+        exported_at: "Xuất Excel lúc"
+      transaction_review:
+        created_at: "Thời điểm"
+        reason_codes: "Lý do"
+        status: "Kết quả"
+        reviewed_by: "Người kiểm tra"
+      audit_log:
+        created_at: "Thời điểm"
+        actor: "Người thực hiện"
+        action: "Hành động"
+        auditable: "Đối tượng"
+        metadata: "Thông tin thêm"
+        before_data: "Trước"
+        after_data: "Sau"
+      excel_export:
+        export_date: "Từ ngày"
+        end_date: "Đến ngày"
+        status: "Trạng thái"
+        transaction_count: "Số giao dịch"
+        generated_by: "Người tạo"
+        generated_at: "Tạo lúc"
+        error_message: "Lỗi"
+    enums:
+      transaction:
+        status:
+          pending: "Đang chờ"
+          processing: "Đang xử lý"
+          needs_review: "Cần kiểm tra"
+          approved: "Đã duyệt"
+          rejected: "Đã từ chối"
+          hold: "Tạm giữ"
+          exported: "Đã xuất Excel"
+          failed: "Xử lý lỗi"
+      bill_image:
+        ocr_status:
+          pending: "Đang chờ"
+          processing: "Đang xử lý"
+          completed: "Hoàn tất"
+          needs_review: "Cần kiểm tra"
+          failed: "Xử lý lỗi"
+          duplicate: "Trùng ảnh"
+        source:
+          telegram: "Telegram"
+          manual_upload: "Tải lên thủ công"
+      user:
+        role:
+          admin: "Quản trị"
+          operator: "Vận hành"
+          viewer: "Chỉ xem"
+      merchant_alias:
+        alias_type:
+          receipt_name: "Tên in trên bill"
+          telegram_name: "Tên trong Telegram"
+          merchant_id: "MID (mã hộ kinh doanh)"
+          terminal_id: "TID (mã máy POS)"
+          terminal_name: "Tên máy POS"
+          manual: "Khác"
+      excel_export:
+        status:
+          pending: "Đang chờ"
+          processing: "Đang tạo"
+          completed: "Hoàn tất"
+          failed: "Lỗi"
+      transaction_review:
+        status:
+          open: "Đang chờ"
+          approved: "Đã duyệt"
+          rejected: "Đã từ chối"
+          held: "Tạm giữ"
+          superseded: "Đã thay thế"
+      telegram_message:
+        processing_status:
+          received: "Đã nhận"
+          ignored: "Bỏ qua"
+          queued: "Đang xếp hàng"
+          processed: "Đã xử lý"
+          failed: "Lỗi"
+      extraction:
+        document_type:
+          settlement: "Bill kết toán"
+          child_receipt: "Bill con"
+          unknown: "Không xác định"

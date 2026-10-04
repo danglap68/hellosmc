@@ -1,0 +1,266 @@
+<% content_for :title, t("transactions.show.title", id: @transaction.id) %>
+<% content_for :breadcrumbs do %>
+  <li class="breadcrumb-item"><%= link_to t("navigation.transactions"), admin_transactions_path %></li>
+  <li class="breadcrumb-item active">#<%= @transaction.id %></li>
+<% end %>
+<% content_for :actions do %>
+  <% if can?(:manage, :transactions) %>
+    <% if @transaction.editable? %>
+      <%= link_to admin_review_path(@transaction), class: "btn btn-primary" do %><%= icon("scan") %> <%= t("actions.review") %><% end %>
+    <% end %>
+    <% if @transaction.status.in?(%w[needs_review hold failed]) %>
+      <%= button_to approve_admin_transaction_path(@transaction), class: "btn btn-success", form: { data: { turbo_confirm: t("transactions.confirm.approve") } } do %><%= icon("check") %> <%= t("actions.approve") %><% end %>
+    <% end %>
+    <% if @transaction.can_transition_to?("hold") %>
+      <%= button_to hold_admin_transaction_path(@transaction), class: "btn btn-outline-warning" do %><%= icon("player-pause") %> <%= t("actions.hold") %><% end %>
+    <% end %>
+    <% if @transaction.can_transition_to?("rejected") %>
+      <%= button_to reject_admin_transaction_path(@transaction), class: "btn btn-outline-danger", form: { data: { turbo_confirm: t("transactions.confirm.reject") } } do %><%= icon("x") %> <%= t("actions.reject") %><% end %>
+    <% end %>
+    <% if @transaction.reprocessable? %>
+      <%= button_to reprocess_admin_transaction_path(@transaction), class: "btn btn-outline-secondary", form: { data: { turbo_confirm: t("transactions.confirm.reprocess") } } do %><%= icon("refresh") %> <%= t("actions.reprocess") %><% end %>
+    <% end %>
+  <% end %>
+<% end %>
+
+<%= render "admin/transactions/review_reasons", transaction: @transaction %>
+
+<div class="row row-cards">
+  <div class="col-lg-5">
+    <div class="card mb-3">
+      <div class="card-header"><h3 class="card-title"><%= t("transactions.show.bill_image") %></h3></div>
+      <div class="card-body">
+        <%= render "admin/transactions/bill_image", bill_image: @transaction.bill_image %>
+        <% if (bill_image = @transaction.bill_image) %>
+          <dl class="row mt-3 mb-0 small">
+            <dt class="col-5"><%= BillImage.human_attribute_name(:ocr_status) %></dt><dd class="col-7"><%= ocr_status_badge(bill_image.ocr_status) %></dd>
+            <dt class="col-5"><%= BillImage.human_attribute_name(:ocr_provider) %></dt><dd class="col-7"><%= [bill_image.ocr_provider, bill_image.ocr_model].compact.join(" / ").presence || "—" %></dd>
+            <dt class="col-5"><%= BillImage.human_attribute_name(:source) %></dt><dd class="col-7"><%= enum_label(:bill_image, :source, bill_image.source) %></dd>
+            <dt class="col-5">SHA256</dt><dd class="col-7 text-truncate" title="<%= bill_image.sha256 %>"><code><%= bill_image.sha256&.first(16) %>…</code></dd>
+            <dt class="col-5"><%= BillImage.human_attribute_name(:file_size) %></dt><dd class="col-7"><%= number_to_human_size(bill_image.file_size) %><%= " · #{bill_image.width}×#{bill_image.height}" if bill_image.width %></dd>
+            <% if bill_image.processing_error.present? %>
+              <dt class="col-5"><%= BillImage.human_attribute_name(:processing_error) %></dt><dd class="col-7 text-red"><%= bill_image.processing_error %></dd>
+            <% end %>
+          </dl>
+        <% end %>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h3 class="card-title"><%= icon("brand-telegram") %> <%= t("transactions.show.telegram_source") %></h3></div>
+      <div class="card-body">
+        <% if (message = @transaction.telegram_message) %>
+          <dl class="row mb-0">
+            <dt class="col-5"><%= t("transactions.show.telegram_chat") %></dt>
+            <dd class="col-7"><%= can?(:read, :telegram_chats) ? link_to(message.telegram_chat.display_name, admin_telegram_chat_path(message.telegram_chat)) : message.telegram_chat.display_name %></dd>
+            <dt class="col-5"><%= TelegramMessage.human_attribute_name(:telegram_message_id) %></dt><dd class="col-7"><%= message.telegram_message_id %></dd>
+            <dt class="col-5"><%= TelegramMessage.human_attribute_name(:sender_name) %></dt><dd class="col-7"><%= message.sender_name || "—" %></dd>
+            <dt class="col-5"><%= TelegramMessage.human_attribute_name(:sent_at) %></dt><dd class="col-7"><%= format_datetime(message.sent_at) %></dd>
+            <dt class="col-5"><%= TelegramMessage.human_attribute_name(:message_text) %></dt>
+            <dd class="col-7"><%= message.effective_text.present? ? content_tag(:code, message.effective_text) : "—" %></dd>
+          </dl>
+          <% if Array(message.raw_payload["edits"]).any? %>
+            <div class="alert alert-info mt-3 mb-0"><%= t("transactions.show.message_edited") %></div>
+          <% end %>
+        <% elsif @transaction.bill_image&.manual_upload? %>
+          <p class="mb-0"><%= t("transactions.show.manual_upload", user: @transaction.bill_image.uploaded_by&.display_name || "—") %></p>
+        <% else %>
+          <p class="text-secondary mb-0"><%= t("common.no_data") %></p>
+        <% end %>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-7">
+    <div class="card mb-3">
+      <div class="card-header">
+        <h3 class="card-title"><%= t("transactions.show.summary") %></h3>
+        <div class="card-actions"><%= status_badge(@transaction.status) %></div>
+      </div>
+      <div class="card-body">
+        <div class="datagrid">
+          <div class="datagrid-item">
+            <div class="datagrid-title"><%= Transaction.human_attribute_name(:dealer) %></div>
+            <div class="datagrid-content"><%= @transaction.dealer&.name || "—" %></div>
+          </div>
+          <div class="datagrid-item">
+            <div class="datagrid-title"><%= Transaction.human_attribute_name(:merchant) %></div>
+            <div class="datagrid-content"><%= @transaction.merchant&.name || "—" %></div>
+          </div>
+          <div class="datagrid-item">
+            <div class="datagrid-title"><%= t("transactions.raw_ocr_name") %></div>
+            <div class="datagrid-content"><%= @transaction.raw_merchant_name || "—" %></div>
+          </div>
+          <div class="datagrid-item">
+            <div class="datagrid-title"><%= Transaction.human_attribute_name(:card_type) %></div>
+            <div class="datagrid-content"><%= @transaction.card_type&.name || "—" %></div>
+          </div>
+          <div class="datagrid-item">
+            <div class="datagrid-title"><%= Transaction.human_attribute_name(:lot_number) %></div>
+            <div class="datagrid-content"><%= @transaction.lot_number || "—" %></div>
+          </div>
+          <div class="datagrid-item">
+            <div class="datagrid-title"><%= Transaction.human_attribute_name(:transaction_at) %></div>
+            <div class="datagrid-content"><%= format_datetime(@transaction.transaction_at) %></div>
+          </div>
+          <div class="datagrid-item">
+            <div class="datagrid-title"><%= Transaction.human_attribute_name(:transaction_amount_vnd) %></div>
+            <div class="datagrid-content money fw-bold"><%= format_vnd(@transaction.transaction_amount_vnd) %></div>
+          </div>
+          <div class="datagrid-item">
+            <div class="datagrid-title"><%= Transaction.human_attribute_name(:applied_base_fee_rate) %></div>
+            <div class="datagrid-content"><%= format_rate(@transaction.applied_base_fee_rate) %></div>
+          </div>
+          <div class="datagrid-item">
+            <div class="datagrid-title"><%= Transaction.human_attribute_name(:amount_after_base_fee_vnd) %></div>
+            <div class="datagrid-content money fw-bold text-green"><%= format_vnd(@transaction.amount_after_base_fee_vnd) %></div>
+          </div>
+          <% if @transaction.applied_dealer_rate %>
+            <div class="datagrid-item">
+              <div class="datagrid-title"><%= Transaction.human_attribute_name(:applied_dealer_rate) %></div>
+              <div class="datagrid-content"><%= format_rate(@transaction.applied_dealer_rate) %></div>
+            </div>
+            <div class="datagrid-item">
+              <div class="datagrid-title"><%= Transaction.human_attribute_name(:dealer_amount_vnd) %></div>
+              <div class="datagrid-content money"><%= format_vnd(@transaction.dealer_amount_vnd) %></div>
+            </div>
+            <div class="datagrid-item">
+              <div class="datagrid-title"><%= Transaction.human_attribute_name(:profit_amount_vnd) %></div>
+              <div class="datagrid-content money"><%= format_vnd(@transaction.profit_amount_vnd) %></div>
+            </div>
+          <% end %>
+          <div class="datagrid-item">
+            <div class="datagrid-title"><%= Transaction.human_attribute_name(:confidence_score) %></div>
+            <div class="datagrid-content"><%= confidence_badge(@transaction.confidence_score) %></div>
+          </div>
+          <div class="datagrid-item">
+            <div class="datagrid-title"><%= Transaction.human_attribute_name(:approved_by) %></div>
+            <div class="datagrid-content">
+              <% if @transaction.approved_at %>
+                <%= @transaction.approved_by&.display_name || t("transactions.auto_approved") %>
+                <div class="small text-secondary"><%= format_datetime(@transaction.approved_at) %></div>
+              <% else %>
+                —
+              <% end %>
+            </div>
+          </div>
+          <div class="datagrid-item">
+            <div class="datagrid-title"><%= Transaction.human_attribute_name(:exported_at) %></div>
+            <div class="datagrid-content">
+              <% if @transaction.exported_at %>
+                <%= format_datetime(@transaction.exported_at) %>
+                <% if @transaction.excel_export %><div class="small"><%= link_to t("transactions.show.view_export"), admin_excel_export_path(@transaction.excel_export) %></div><% end %>
+              <% else %>
+                —
+              <% end %>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header"><h3 class="card-title"><%= icon("math-function") %> <%= t("transactions.show.calculation") %></h3></div>
+      <div class="card-body">
+        <% calc = @transaction.calculation_data %>
+        <% if calc.present? %>
+          <table class="table table-sm mb-3">
+            <tr><th class="w-50"><%= t("transactions.calculation.formula") %></th><td><code><%= calc["formula"] %></code></td></tr>
+            <tr><th><%= Transaction.human_attribute_name(:transaction_amount_vnd) %></th><td class="money"><%= format_vnd(calc["transaction_amount_vnd"]) %></td></tr>
+            <tr><th><%= t("transactions.calculation.base_fee_rate") %></th><td><code><%= calc["base_fee_rate"] %></code> (<%= format_rate(calc["base_fee_rate"]) %>)</td></tr>
+            <tr><th><%= Transaction.human_attribute_name(:amount_after_base_fee_vnd) %></th><td class="money fw-bold"><%= format_vnd(calc["amount_after_base_fee_vnd"]) %></td></tr>
+            <% if calc["dealer_formula"] %>
+              <tr><th><%= t("transactions.calculation.dealer_formula") %></th><td><code><%= calc["dealer_formula"] %></code></td></tr>
+              <tr><th><%= Transaction.human_attribute_name(:dealer_amount_vnd) %></th><td class="money"><%= format_vnd(calc["dealer_amount_vnd"]) %></td></tr>
+              <tr><th><%= t("transactions.calculation.profit_formula") %></th><td><code><%= calc["profit_formula"] %></code></td></tr>
+              <tr><th><%= Transaction.human_attribute_name(:profit_amount_vnd) %></th><td class="money"><%= format_vnd(calc["profit_amount_vnd"]) %></td></tr>
+            <% end %>
+            <tr><th><%= t("transactions.calculation.rounding") %></th><td><%= t("transactions.calculation.rounding_value") %></td></tr>
+            <tr>
+              <th><%= t("transactions.calculation.fee_rule") %></th>
+              <td>
+                <% if @transaction.fee_rule %>
+                  <%= can?(:read, :fee_rules) ? link_to(fee_rule_label(@transaction.fee_rule), admin_fee_rule_path(@transaction.fee_rule)) : fee_rule_label(@transaction.fee_rule) %>
+                  <% if calc["fee_rule_source"] == "override" %><span class="badge bg-purple-lt ms-1"><%= t("transactions.calculation.override") %></span><% end %>
+                <% else %>—<% end %>
+              </td>
+            </tr>
+            <tr><th><%= t("transactions.calculation.calculated_at") %></th><td><%= calc["calculated_at"] ? format_datetime(Time.zone.parse(calc["calculated_at"])) : "—" %></td></tr>
+          </table>
+          <details>
+            <summary class="text-secondary small"><%= t("transactions.calculation.snapshot") %></summary>
+            <%= json_block(calc) %>
+          </details>
+        <% else %>
+          <p class="text-secondary mb-0"><%= t("transactions.calculation.not_calculated") %></p>
+        <% end %>
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header">
+        <ul class="nav nav-tabs card-header-tabs" data-bs-toggle="tabs" role="tablist">
+          <li class="nav-item" role="presentation"><a href="#tab-normalized" class="nav-link active" data-bs-toggle="tab" role="tab"><%= t("transactions.show.normalized_extraction") %></a></li>
+          <li class="nav-item" role="presentation"><a href="#tab-resolution" class="nav-link" data-bs-toggle="tab" role="tab"><%= t("transactions.show.resolution") %></a></li>
+          <li class="nav-item" role="presentation"><a href="#tab-raw" class="nav-link" data-bs-toggle="tab" role="tab"><%= t("transactions.show.raw_output") %></a></li>
+        </ul>
+      </div>
+      <div class="card-body">
+        <div class="tab-content">
+          <div class="tab-pane active show" id="tab-normalized" role="tabpanel">
+            <% extraction = @transaction.extraction %>
+            <% if extraction.present? %>
+              <table class="table table-sm mb-3">
+                <thead><tr><th><%= t("reviews.field") %></th><th><%= t("reviews.ocr_value") %></th><th><%= t("common.confidence") %></th></tr></thead>
+                <tbody>
+                  <% BillVision::Prompt::FIELDS.each do |field| %>
+                    <tr>
+                      <td><%= t("extraction_fields.#{field}") %></td>
+                      <td><%= field == "total_amount_vnd" ? format_vnd(extraction[field]) : (field == "document_type" ? enum_label(:extraction, :document_type, extraction[field]) : (extraction[field].presence || "—")) %></td>
+                      <td><%= confidence_badge(extraction.dig("confidence", field)) %></td>
+                    </tr>
+                  <% end %>
+                </tbody>
+              </table>
+            <% end %>
+            <%= json_block(extraction) %>
+          </div>
+          <div class="tab-pane" id="tab-resolution" role="tabpanel">
+            <%= json_block(@transaction.source_data.except("extraction")) %>
+          </div>
+          <div class="tab-pane" id="tab-raw" role="tabpanel">
+            <%= json_block(@transaction.bill_image&.raw_extraction) %>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header"><h3 class="card-title"><%= t("transactions.show.reviews") %></h3></div>
+      <% if @reviews.any? %>
+        <div class="table-responsive">
+          <table class="table card-table table-vcenter">
+            <thead><tr><th><%= TransactionReview.human_attribute_name(:created_at) %></th><th><%= TransactionReview.human_attribute_name(:reason_codes) %></th><th><%= TransactionReview.human_attribute_name(:status) %></th><th><%= TransactionReview.human_attribute_name(:reviewed_by) %></th></tr></thead>
+            <tbody>
+              <% @reviews.each do |review| %>
+                <tr>
+                  <td class="text-nowrap"><%= format_datetime(review.created_at) %></td>
+                  <td class="small"><%= review.reason_codes.map { |code| review_reason_label(code) }.join(", ").presence || "—" %><% if review.note.present? %><div class="text-secondary"><%= review.note %></div><% end %></td>
+                  <td><%= enum_label(:transaction_review, :status, review.status) %></td>
+                  <td><%= review.reviewed_by&.display_name || "—" %><div class="small text-secondary"><%= review.reviewed_at && format_datetime(review.reviewed_at) %></div></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      <% else %>
+        <div class="card-body text-secondary"><%= t("common.no_data") %></div>
+      <% end %>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h3 class="card-title"><%= icon("history") %> <%= t("navigation.audit_logs") %></h3></div>
+      <%= render "admin/audit_logs/timeline", audit_logs: @audit_logs %>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,21 @@
+test:
+  service: Disk
+  root: <%= Rails.root.join("tmp/storage") %>
+
+local:
+  service: Disk
+  root: <%= Rails.root.join("storage") %>
+
+# Cloudflare R2 (S3-compatible). The bucket must be PRIVATE.
+# Images are only ever exposed through short-lived presigned URLs
+# generated behind admin authentication.
+cloudflare_r2:
+  service: S3
+  access_key_id: <%= ENV["R2_ACCESS_KEY_ID"] %>
+  secret_access_key: <%= ENV["R2_SECRET_ACCESS_KEY"] %>
+  region: auto
+  bucket: <%= ENV["R2_BUCKET"] %>
+  endpoint: <%= ENV["R2_ENDPOINT"] %>
+  force_path_style: true
+  request_checksum_calculation: when_required
+  response_checksum_validation: when_required

@@ -1,0 +1,18 @@
+<%= tabler_form_with model: [:admin, dealer] do |form| %>
+  <div class="card">
+    <div class="card-body">
+      <%= form.error_summary %>
+      <div class="row">
+        <div class="col-md-8"><%= form.field :name, required: true, hint: t("dealers.form.name_hint") %></div>
+        <div class="col-md-4"><%= form.field :code, required: true, hint: t("dealers.form.code_hint") %></div>
+      </div>
+      <%= form.select_field :default_card_type_id, card_type_options, { include_blank: t("dealers.form.no_default_card_type") },
+            hint: t("dealers.form.default_card_type_hint") %>
+      <%= form.switch_field :active %>
+    </div>
+    <div class="card-footer d-flex gap-2">
+      <%= form.submit_button %>
+      <%= link_to t("actions.cancel"), dealer.persisted? ? admin_dealer_path(dealer) : admin_dealers_path, class: "btn btn-link" %>
+    </div>
+  </div>
+<% end %>

@@ -1,0 +1,6 @@
+<% content_for :title, t("telegram_chats.edit.title", name: @telegram_chat.display_name) %>
+<% content_for :breadcrumbs do %>
+  <li class="breadcrumb-item"><%= link_to t("navigation.telegram_chats"), admin_telegram_chats_path %></li>
+  <li class="breadcrumb-item active"><%= @telegram_chat.display_name %></li>
+<% end %>
+<div class="row"><div class="col-lg-8"><%= render "form", telegram_chat: @telegram_chat %></div></div>

@@ -1,0 +1,33 @@
+<%# locals: (form:, definition:) %>
+<% key = definition.key %>
+<% errors = @form.errors[key] %>
+<% hint = t("settings.hints.#{key}", default: "") %>
+<div class="mb-3">
+  <% if definition.type == :boolean %>
+    <label class="form-check form-switch mb-1">
+      <%= hidden_field_tag "settings[#{key}]", "0", id: nil %>
+      <%= check_box_tag "settings[#{key}]", "1", @form[key] == "1", class: "form-check-input", id: "settings_#{key}" %>
+      <span class="form-check-label"><%= t("settings.keys.#{key}") %></span>
+    </label>
+  <% else %>
+    <label class="form-label" for="settings_<%= key %>"><%= t("settings.keys.#{key}") %></label>
+    <% css = "#{definition.type == :select ? 'form-select' : 'form-control'} #{'is-invalid' if errors.any?}" %>
+    <% if definition.type == :select %>
+      <%= select_tag "settings[#{key}]", options_for_select(definition.options.map { |option| [t("settings.options.#{key}.#{option}"), option] }, @form[key]), class: css, id: "settings_#{key}" %>
+    <% elsif definition.type == :percent %>
+      <div class="input-group">
+        <%= text_field_tag "settings[#{key}]", @form[key], class: css, id: "settings_#{key}", inputmode: "decimal" %>
+        <span class="input-group-text">%</span>
+      </div>
+    <% elsif definition.type == :integer %>
+      <div class="input-group">
+        <%= number_field_tag "settings[#{key}]", @form[key], class: css, id: "settings_#{key}", min: definition.min, max: definition.max %>
+        <% if (unit = t("settings.units.#{key}", default: "")).present? %><span class="input-group-text"><%= unit %></span><% end %>
+      </div>
+    <% else %>
+      <%= text_field_tag "settings[#{key}]", @form[key], class: css, id: "settings_#{key}" %>
+    <% end %>
+  <% end %>
+  <% if errors.any? %><div class="invalid-feedback d-block"><%= errors.uniq.to_sentence %></div><% end %>
+  <% if hint.present? %><small class="form-hint"><%= hint %></small><% end %>
+</div>

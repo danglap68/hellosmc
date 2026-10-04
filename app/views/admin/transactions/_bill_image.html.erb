@@ -1,0 +1,17 @@
+<%# locals: (bill_image:, large: false) %>
+<% if bill_image&.image&.attached? || bill_image&.duplicate_of&.image&.attached? %>
+  <div data-controller="image-viewer">
+    <div class="btn-list mb-2">
+      <button type="button" class="btn btn-sm" data-action="image-viewer#zoomIn" title="<%= t('bill_images.zoom_in') %>"><%= icon("zoom-in") %></button>
+      <button type="button" class="btn btn-sm" data-action="image-viewer#zoomOut" title="<%= t('bill_images.zoom_out') %>"><%= icon("zoom-out") %></button>
+      <button type="button" class="btn btn-sm" data-action="image-viewer#rotate" title="<%= t('bill_images.rotate') %>"><%= icon("rotate-clockwise") %></button>
+      <button type="button" class="btn btn-sm" data-action="image-viewer#reset"><%= t("bill_images.reset") %></button>
+      <%= link_to admin_bill_image_path(bill_image), target: "_blank", rel: "noopener", class: "btn btn-sm" do %><%= icon("external-link") %> <%= t("bill_images.open_original") %><% end %>
+    </div>
+    <div class="bill-viewer" style="<%= large ? '' : 'max-height: 32rem;' %>">
+      <%= image_tag admin_bill_image_path(bill_image), alt: t("bill_images.alt"), data: { image_viewer_target: "image" } %>
+    </div>
+  </div>
+<% else %>
+  <%= empty_state t("bill_images.missing"), nil, icon_name: "photo-off" %>
+<% end %>

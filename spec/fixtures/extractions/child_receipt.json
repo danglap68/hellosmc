@@ -1,0 +1,23 @@
+{
+  "documents": [
+    {
+      "document_type": "child_receipt",
+      "total_amount_vnd": 500000,
+      "lot_number": null,
+      "transaction_date": "2026-10-04",
+      "transaction_time": "09:12:00",
+      "merchant_name": "HỘ KINH DOANH THIÊN KIM GV",
+      "terminal_or_merchant_id": null,
+      "confidence": {
+        "document_type": 0.97,
+        "total_amount_vnd": 0.95,
+        "lot_number": 0,
+        "transaction_date": 0.95,
+        "transaction_time": 0.95,
+        "merchant_name": 0.94,
+        "terminal_or_merchant_id": 0
+      }
+    }
+  ],
+  "notes": null
+}

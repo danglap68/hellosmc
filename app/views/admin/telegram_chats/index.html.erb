@@ -1,0 +1,49 @@
+<% content_for :title, t("telegram_chats.index.title") %>
+<% content_for :actions do %>
+  <% if can?(:manage, :telegram_chats) %>
+    <%= link_to new_admin_telegram_chat_path, class: "btn btn-primary" do %><%= icon("plus") %> <%= t("telegram_chats.index.new") %><% end %>
+  <% end %>
+<% end %>
+
+<div class="alert alert-info"><%= icon("info-circle") %> <%= t("telegram_chats.index.help") %></div>
+
+<div class="card">
+  <div class="card-header">
+    <ul class="nav nav-tabs card-header-tabs">
+      <% [nil, "unmapped", "inactive"].each do |filter| %>
+        <li class="nav-item"><%= link_to t("telegram_chats.filters.#{filter || 'all'}"), admin_telegram_chats_path(filter: filter), class: "nav-link #{'active' if params[:filter] == filter}" %></li>
+      <% end %>
+    </ul>
+  </div>
+  <% if @telegram_chats.any? %>
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table">
+        <thead>
+          <tr>
+            <th><%= TelegramChat.human_attribute_name(:name) %></th>
+            <th><%= TelegramChat.human_attribute_name(:telegram_chat_id) %></th>
+            <th><%= TelegramChat.human_attribute_name(:dealer) %></th>
+            <th><%= t("telegram_chats.messages") %></th>
+            <th><%= TelegramChat.human_attribute_name(:active) %></th>
+            <th class="w-1"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @telegram_chats.each do |chat| %>
+            <tr>
+              <td><%= link_to chat.display_name, admin_telegram_chat_path(chat) %><div class="small text-secondary"><%= chat.chat_type %></div></td>
+              <td><code><%= chat.telegram_chat_id %></code></td>
+              <td><%= chat.dealer&.name || content_tag(:span, t("telegram_chats.unmapped"), class: "badge bg-orange-lt") %></td>
+              <td><%= @message_counts[chat.id].to_i %></td>
+              <td><%= active_badge(chat.active?) %></td>
+              <td><% if can?(:manage, :telegram_chats) %><%= link_to t("actions.edit"), edit_admin_telegram_chat_path(chat), class: "btn btn-sm" %><% end %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+    <%= pagination(@pagy) %>
+  <% else %>
+    <div class="card-body"><%= empty_state t("telegram_chats.index.empty"), t("telegram_chats.index.empty_hint"), icon_name: "brand-telegram" %></div>
+  <% end %>
+</div>

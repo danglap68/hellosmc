@@ -1,0 +1,27 @@
+<% content_for :title, t("transactions.edit.title", id: @transaction.id) %>
+<% content_for :breadcrumbs do %>
+  <li class="breadcrumb-item"><%= link_to t("navigation.transactions"), admin_transactions_path %></li>
+  <li class="breadcrumb-item"><%= link_to "##{@transaction.id}", admin_transaction_path(@transaction) %></li>
+  <li class="breadcrumb-item active"><%= t("actions.edit") %></li>
+<% end %>
+
+<div class="row row-cards">
+  <div class="col-lg-5">
+    <div class="card review-sticky"><div class="card-body"><%= render "admin/transactions/bill_image", bill_image: @transaction.bill_image %></div></div>
+  </div>
+  <div class="col-lg-7">
+    <%= tabler_form_with model: @transaction, url: admin_transaction_path(@transaction), method: :patch do |form| %>
+      <div class="card">
+        <div class="card-body">
+          <%= form.error_summary %>
+          <div class="alert alert-info"><%= t("transactions.edit.recalculate_notice") %></div>
+          <%= render "admin/transactions/correction_fields", form: form, transaction: @transaction %>
+        </div>
+        <div class="card-footer d-flex gap-2">
+          <%= form.submit_button t("actions.save") %>
+          <%= link_to t("actions.cancel"), admin_transaction_path(@transaction), class: "btn btn-link" %>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</div>

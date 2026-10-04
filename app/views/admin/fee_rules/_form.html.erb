@@ -1,0 +1,53 @@
+<%= tabler_form_with model: [:admin, fee_rule] do |form| %>
+  <div class="card">
+    <div class="card-body">
+      <%= form.error_summary %>
+      <h4 class="mb-2"><%= t("fee_rules.form.targeting") %></h4>
+      <p class="text-secondary small"><%= t("fee_rules.form.targeting_help") %></p>
+      <div class="row">
+        <div class="col-md-4"><%= form.select_field :dealer_id, dealer_options, { include_blank: t("fee_rules.form.any_dealer") } %></div>
+        <div class="col-md-4"><%= form.select_field :merchant_id, merchant_options, { include_blank: t("fee_rules.form.any_merchant") } %></div>
+        <div class="col-md-4"><%= form.select_field :card_type_id, card_type_options, { include_blank: t("fee_rules.any_card_type") } %></div>
+      </div>
+
+      <h4 class="mb-2 mt-2"><%= t("fee_rules.form.rates") %></h4>
+      <div class="row">
+        <div class="col-md-6">
+          <div class="mb-3">
+            <%= form.label :base_fee_percent, FeeRule.human_attribute_name(:base_fee_rate), class: "form-label required" %>
+            <div class="input-group">
+              <%= form.text_field :base_fee_percent, class: "form-control #{'is-invalid' if fee_rule.errors[:base_fee_rate].any?}", inputmode: "decimal", placeholder: "0,88" %>
+              <span class="input-group-text">%</span>
+            </div>
+            <% if fee_rule.errors[:base_fee_rate].any? %><div class="invalid-feedback d-block"><%= fee_rule.errors[:base_fee_rate].to_sentence %></div><% end %>
+            <small class="form-hint"><%= t("fee_rules.form.percent_hint") %></small>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="mb-3">
+            <%= form.label :dealer_percent, FeeRule.human_attribute_name(:dealer_rate), class: "form-label" %>
+            <div class="input-group">
+              <%= form.text_field :dealer_percent, class: "form-control #{'is-invalid' if fee_rule.errors[:dealer_rate].any?}", inputmode: "decimal", placeholder: "1,21" %>
+              <span class="input-group-text">%</span>
+            </div>
+            <% if fee_rule.errors[:dealer_rate].any? %><div class="invalid-feedback d-block"><%= fee_rule.errors[:dealer_rate].to_sentence %></div><% end %>
+            <small class="form-hint"><%= t("fee_rules.form.dealer_rate_hint") %></small>
+          </div>
+        </div>
+      </div>
+
+      <h4 class="mb-2 mt-2"><%= t("fee_rules.form.validity") %></h4>
+      <div class="row">
+        <div class="col-md-4"><%= form.field :effective_from, as: :datetime_local_field, required: true %></div>
+        <div class="col-md-4"><%= form.field :effective_until, as: :datetime_local_field, hint: t("fee_rules.form.until_hint") %></div>
+        <div class="col-md-4"><%= form.field :priority, as: :number_field, required: true, min: 0, hint: t("fee_rules.form.priority_hint") %></div>
+      </div>
+      <%= form.field :note, as: :text_area, rows: 2, label: t("fee_rules.form.note") %>
+      <%= form.switch_field :active, hint: t("fee_rules.form.active_hint") %>
+    </div>
+    <div class="card-footer d-flex gap-2">
+      <%= form.submit_button %>
+      <%= link_to t("actions.cancel"), fee_rule.persisted? ? admin_fee_rule_path(fee_rule) : admin_fee_rules_path, class: "btn btn-link" %>
+    </div>
+  </div>
+<% end %>

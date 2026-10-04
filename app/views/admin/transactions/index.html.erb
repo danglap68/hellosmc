@@ -1,0 +1,112 @@
+<% content_for :title, t("transactions.index.title") %>
+
+<div class="card mb-3">
+  <div class="card-body">
+    <%= form_with url: admin_transactions_path, method: :get, data: { turbo_frame: "_top" } do %>
+      <div class="row g-2">
+        <div class="col-md-4 col-lg-3">
+          <label class="form-label"><%= t("transactions.filters.q") %></label>
+          <input type="search" name="q" value="<%= @filter[:q] %>" class="form-control" placeholder="<%= t('transactions.filters.q_placeholder') %>">
+        </div>
+        <div class="col-md-4 col-lg-2">
+          <label class="form-label"><%= Transaction.human_attribute_name(:dealer) %></label>
+          <%= select_tag :dealer_id, options_for_select(dealer_options, @filter[:dealer_id]), include_blank: t("common.all"), class: "form-select" %>
+        </div>
+        <div class="col-md-4 col-lg-3">
+          <label class="form-label"><%= Transaction.human_attribute_name(:merchant) %></label>
+          <%= select_tag :merchant_id, options_for_select(merchant_options, @filter[:merchant_id]), include_blank: t("common.all"), class: "form-select" %>
+        </div>
+        <div class="col-md-4 col-lg-2">
+          <label class="form-label"><%= Transaction.human_attribute_name(:status) %></label>
+          <%= select_tag :status, options_for_select(enum_options(:transaction, :status, Transaction::STATUSES), @filter[:status]), include_blank: t("common.all"), class: "form-select" %>
+        </div>
+        <div class="col-md-4 col-lg-2">
+          <label class="form-label"><%= Transaction.human_attribute_name(:card_type) %></label>
+          <%= select_tag :card_type_id, options_for_select(card_type_options, @filter[:card_type_id]), include_blank: t("common.all"), class: "form-select" %>
+        </div>
+        <div class="col-6 col-md-3 col-lg-2">
+          <label class="form-label"><%= t("transactions.filters.date_from") %></label>
+          <input type="date" name="date_from" value="<%= @filter[:date_from] %>" class="form-control">
+        </div>
+        <div class="col-6 col-md-3 col-lg-2">
+          <label class="form-label"><%= t("transactions.filters.date_to") %></label>
+          <input type="date" name="date_to" value="<%= @filter[:date_to] %>" class="form-control">
+        </div>
+        <div class="col-6 col-md-3 col-lg-2">
+          <label class="form-label"><%= t("transactions.filters.amount_min") %></label>
+          <input type="text" inputmode="numeric" name="amount_min" value="<%= @filter[:amount_min] %>" class="form-control" data-controller="amount-input" data-action="input->amount-input#format">
+        </div>
+        <div class="col-6 col-md-3 col-lg-2">
+          <label class="form-label"><%= t("transactions.filters.amount_max") %></label>
+          <input type="text" inputmode="numeric" name="amount_max" value="<%= @filter[:amount_max] %>" class="form-control" data-controller="amount-input" data-action="input->amount-input#format">
+        </div>
+        <div class="col-md-6 col-lg-2">
+          <label class="form-label"><%= t("transactions.filters.telegram_chat") %></label>
+          <%= select_tag :telegram_chat_id, options_for_select(TelegramChat.ordered.map { |chat| [chat.display_name, chat.id] }, @filter[:telegram_chat_id]), include_blank: t("common.all"), class: "form-select" %>
+        </div>
+        <div class="col-md-6 col-lg-2 d-flex align-items-end gap-2">
+          <button type="submit" class="btn btn-primary w-100"><%= icon("filter") %> <%= t("actions.filter") %></button>
+          <% if @filter.active? %>
+            <%= link_to t("actions.reset"), admin_transactions_path, class: "btn btn-link" %>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</div>
+
+<div class="card">
+  <% if @transactions.any? %>
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table table-sm">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th><%= Transaction.human_attribute_name(:transaction_at) %></th>
+            <th><%= Transaction.human_attribute_name(:merchant) %> / <%= Transaction.human_attribute_name(:dealer) %></th>
+            <th><%= Transaction.human_attribute_name(:card_type) %></th>
+            <th><%= Transaction.human_attribute_name(:lot_number) %></th>
+            <th class="text-end"><%= Transaction.human_attribute_name(:transaction_amount_vnd) %></th>
+            <th class="text-end"><%= Transaction.human_attribute_name(:applied_base_fee_rate) %></th>
+            <th class="text-end"><%= Transaction.human_attribute_name(:amount_after_base_fee_vnd) %></th>
+            <th><%= Transaction.human_attribute_name(:status) %></th>
+            <th class="text-center"><%= Transaction.human_attribute_name(:confidence_score) %></th>
+            <th class="w-1"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @transactions.each do |transaction| %>
+            <tr>
+              <td><%= link_to "##{transaction.id}", admin_transaction_path(transaction) %></td>
+              <td class="text-nowrap">
+                <% if transaction.transaction_at %>
+                  <div><%= l(transaction.transaction_at.to_date) %></div>
+                  <div class="small text-secondary"><%= transaction.transaction_at.strftime("%H:%M:%S") %></div>
+                <% else %>—<% end %>
+              </td>
+              <td>
+                <% if transaction.merchant %>
+                  <div><%= transaction.merchant.name %></div>
+                <% else %>
+                  <div class="text-secondary" title="<%= t('transactions.raw_ocr_name') %>"><%= transaction.raw_merchant_name || "—" %></div>
+                <% end %>
+                <div class="small text-secondary"><%= transaction.dealer&.name || "—" %></div>
+              </td>
+              <td><%= transaction.card_type&.name || "—" %></td>
+              <td><%= transaction.lot_number || "—" %></td>
+              <td class="text-end money"><%= format_vnd(transaction.transaction_amount_vnd) %></td>
+              <td class="text-end text-nowrap"><%= format_rate(transaction.applied_base_fee_rate) %></td>
+              <td class="text-end money"><%= format_vnd(transaction.amount_after_base_fee_vnd) %></td>
+              <td class="text-nowrap"><%= status_badge(transaction.status) %></td>
+              <td class="text-center"><%= confidence_badge(transaction.confidence_score) %></td>
+              <td><%= render "admin/transactions/row_actions", transaction: transaction %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+    <%= pagination(@pagy) %>
+  <% else %>
+    <div class="card-body"><%= empty_state t("transactions.index.empty"), (@filter.active? ? t("transactions.index.empty_filtered") : nil) %></div>
+  <% end %>
+</div>

@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <title><%= content_for?(:title) ? "#{yield(:title)} · #{t('app.name')}" : t("app.name") %></title>
+    <%= render "layouts/head" %>
+  </head>
+  <body>
+    <div class="page">
+      <div class="page-wrapper">
+        <div class="page-body">
+          <div class="container-xl">
+            <%= render "layouts/flash" %>
+            <%= yield %>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

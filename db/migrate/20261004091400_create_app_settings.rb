@@ -1,0 +1,13 @@
+# Business and operational settings edited by admins in the UI.
+# Secrets and infrastructure stay in ENV.
+class CreateAppSettings < ActiveRecord::Migration[8.1]
+  def change
+    create_table :app_settings do |t|
+      t.string :key, null: false
+      t.text :value, null: false
+      t.references :updated_by, foreign_key: { to_table: :users }
+      t.timestamps
+    end
+    add_index :app_settings, :key, unique: true
+  end
+end

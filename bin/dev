@@ -1,0 +1,9 @@
+#!/usr/bin/env sh
+# Starts web, Sidekiq and the Telegram poller (see Procfile.dev).
+if ! gem list foreman -i --silent; then
+  echo "Installing foreman..."
+  gem install foreman
+fi
+
+export PORT="${PORT:-3000}"
+exec foreman start -f Procfile.dev "$@"

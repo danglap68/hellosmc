@@ -1,0 +1,78 @@
+<% content_for :title, @merchant.name %>
+<% content_for :breadcrumbs do %>
+  <li class="breadcrumb-item"><%= link_to t("navigation.merchants"), admin_merchants_path %></li>
+  <li class="breadcrumb-item active"><%= @merchant.name %></li>
+<% end %>
+<% content_for :actions do %>
+  <% if can?(:manage, :merchants) %>
+    <%= link_to edit_admin_merchant_path(@merchant), class: "btn" do %><%= icon("edit") %> <%= t("actions.edit") %><% end %>
+    <%= button_to admin_merchant_path(@merchant), method: :delete, class: "btn btn-outline-danger", form: { data: { turbo_confirm: t("actions.confirm_delete") } } do %><%= icon("trash") %> <%= t("actions.delete") %><% end %>
+  <% end %>
+<% end %>
+
+<div class="row row-cards">
+  <div class="col-lg-4">
+    <div class="card">
+      <div class="card-body">
+        <dl class="row mb-0">
+          <dt class="col-5"><%= Merchant.human_attribute_name(:code) %></dt><dd class="col-7"><code><%= @merchant.code %></code></dd>
+          <dt class="col-5"><%= Merchant.human_attribute_name(:dealer) %></dt><dd class="col-7"><%= @merchant.dealer ? link_to(@merchant.dealer.name, admin_dealer_path(@merchant.dealer)) : "—" %></dd>
+          <dt class="col-5"><%= Merchant.human_attribute_name(:default_card_type) %></dt><dd class="col-7"><%= @merchant.default_card_type&.name || "—" %></dd>
+          <dt class="col-5"><%= Merchant.human_attribute_name(:normalized_name) %></dt><dd class="col-7"><code><%= @merchant.normalized_name %></code></dd>
+          <dt class="col-5"><%= Merchant.human_attribute_name(:active) %></dt><dd class="col-7"><%= active_badge(@merchant.active?) %></dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-8">
+    <div class="card mb-3">
+      <div class="card-header"><h3 class="card-title"><%= t("merchants.aliases") %></h3></div>
+      <div class="card-body border-bottom">
+        <p class="text-secondary mb-0"><%= t("merchants.show.aliases_help") %></p>
+      </div>
+      <% if @merchant_aliases.any? %>
+        <div class="table-responsive">
+          <table class="table card-table table-vcenter">
+            <thead><tr><th><%= MerchantAlias.human_attribute_name(:alias) %></th><th><%= MerchantAlias.human_attribute_name(:alias_type) %></th><th><%= MerchantAlias.human_attribute_name(:normalized_alias) %></th><th><%= MerchantAlias.human_attribute_name(:active) %></th><th class="w-1"></th></tr></thead>
+            <tbody>
+              <% @merchant_aliases.each do |merchant_alias| %>
+                <tr>
+                  <td><%= merchant_alias.alias %></td>
+                  <td><%= enum_label(:merchant_alias, :alias_type, merchant_alias.alias_type) %></td>
+                  <td><code><%= merchant_alias.normalized_alias %></code></td>
+                  <td><%= active_badge(merchant_alias.active?) %></td>
+                  <td class="text-nowrap">
+                    <% if can?(:manage, :merchants) %>
+                      <%= link_to t("actions.edit"), edit_admin_merchant_merchant_alias_path(@merchant, merchant_alias), class: "btn btn-sm" %>
+                      <%= button_to t("actions.delete"), admin_merchant_merchant_alias_path(@merchant, merchant_alias), method: :delete, class: "btn btn-sm btn-ghost-danger", form_class: "d-inline", form: { data: { turbo_confirm: t("actions.confirm_delete") } } %>
+                    <% end %>
+                  </td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      <% end %>
+      <% if can?(:manage, :merchants) %>
+        <div class="card-footer">
+          <%= tabler_form_with model: @merchant_alias, url: admin_merchant_merchant_aliases_path(@merchant) do |form| %>
+            <%= form.error_summary %>
+            <div class="row g-2 align-items-end">
+              <div class="col-md-6"><%= form.field :alias, required: true, wrapper: "" %></div>
+              <div class="col-md-4"><%= form.select_field :alias_type, enum_options(:merchant_alias, :alias_type, MerchantAlias::ALIAS_TYPES), {}, wrapper: "" %></div>
+              <div class="col-md-2"><button type="submit" class="btn btn-primary w-100"><%= icon("plus") %> <%= t("actions.add") %></button></div>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title"><%= icon("percentage") %> <%= t("navigation.fee_rules") %></h3>
+        <% if can?(:manage, :fee_rules) %><div class="card-actions"><%= link_to t("fee_rules.index.new"), new_admin_fee_rule_path(merchant_id: @merchant.id, dealer_id: @merchant.dealer_id) %></div><% end %>
+      </div>
+      <%= render "admin/fee_rules/table", fee_rules: @fee_rules %>
+    </div>
+  </div>
+</div>

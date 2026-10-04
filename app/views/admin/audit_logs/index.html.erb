@@ -1,0 +1,68 @@
+<% content_for :title, t("audit_logs.index.title") %>
+
+<div class="card mb-3">
+  <div class="card-body">
+    <%= form_with url: admin_audit_logs_path, method: :get do %>
+      <div class="row g-2">
+        <div class="col-md-3">
+          <label class="form-label"><%= t("audit_logs.filters.actor") %></label>
+          <%= select_tag :actor, options_for_select([[t("audit_logs.system"), "system"]] + @users.map { |user| [user.display_name, user.id] }, params[:actor]), include_blank: t("common.all"), class: "form-select" %>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label"><%= t("audit_logs.filters.entity") %></label>
+          <%= select_tag :entity, options_for_select(@entities.map { |entity| [auditable_label(entity), entity] }, params[:entity]), include_blank: t("common.all"), class: "form-select" %>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label"><%= t("audit_logs.filters.action") %></label>
+          <%= select_tag :action_name, options_for_select(@actions.map { |action| [audit_action_label(action), action] }, params[:action_name]), include_blank: t("common.all"), class: "form-select" %>
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label"><%= t("transactions.filters.date_from") %></label>
+          <input type="date" name="date_from" value="<%= params[:date_from] %>" class="form-control">
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label"><%= t("transactions.filters.date_to") %></label>
+          <input type="date" name="date_to" value="<%= params[:date_to] %>" class="form-control">
+        </div>
+        <div class="col-12 d-flex gap-2">
+          <button type="submit" class="btn btn-primary"><%= icon("filter") %> <%= t("actions.filter") %></button>
+          <%= link_to t("actions.reset"), admin_audit_logs_path, class: "btn btn-link" %>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</div>
+
+<div class="card">
+  <% if @audit_logs.any? %>
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table">
+        <thead>
+          <tr>
+            <th><%= AuditLog.human_attribute_name(:created_at) %></th>
+            <th><%= AuditLog.human_attribute_name(:actor) %></th>
+            <th><%= AuditLog.human_attribute_name(:action) %></th>
+            <th><%= AuditLog.human_attribute_name(:auditable) %></th>
+            <th><%= t("audit_logs.changed_fields") %></th>
+            <th class="w-1"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @audit_logs.each do |log| %>
+            <tr>
+              <td class="text-nowrap"><%= format_datetime(log.created_at) %></td>
+              <td><%= audit_actor(log) %></td>
+              <td><%= audit_action_label(log.action) %></td>
+              <td><%= log.auditable_type ? "#{auditable_label(log.auditable_type)} ##{log.auditable_id}" : "—" %></td>
+              <td class="small text-secondary"><%= log.before_data.present? ? log.changed_keys.first(5).join(", ") : "" %></td>
+              <td><%= link_to t("actions.view"), admin_audit_log_path(log), class: "btn btn-sm" %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+    <%= pagination(@pagy) %>
+  <% else %>
+    <div class="card-body"><%= empty_state t("audit_logs.index.empty"), nil, icon_name: "history" %></div>
+  <% end %>
+</div>

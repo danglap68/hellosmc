@@ -1,0 +1,23 @@
+# Development and test connect through DB_* variables so that a DATABASE_URL
+# meant for production can never point the test suite at a real database.
+default: &default
+  adapter: postgresql
+  encoding: unicode
+  max_connections: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 }.to_i + ENV.fetch("SIDEKIQ_CONCURRENCY") { 5 }.to_i %>
+  host: <%= ENV.fetch("DB_HOST", nil) %>
+  port: <%= ENV.fetch("DB_PORT", nil) %>
+  username: <%= ENV.fetch("DB_USERNAME", nil) %>
+  password: <%= ENV.fetch("DB_PASSWORD", nil) %>
+
+development:
+  <<: *default
+  database: hellosmc_development
+
+test:
+  <<: *default
+  database: hellosmc_test
+
+# Production reads DATABASE_URL (merged over this block by Rails).
+production:
+  <<: *default
+  database: hellosmc_production

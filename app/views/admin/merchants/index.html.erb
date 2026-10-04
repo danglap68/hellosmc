@@ -1,0 +1,52 @@
+<% content_for :title, t("merchants.index.title") %>
+<% content_for :actions do %>
+  <% if can?(:manage, :merchants) %>
+    <%= link_to new_admin_merchant_path, class: "btn btn-primary" do %><%= icon("plus") %> <%= t("merchants.index.new") %><% end %>
+  <% end %>
+<% end %>
+
+<div class="card">
+  <div class="card-header">
+    <%= form_with url: admin_merchants_path, method: :get, class: "d-flex gap-2 ms-auto" do %>
+      <%= select_tag :dealer_id, options_for_select(dealer_options, params[:dealer_id]), include_blank: t("merchants.index.all_dealers"), class: "form-select" %>
+      <div class="input-icon">
+        <input type="search" name="q" value="<%= params[:q] %>" class="form-control" placeholder="<%= t('actions.search') %>">
+        <span class="input-icon-addon"><%= icon("search") %></span>
+      </div>
+      <button class="btn" type="submit"><%= t("actions.filter") %></button>
+    <% end %>
+  </div>
+  <% if @merchants.any? %>
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table">
+        <thead>
+          <tr>
+            <th><%= Merchant.human_attribute_name(:name) %></th>
+            <th><%= Merchant.human_attribute_name(:code) %></th>
+            <th><%= Merchant.human_attribute_name(:dealer) %></th>
+            <th><%= Merchant.human_attribute_name(:default_card_type) %></th>
+            <th><%= t("merchants.aliases") %></th>
+            <th><%= Merchant.human_attribute_name(:active) %></th>
+            <th class="w-1"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @merchants.each do |merchant| %>
+            <tr>
+              <td><%= link_to merchant.name, admin_merchant_path(merchant) %></td>
+              <td><code><%= merchant.code %></code></td>
+              <td><%= merchant.dealer&.name || "—" %></td>
+              <td><%= merchant.default_card_type&.name || "—" %></td>
+              <td><%= @alias_counts[merchant.id].to_i %></td>
+              <td><%= active_badge(merchant.active?) %></td>
+              <td><% if can?(:manage, :merchants) %><%= link_to t("actions.edit"), edit_admin_merchant_path(merchant), class: "btn btn-sm" %><% end %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+    <%= pagination(@pagy) %>
+  <% else %>
+    <div class="card-body"><%= empty_state t("merchants.index.empty") %></div>
+  <% end %>
+</div>

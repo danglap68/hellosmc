@@ -1,0 +1,6 @@
+<% content_for :title, t("users.edit.title", email: @user.email) %>
+<% content_for :breadcrumbs do %>
+  <li class="breadcrumb-item"><%= link_to t("navigation.users"), admin_users_path %></li>
+  <li class="breadcrumb-item active"><%= @user.email %></li>
+<% end %>
+<div class="row"><div class="col-lg-8"><%= render "form", user: @user %></div></div>

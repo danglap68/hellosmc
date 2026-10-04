@@ -1,0 +1,16 @@
+<%= tabler_form_with model: [:admin, card_type] do |form| %>
+  <div class="card">
+    <div class="card-body">
+      <%= form.error_summary %>
+      <%= form.field :key, required: true, disabled: card_type.persisted?, hint: t("card_types.form.key_hint") %>
+      <%= form.field :name, required: true %>
+      <%= form.field :aliases_text, label: CardType.human_attribute_name(:aliases), hint: t("card_types.form.aliases_hint") %>
+      <%= form.field :position, as: :number_field %>
+      <%= form.switch_field :active %>
+    </div>
+    <div class="card-footer d-flex gap-2">
+      <%= form.submit_button %>
+      <%= link_to t("actions.cancel"), admin_card_types_path, class: "btn btn-link" %>
+    </div>
+  </div>
+<% end %>

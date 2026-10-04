@@ -1,0 +1,11 @@
+<% { notice: "success", alert: "danger" }.each do |key, color| %>
+  <% if flash[key].present? %>
+    <div class="alert alert-<%= color %> alert-dismissible" role="alert">
+      <div class="d-flex">
+        <div><%= icon(color == "success" ? "circle-check" : "alert-triangle", "alert-icon") %></div>
+        <div><%= flash[key] %></div>
+      </div>
+      <a class="btn-close" data-bs-dismiss="alert" aria-label="<%= t('actions.close') %>"></a>
+    </div>
+  <% end %>
+<% end %>

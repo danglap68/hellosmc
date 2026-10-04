@@ -1,0 +1,46 @@
+<% content_for :title, t("excel_exports.index.title") %>
+<% content_for :actions do %>
+  <% if can?(:manage, :excel_exports) %>
+    <%= link_to new_admin_excel_export_path, class: "btn btn-primary" do %><%= icon("file-spreadsheet") %> <%= t("excel_exports.index.new") %><% end %>
+  <% end %>
+<% end %>
+
+<div class="card">
+  <% if @excel_exports.any? %>
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th><%= t("excel_exports.date_range") %></th>
+            <th><%= ExcelExport.human_attribute_name(:status) %></th>
+            <th><%= ExcelExport.human_attribute_name(:transaction_count) %></th>
+            <th><%= ExcelExport.human_attribute_name(:generated_by) %></th>
+            <th><%= ExcelExport.human_attribute_name(:generated_at) %></th>
+            <th class="w-1"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @excel_exports.each do |export| %>
+            <tr>
+              <td><%= link_to "##{export.id}", admin_excel_export_path(export) %></td>
+              <td><%= format_date(export.export_date) %><%= " → #{l(export.end_date)}" if export.end_date != export.export_date %></td>
+              <td><%= export_status_badge(export.status) %></td>
+              <td><%= export.transaction_count %></td>
+              <td><%= export.generated_by&.display_name || t("audit_logs.system") %></td>
+              <td><%= format_datetime(export.generated_at) %></td>
+              <td>
+                <% if export.completed? && export.file.attached? %>
+                  <%= link_to download_admin_excel_export_path(export), class: "btn btn-sm btn-outline-primary", data: { turbo: false } do %><%= icon("download") %> <%= t("actions.download") %><% end %>
+                <% end %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+    <%= pagination(@pagy) %>
+  <% else %>
+    <div class="card-body"><%= empty_state t("excel_exports.index.empty"), nil, icon_name: "file-spreadsheet" %></div>
+  <% end %>
+</div>

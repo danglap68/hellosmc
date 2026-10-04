@@ -1,0 +1,7 @@
+<% content_for :title, t("errors.forbidden.title") %>
+<div class="card">
+  <div class="card-body">
+    <%= empty_state t("errors.forbidden.title"), t("errors.forbidden.message"), icon_name: "lock" %>
+    <div class="text-center"><%= link_to t("navigation.dashboard"), admin_root_path, class: "btn btn-primary" %></div>
+  </div>
+</div>

@@ -1,0 +1,41 @@
+<% content_for :title, t("users.index.title") %>
+<% content_for :actions do %>
+  <%= link_to new_admin_user_path, class: "btn btn-primary" do %><%= icon("user-plus") %> <%= t("users.index.new") %><% end %>
+<% end %>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table">
+      <thead>
+        <tr>
+          <th><%= User.human_attribute_name(:email) %></th>
+          <th><%= User.human_attribute_name(:name) %></th>
+          <th><%= User.human_attribute_name(:role) %></th>
+          <th><%= User.human_attribute_name(:active) %></th>
+          <th><%= User.human_attribute_name(:last_sign_in_at) %></th>
+          <th class="w-1"></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @users.each do |user| %>
+          <tr>
+            <td><%= user.email %><% if user == current_user %> <span class="badge bg-azure-lt"><%= t("users.you") %></span><% end %></td>
+            <td><%= user.name || "—" %></td>
+            <td><%= enum_label(:user, :role, user.role) %></td>
+            <td>
+              <%= active_badge(user.active?) %>
+              <% if user.access_locked? %><span class="badge bg-red-lt"><%= t("users.locked") %></span><% end %>
+            </td>
+            <td><%= format_datetime(user.last_sign_in_at) %></td>
+            <td class="text-nowrap">
+              <%= link_to t("actions.edit"), edit_admin_user_path(user), class: "btn btn-sm" %>
+              <%= button_to t("users.send_reset"), send_reset_password_admin_user_path(user), class: "btn btn-sm btn-ghost-primary", form_class: "d-inline",
+                    form: { data: { turbo_confirm: t("users.confirm_reset", email: user.email) } } %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+  <%= pagination(@pagy) %>
+</div>

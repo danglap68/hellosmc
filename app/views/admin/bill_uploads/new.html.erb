@@ -1,0 +1,23 @@
+<% content_for :title, t("bill_uploads.new.title") %>
+
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+    <%= tabler_form_with model: @upload, url: admin_bill_uploads_path, scope: :bill_upload_form, multipart: true do |form| %>
+      <div class="card">
+        <div class="card-body">
+          <p class="text-secondary"><%= t("bill_uploads.new.description") %></p>
+          <%= form.error_summary %>
+          <%= form.field :image, as: :file_field, required: true, accept: BillImage::ALLOWED_MIME_TYPES.join(","),
+                hint: t("bill_uploads.new.image_hint", size: number_to_human_size(AppConfig.max_bill_image_bytes)) %>
+          <%= form.select_field :dealer_id, Dealer.active.ordered.map { |dealer| [dealer.name, dealer.id] }, { include_blank: t("reviews.choose") }, required: true %>
+          <%= form.select_field :card_type_key, card_type_options(value: :key), { include_blank: t("bill_uploads.new.card_type_auto") },
+                hint: t("bill_uploads.new.card_type_hint") %>
+          <%= form.field :note, as: :text_area, rows: 2 %>
+        </div>
+        <div class="card-footer">
+          <button type="submit" class="btn btn-primary"><%= icon("upload") %> <%= t("actions.upload") %></button>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</div>

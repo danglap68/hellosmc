@@ -1,0 +1,14 @@
+{
+  "update_id": 900001,
+  "message": {
+    "message_id": 77,
+    "from": { "id": 4242, "is_bot": false, "first_name": "Lan", "last_name": "Nguyễn" },
+    "chat": { "id": -1001234567890, "title": "Anh Trân - Bill", "type": "supergroup" },
+    "date": 1791087445,
+    "caption": "MB",
+    "photo": [
+      { "file_id": "small-file", "file_unique_id": "small-uniq", "file_size": 1200, "width": 90, "height": 120 },
+      { "file_id": "large-file", "file_unique_id": "large-uniq", "file_size": 98000, "width": 1280, "height": 1706 }
+    ]
+  }
+}

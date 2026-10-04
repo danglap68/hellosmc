@@ -1,0 +1,39 @@
+<% content_for :title, t("excel_exports.new.title") %>
+<% content_for :breadcrumbs do %>
+  <li class="breadcrumb-item"><%= link_to t("navigation.excel_exports"), admin_excel_exports_path %></li>
+  <li class="breadcrumb-item active"><%= t("actions.new") %></li>
+<% end %>
+
+<div class="row">
+  <div class="col-lg-7">
+    <%= tabler_form_with model: [:admin, @excel_export] do |form| %>
+      <div class="card">
+        <div class="card-body">
+          <%= form.error_summary %>
+          <p class="text-secondary"><%= t("excel_exports.new.description") %></p>
+          <div class="row">
+            <div class="col-md-6"><%= form.field :export_date, as: :date_field, required: true, label: t("excel_exports.new.from") %></div>
+            <div class="col-md-6"><%= form.field :end_date, as: :date_field, required: true, label: t("excel_exports.new.to") %></div>
+          </div>
+          <% if @preview_count %>
+            <div class="alert alert-info mb-0"><%= t("excel_exports.new.preview_today", count: @preview_count) %></div>
+          <% end %>
+        </div>
+        <div class="card-footer">
+          <button type="submit" class="btn btn-primary"><%= icon("file-spreadsheet") %> <%= t("actions.generate") %></button>
+        </div>
+      </div>
+    <% end %>
+  </div>
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header"><h3 class="card-title"><%= t("excel_exports.new.columns") %></h3></div>
+      <table class="table card-table">
+        <% Exports::LegacyLayout::COLUMNS.each do |column| %>
+          <tr><td><%= column.header.presence || content_tag(:em, t("excel_exports.new.unnamed_column"), class: "text-secondary") %></td></tr>
+        <% end %>
+      </table>
+      <div class="card-footer small text-secondary"><%= t("excel_exports.new.status_mapping") %></div>
+    </div>
+  </div>
+</div>

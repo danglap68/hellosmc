@@ -1,0 +1,61 @@
+<% content_for :title, @telegram_chat.display_name %>
+<% content_for :breadcrumbs do %>
+  <li class="breadcrumb-item"><%= link_to t("navigation.telegram_chats"), admin_telegram_chats_path %></li>
+  <li class="breadcrumb-item active"><%= @telegram_chat.display_name %></li>
+<% end %>
+<% content_for :actions do %>
+  <% if can?(:manage, :telegram_chats) %>
+    <%= link_to edit_admin_telegram_chat_path(@telegram_chat), class: "btn" do %><%= icon("edit") %> <%= t("actions.edit") %><% end %>
+    <%= button_to admin_telegram_chat_path(@telegram_chat), method: :delete, class: "btn btn-outline-danger", form: { data: { turbo_confirm: t("actions.confirm_delete") } } do %><%= icon("trash") %> <%= t("actions.delete") %><% end %>
+  <% end %>
+<% end %>
+
+<% if @stored_image_count.positive? %>
+  <div class="alert alert-warning d-flex align-items-center">
+    <div class="me-auto"><%= icon("photo-exclamation") %> <%= t("telegram_chats.show.stored_images", count: @stored_image_count) %></div>
+    <% if can?(:manage, :telegram_chats) %>
+      <%= button_to t("telegram_chats.show.process_stored"), process_stored_admin_telegram_chat_path(@telegram_chat), class: "btn btn-warning",
+            form: { data: { turbo_confirm: t("telegram_chats.show.process_stored_confirm", count: @stored_image_count) } } %>
+    <% end %>
+  </div>
+<% end %>
+
+<div class="row row-cards">
+  <div class="col-lg-4">
+    <div class="card">
+      <div class="card-body">
+        <dl class="row mb-0">
+          <dt class="col-5"><%= TelegramChat.human_attribute_name(:telegram_chat_id) %></dt><dd class="col-7"><code><%= @telegram_chat.telegram_chat_id %></code></dd>
+          <dt class="col-5"><%= TelegramChat.human_attribute_name(:chat_type) %></dt><dd class="col-7"><%= @telegram_chat.chat_type || "—" %></dd>
+          <dt class="col-5"><%= TelegramChat.human_attribute_name(:dealer) %></dt>
+          <dd class="col-7"><%= @telegram_chat.dealer ? link_to(@telegram_chat.dealer.name, admin_dealer_path(@telegram_chat.dealer)) : content_tag(:span, t("telegram_chats.unmapped"), class: "badge bg-orange-lt") %></dd>
+          <dt class="col-5"><%= TelegramChat.human_attribute_name(:active) %></dt><dd class="col-7"><%= active_badge(@telegram_chat.active?) %></dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header"><h3 class="card-title"><%= t("telegram_chats.show.recent_messages") %></h3></div>
+      <% if @recent_messages.any? %>
+        <div class="table-responsive">
+          <table class="table card-table table-vcenter">
+            <thead><tr><th><%= TelegramMessage.human_attribute_name(:sent_at) %></th><th><%= TelegramMessage.human_attribute_name(:sender_name) %></th><th><%= TelegramMessage.human_attribute_name(:message_text) %></th><th><%= TelegramMessage.human_attribute_name(:processing_status) %></th></tr></thead>
+            <tbody>
+              <% @recent_messages.each do |message| %>
+                <tr>
+                  <td class="text-nowrap"><%= format_datetime(message.sent_at) %></td>
+                  <td><%= message.sender_name || "—" %></td>
+                  <td class="text-truncate" style="max-width: 18rem"><%= message.message_text || "—" %></td>
+                  <td><%= enum_label(:telegram_message, :processing_status, message.processing_status) %></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      <% else %>
+        <div class="card-body text-secondary"><%= t("common.no_data") %></div>
+      <% end %>
+    </div>
+  </div>
+</div>

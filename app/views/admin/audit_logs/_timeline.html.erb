@@ -1,0 +1,22 @@
+<%# locals: (audit_logs:) %>
+<% if audit_logs.any? %>
+  <div class="list-group list-group-flush">
+    <% audit_logs.each do |log| %>
+      <div class="list-group-item">
+        <div class="d-flex justify-content-between">
+          <strong><%= can?(:read, :audit_logs) ? link_to(audit_action_label(log.action), admin_audit_log_path(log)) : audit_action_label(log.action) %></strong>
+          <span class="text-secondary small text-nowrap"><%= format_datetime(log.created_at) %></span>
+        </div>
+        <div class="small text-secondary">
+          <%= audit_actor(log) %>
+          <% if (changed = log.changed_keys).any? && log.before_data.present? %>
+            · <%= t("audit_logs.changed_fields") %>: <%= changed.first(6).join(", ") %>
+          <% end %>
+          <% if log.metadata["note"].present? %> · “<%= log.metadata["note"] %>”<% end %>
+        </div>
+      </div>
+    <% end %>
+  </div>
+<% else %>
+  <div class="card-body text-secondary"><%= t("common.no_data") %></div>
+<% end %>
