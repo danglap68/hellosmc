@@ -3,10 +3,12 @@ class FeeRule < ApplicationRecord
   # with matching rules; inside a level the lowest priority number wins.
   SPECIFICITY_LEVELS = %w[merchant_card_type dealer_card_type merchant dealer card_type system_default].freeze
 
-  belongs_to :merchant, optional: true
   belongs_to :dealer, optional: true
-  belongs_to :card_type, optional: true
 
+  has_many :fee_rule_merchants, dependent: :destroy
+  has_many :merchants, through: :fee_rule_merchants
+  has_many :fee_rule_card_types, dependent: :destroy
+  has_many :card_types, through: :fee_rule_card_types
   has_many :transactions, dependent: :restrict_with_error
 
   validates :base_fee_rate, presence: true,
@@ -24,13 +26,53 @@ class FeeRule < ApplicationRecord
       .where("fee_rules.effective_until IS NULL OR fee_rules.effective_until > ?", time)
   }
   scope :ordered, -> { order(:priority, effective_from: :desc, id: :desc) }
+  # Rules with no households apply to every household. A household id also matches those,
+  # plus rules that list that household.
+  scope :covering_merchant, ->(merchant_id) {
+    unrestricted = "NOT EXISTS (SELECT 1 FROM fee_rule_merchants WHERE fee_rule_merchants.fee_rule_id = fee_rules.id)"
+    if merchant_id.nil?
+      where(unrestricted)
+    else
+      covered = sanitize_sql_array([
+        "EXISTS (SELECT 1 FROM fee_rule_merchants WHERE fee_rule_merchants.fee_rule_id = fee_rules.id AND fee_rule_merchants.merchant_id = ?)",
+        merchant_id
+      ])
+      where("#{unrestricted} OR #{covered}")
+    end
+  }
+  scope :assigned_to_merchant, ->(merchant_id) {
+    where(id: FeeRuleMerchant.where(merchant_id: merchant_id).select(:fee_rule_id))
+  }
+  scope :covering_card_type, ->(card_type_id) {
+    unrestricted = "NOT EXISTS (SELECT 1 FROM fee_rule_card_types WHERE fee_rule_card_types.fee_rule_id = fee_rules.id)"
+    if card_type_id.nil?
+      where(unrestricted)
+    else
+      covered = sanitize_sql_array([
+        "EXISTS (SELECT 1 FROM fee_rule_card_types WHERE fee_rule_card_types.fee_rule_id = fee_rules.id AND fee_rule_card_types.card_type_id = ?)",
+        card_type_id
+      ])
+      where("#{unrestricted} OR #{covered}")
+    end
+  }
+  scope :assigned_to_card_type, ->(card_type_id) {
+    where(id: FeeRuleCardType.where(card_type_id: card_type_id).select(:fee_rule_id))
+  }
+
+  def merchant_ids=(ids)
+    super(Array(ids).compact_blank.uniq)
+  end
+
+  def card_type_ids=(ids)
+    super(Array(ids).compact_blank.uniq)
+  end
 
   def specificity_level
-    if merchant_id && card_type_id then "merchant_card_type"
-    elsif dealer_id && card_type_id && !merchant_id then "dealer_card_type"
-    elsif merchant_id then "merchant"
+    if targets_merchants? && targets_card_types? then "merchant_card_type"
+    elsif dealer_id && targets_card_types? && !targets_merchants? then "dealer_card_type"
+    elsif targets_merchants? then "merchant"
     elsif dealer_id then "dealer"
-    elsif card_type_id then "card_type"
+    elsif targets_card_types? then "card_type"
     else "system_default"
     end
   end
@@ -40,7 +82,15 @@ class FeeRule < ApplicationRecord
   end
 
   def system_default?
-    merchant_id.nil? && dealer_id.nil? && card_type_id.nil?
+    !targets_merchants? && dealer_id.nil? && !targets_card_types?
+  end
+
+  def merchant_label
+    merchants.map(&:name).sort.join(", ").presence
+  end
+
+  def card_type_label
+    card_types.map(&:name).sort.join(", ").presence
   end
 
   def effective_at?(time)
@@ -75,8 +125,8 @@ class FeeRule < ApplicationRecord
   end
 
   def snapshot_attributes
-    attributes.slice("id", "merchant_id", "dealer_id", "card_type_id", "base_fee_rate", "dealer_rate",
-                     "effective_from", "effective_until", "priority").merge("specificity_level" => specificity_level)
+    attributes.slice("id", "dealer_id", "base_fee_rate", "dealer_rate", "effective_from", "effective_until", "priority")
+      .merge("merchant_ids" => merchant_ids, "card_type_ids" => card_type_ids, "specificity_level" => specificity_level)
   end
 
   private
@@ -94,25 +144,49 @@ class FeeRule < ApplicationRecord
     errors.add(:effective_until, :after_effective_from)
   end
 
-  def merchant_belongs_to_dealer
-    return unless merchant && dealer && merchant.dealer_id.present?
-    return if merchant.dealer_id == dealer_id
-
-    errors.add(:merchant_id, :dealer_mismatch)
+  def targets_merchants?
+    merchant_ids.any?
   end
 
-  # Two active rules with the same targeting and priority whose validity
-  # windows overlap would be ambiguous at resolution time; refuse to save them.
+  def targets_card_types?
+    card_type_ids.any?
+  end
+
+  def merchant_belongs_to_dealer
+    return if dealer_id.blank?
+
+    merchants.each do |household|
+      next if household.dealer_id.blank? || household.dealer_id == dealer_id
+
+      errors.add(:merchant_ids, :dealer_mismatch)
+      break
+    end
+  end
+
+  # Two active rules with the same dealer, card type and priority, whose
+  # household sets collide and whose validity windows overlap, are ambiguous.
+  # An empty household set means every household and only collides with another empty set.
   def no_overlapping_rule_with_same_precedence
     return unless active? && effective_from.present? && priority.present?
 
     overlapping = FeeRule.active
-      .where(merchant_id: merchant_id, dealer_id: dealer_id, card_type_id: card_type_id, priority: priority)
+      .where(dealer_id: dealer_id, priority: priority)
       .where.not(id: id)
       .where("effective_until IS NULL OR effective_until > ?", effective_from)
     overlapping = overlapping.where("effective_from < ?", effective_until) if effective_until.present?
 
-    clash = overlapping.first
+    mine_merchants = merchant_ids.map(&:to_i)
+    mine_cards = card_type_ids.map(&:to_i)
+    clash = overlapping.includes(:fee_rule_merchants, :fee_rule_card_types).detect do |other|
+      sets_overlap?(mine_merchants, other.fee_rule_merchants.map(&:merchant_id)) &&
+        sets_overlap?(mine_cards, other.fee_rule_card_types.map(&:card_type_id))
+    end
     errors.add(:base, :overlapping_rule, id: clash.id) if clash
+  end
+
+  def sets_overlap?(mine, theirs)
+    return true if mine.empty? && theirs.empty?
+
+    mine.intersect?(theirs)
   end
 end

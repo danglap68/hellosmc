@@ -51,9 +51,9 @@ module FeeRules
     # Every targeting dimension set on a rule must match the transaction.
     def candidates
       FeeRule.active.effective_at(@at)
-        .where(merchant_id: [ nil, @merchant&.id ].uniq)
+        .covering_merchant(@merchant&.id)
+        .covering_card_type(@card_type&.id)
         .where(dealer_id: [ nil, @dealer&.id ].uniq)
-        .where(card_type_id: [ nil, @card_type&.id ].uniq)
     end
   end
 end

@@ -12,8 +12,8 @@ export default class extends Controller {
   }
 
   apply() {
-    const key = this.cardTypeTarget.selectedOptions[0]?.dataset.key
-    const special = SPECIAL_KEYS.has(key)
+    const keys = Array.from(this.cardTypeTarget.querySelectorAll("input:checked")).map((input) => input.dataset.key).filter(Boolean)
+    const special = keys.length > 0 && keys.every((key) => SPECIAL_KEYS.has(key))
     this.baseFeeTarget.placeholder = special ? "0,88" : "1,21"
     this.dealerFeeTarget.placeholder = special ? "1,2" : "1,4"
   }

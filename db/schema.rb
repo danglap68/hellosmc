@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_08_100000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_08_130000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -151,14 +151,28 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_08_100000) do
     t.index ["export_date"], name: "index_excel_exports_on_export_date"
     t.index ["generated_by_id"], name: "index_excel_exports_on_generated_by_id"
     t.check_constraint "end_date >= export_date", name: "excel_exports_date_range"
-    t.check_constraint "layout::text = ANY (ARRAY['legacy'::character varying, 'ket_toan_phi_goc'::character varying]::text[])", name: "excel_exports_layout_check"
+    t.check_constraint "layout::text = ANY (ARRAY['legacy'::character varying::text, 'ket_toan_phi_goc'::character varying::text])", name: "excel_exports_layout_check"
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'processing'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text])", name: "excel_exports_status_check"
   end
 
+  create_table "fee_rule_card_types", force: :cascade do |t|
+    t.bigint "fee_rule_id", null: false
+    t.bigint "card_type_id", null: false
+    t.index ["card_type_id"], name: "index_fee_rule_card_types_on_card_type_id"
+    t.index ["fee_rule_id", "card_type_id"], name: "index_fee_rule_card_types_on_fee_rule_id_and_card_type_id", unique: true
+    t.index ["fee_rule_id"], name: "index_fee_rule_card_types_on_fee_rule_id"
+  end
+
+  create_table "fee_rule_merchants", force: :cascade do |t|
+    t.bigint "fee_rule_id", null: false
+    t.bigint "merchant_id", null: false
+    t.index ["fee_rule_id", "merchant_id"], name: "index_fee_rule_merchants_on_fee_rule_id_and_merchant_id", unique: true
+    t.index ["fee_rule_id"], name: "index_fee_rule_merchants_on_fee_rule_id"
+    t.index ["merchant_id"], name: "index_fee_rule_merchants_on_merchant_id"
+  end
+
   create_table "fee_rules", force: :cascade do |t|
-    t.bigint "merchant_id"
     t.bigint "dealer_id"
-    t.bigint "card_type_id"
     t.decimal "base_fee_rate", precision: 10, scale: 6, null: false
     t.decimal "dealer_rate", precision: 10, scale: 6
     t.datetime "effective_from", null: false
@@ -168,11 +182,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_08_100000) do
     t.jsonb "metadata", default: {}, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.index ["active", "merchant_id", "dealer_id", "card_type_id"], name: "index_fee_rules_on_targeting"
-    t.index ["card_type_id"], name: "index_fee_rules_on_card_type_id"
+    t.index ["active", "dealer_id"], name: "index_fee_rules_on_targeting"
     t.index ["dealer_id"], name: "index_fee_rules_on_dealer_id"
     t.index ["effective_from", "effective_until"], name: "index_fee_rules_on_effective_from_and_effective_until"
-    t.index ["merchant_id"], name: "index_fee_rules_on_merchant_id"
     t.check_constraint "base_fee_rate >= 0::numeric AND base_fee_rate < 1::numeric", name: "fee_rules_base_fee_rate_range"
     t.check_constraint "dealer_rate IS NULL OR dealer_rate >= 0::numeric AND dealer_rate < 1::numeric", name: "fee_rules_dealer_rate_range"
     t.check_constraint "effective_until IS NULL OR effective_until > effective_from", name: "fee_rules_effective_range"
@@ -337,9 +349,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_08_100000) do
   add_foreign_key "bill_images", "users", column: "uploaded_by_id"
   add_foreign_key "dealers", "card_types", column: "default_card_type_id"
   add_foreign_key "excel_exports", "users", column: "generated_by_id"
-  add_foreign_key "fee_rules", "card_types"
+  add_foreign_key "fee_rule_card_types", "card_types"
+  add_foreign_key "fee_rule_card_types", "fee_rules"
+  add_foreign_key "fee_rule_merchants", "fee_rules"
+  add_foreign_key "fee_rule_merchants", "merchants"
   add_foreign_key "fee_rules", "dealers"
-  add_foreign_key "fee_rules", "merchants"
   add_foreign_key "merchant_aliases", "merchants"
   add_foreign_key "merchants", "card_types", column: "default_card_type_id"
   add_foreign_key "merchants", "dealers"

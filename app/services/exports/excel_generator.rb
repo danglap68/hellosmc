@@ -113,7 +113,7 @@ module Exports
 
       KetToanPhiGocLayout::SHEET_NAMES.each do |sheet_name|
         workbook.add_worksheet(name: sheet_name) do |sheet|
-          sheet.add_row KetToanPhiGocLayout.headers_for(sheet_name), style: styles[:header], height: 36
+          sheet.add_row KetToanPhiGocLayout.headers_for(sheet_name), style: styles[:header], height: 132.75
           grouped[sheet_name].each_with_index do |placed, index|
             row_number = index + 2
             formulas = KetToanPhiGocLayout.formulas(row_number, placed.formula_percent)
@@ -129,15 +129,17 @@ module Exports
               Time.utc(1899, 12, 30, local.hour, local.min, local.sec),
               placed.transaction.dealer&.name,
               placed.transaction.merchant&.name
-            ], style: styles[:row], types: [ :integer, nil, nil, :float, nil, :string, :date, :time, :string, :string ]
+            ], style: styles[:row], height: 21,
+              types: [ :integer, nil, nil, :float, nil, :string, :date, :time, :string, :string ]
           end
           if grouped[sheet_name].any?
             last = grouped[sheet_name].size + 1
             sums = KetToanPhiGocLayout.sum_formulas(last)
             sheet.add_row [ sums[:a], sums[:b], sums[:c], nil, sums[:e], nil, nil, nil, nil, nil ],
-              style: styles[:sum], types: [ nil, nil, nil, nil, nil, :string, :string, :string, :string, :string ]
+              style: styles[:sum], height: 21,
+              types: [ nil, nil, nil, nil, nil, :string, :string, :string, :string, :string ]
           end
-          sheet.column_widths 22, 28, 36, 12, 16, 14, 18, 16, 22, 36
+          sheet.column_widths 22.31, 22.31, 23.29, 13.73, 23.05, 13.61, 21.09, 22.8, 29.18, 36.29
         end
       end
 
@@ -146,24 +148,29 @@ module Exports
 
     def ket_toan_styles(workbook)
       styles = workbook.styles
-      font = { font_name: "Times New Roman", alignment: { horizontal: :center, vertical: :center } }
-      money = '#,##0"₫";[Red]-#,##0"₫"'
-      row = [
-        styles.add_style(font.merge(sz: 14, format_code: money)),
-        styles.add_style(font.merge(sz: 14, format_code: money)),
-        styles.add_style(font.merge(sz: 14, format_code: money)),
-        styles.add_style(font.merge(sz: 14, format_code: "0.00%")),
-        styles.add_style(font.merge(sz: 14, format_code: money)),
-        styles.add_style(font.merge(sz: 14)),
-        styles.add_style(font.merge(sz: 14, format_code: "mm-dd-yy")),
-        styles.add_style(font.merge(sz: 14, format_code: "h:mm:ss")),
-        styles.add_style(font.merge(sz: 14)),
-        styles.add_style(font.merge(sz: 16))
-      ]
+      center = { horizontal: :center, vertical: :center, wrap_text: true }
+      thin = { style: :thin, color: "000000" }
+      base = { font_name: "Times New Roman", alignment: center, border: thin }
+      # Quotes are written straight into the XML attribute, so they must already be escaped.
+      dong = "&quot;₫&quot;#,##0"
+      accounting = "&quot;₫&quot;#,##0_);[Red]\\(&quot;₫&quot;#,##0\\)"
+      money = styles.add_style(base.merge(sz: 14, format_code: dong))
+      deducted = styles.add_style(base.merge(sz: 14, b: true, fg_color: "FF0000", format_code: accounting))
+      rate = styles.add_style(base.merge(sz: 14, format_code: "0.00%"))
+      profit = styles.add_style(base.merge(sz: 14, format_code: accounting))
+      text = styles.add_style(base.merge(sz: 14))
+      date = styles.add_style(base.merge(sz: 14, format_code: "mm-dd-yy"))
+      time = styles.add_style(base.merge(sz: 14, format_code: "h:mm:ss"))
+      household = styles.add_style(base.merge(sz: 16, b: true, fg_color: "FF40FF"))
+      row = [ money, deducted, deducted, rate, profit, text, date, time, text, household ]
       {
-        header: styles.add_style(font.merge(sz: 14, b: true, alignment: { horizontal: :center, vertical: :center, wrap_text: true })),
+        header: styles.add_style(
+          font_name: "Times New Roman", sz: 15, b: true, bg_color: "FFFFFF",
+          alignment: { horizontal: :center, wrap_text: true },
+          border: { style: :medium, color: "000000" }
+        ),
         row: row,
-        sum: row
+        sum: [ money, money, money, rate, money, text, date, time, text, household ]
       }
     end
 

@@ -61,6 +61,24 @@ RSpec.describe FeeRules::Resolver do
     expect(resolve(time: Time.zone.local(2026, 9, 30)).fee_rule.base_fee_rate).to eq(BigDecimal("0.0088"))
   end
 
+  it "applies one card rule to every card type listed on it" do
+    napas = create(:napas_card_type)
+    shared = create(:fee_rule, card_types: [ mb, napas ], base_fee_rate: BigDecimal("0.0088"))
+
+    expect(resolve.fee_rule).to eq(shared)
+    expect(resolve(card_type: napas).fee_rule).to eq(shared)
+    expect(resolve(card_type: normal).fee_rule).not_to eq(shared)
+  end
+
+  it "applies one rule to every household listed on it" do
+    other = create(:merchant, dealer: dealer)
+    shared = create(:fee_rule, merchants: [ merchant, other ], base_fee_rate: BigDecimal("0.0121"))
+
+    expect(resolve.fee_rule).to eq(shared)
+    expect(resolve(merchant: other).fee_rule).to eq(shared)
+    expect(resolve(merchant: create(:merchant, dealer: dealer)).status).to eq(:not_found)
+  end
+
   it "does not apply rules targeted at another merchant or dealer" do
     create(:fee_rule, merchant: create(:merchant))
     create(:fee_rule, dealer: create(:dealer))

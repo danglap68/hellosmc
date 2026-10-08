@@ -15,7 +15,7 @@ module Admin
     def show
       @telegram_chats = @dealer.telegram_chats.ordered
       @merchants = @dealer.merchants.ordered
-      @fee_rules = @dealer.fee_rules.includes(:card_type, :merchant).ordered
+      @fee_rules = @dealer.fee_rules.includes(:card_types, :merchants).ordered
     end
 
     def new

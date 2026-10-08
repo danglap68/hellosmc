@@ -1,0 +1,23 @@
+<% selected = choices.select { |choice| selected_ids.include?(choice[:id]) } %>
+<div class="mb-3">
+  <%= hidden_field_tag "fee_rule[#{field}][]", "" %>
+  <div class="form-label"><%= label %></div>
+  <div class="dropdown choice-dropdown" data-controller="choice-dropdown" data-choice-dropdown-empty-value="<%= empty %>" data-action="change->choice-dropdown#refresh" <%= "data-fee-rule-placeholders-target=\"cardType\"".html_safe if local_assigns[:placeholders] %>>
+    <button type="button" class="form-select choice-dropdown-toggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+      <span data-choice-dropdown-target="summary"><%= selected.any? ? selected.map { |choice| choice[:label] }.join(", ") : empty %></span>
+    </button>
+    <div class="dropdown-menu">
+      <% choices.each do |choice| %>
+        <label class="choice-dropdown-option">
+          <%= check_box_tag "fee_rule[#{field}][]", choice[:id], selected_ids.include?(choice[:id]),
+                class: "form-check-input",
+                id: "fee_rule_#{field}_#{choice[:id]}",
+                data: local_assigns[:placeholders] ? { key: choice[:key], action: "change->fee-rule-placeholders#apply" } : {} %>
+          <span><%= choice[:label] %></span>
+        </label>
+      <% end %>
+    </div>
+  </div>
+  <% if errors.any? %><div class="invalid-feedback d-block"><%= errors.to_sentence %></div><% end %>
+  <small class="form-hint"><%= hint %></small>
+</div>

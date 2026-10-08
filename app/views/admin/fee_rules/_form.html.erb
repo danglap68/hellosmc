@@ -1,4 +1,6 @@
-<% placeholders = fee_rate_placeholders(fee_rule.card_type) %>
+<% placeholders = fee_rate_placeholders(fee_rule.card_types) %>
+<% selected_merchant_ids = fee_rule.merchant_ids.map(&:to_i) %>
+<% selected_card_type_ids = fee_rule.card_type_ids.map(&:to_i) %>
 <%= tabler_form_with model: [:admin, fee_rule] do |form| %>
   <div class="card" data-controller="fee-rule-placeholders">
     <div class="card-body">
@@ -7,8 +9,27 @@
       <p class="text-secondary small"><%= t("fee_rules.form.targeting_help") %></p>
       <div class="row">
         <div class="col-md-4"><%= form.select_field :dealer_id, dealer_options, { include_blank: t("fee_rules.form.any_dealer") } %></div>
-        <div class="col-md-4"><%= form.select_field :merchant_id, merchant_options, { include_blank: t("fee_rules.form.any_merchant") } %></div>
-        <div class="col-md-4"><%= form.select_field :card_type_id, card_type_options(with_key: true), { include_blank: t("fee_rules.any_card_type") }, data: { fee_rule_placeholders_target: "cardType", action: "change->fee-rule-placeholders#apply" } %></div>
+        <div class="col-md-4">
+          <%= render "choice_dropdown",
+                field: "merchant_ids",
+                label: FeeRule.human_attribute_name(:merchant),
+                hint: t("fee_rules.form.merchants_hint"),
+                empty: t("fee_rules.form.any_merchant"),
+                selected_ids: selected_merchant_ids,
+                errors: fee_rule.errors[:merchant_ids],
+                choices: Merchant.ordered.map { |household| { id: household.id, label: "#{household.name} [#{household.code}]" } } %>
+        </div>
+        <div class="col-md-4">
+          <%= render "choice_dropdown",
+                field: "card_type_ids",
+                label: FeeRule.human_attribute_name(:card_type),
+                hint: t("fee_rules.form.card_types_hint"),
+                empty: t("fee_rules.any_card_type"),
+                selected_ids: selected_card_type_ids,
+                errors: fee_rule.errors[:card_type_ids],
+                placeholders: true,
+                choices: CardType.ordered.map { |card_type| { id: card_type.id, label: card_type.name, key: card_type.key } } %>
+        </div>
       </div>
 
       <h4 class="mb-2 mt-2"><%= t("fee_rules.form.rates") %></h4>

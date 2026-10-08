@@ -90,6 +90,13 @@ RSpec.describe Exports::ExcelGenerator do
       expect(formula_at(xml, "B2")).to eq("A2-(A2*D2)")
       expect(formula_at(xml, "C2")).to eq("A2-(A2*1.21%)")
       expect(formula_at(xml, "E2")).to eq("A2*(D2-1.21%)")
+      expect(sheet.row(1)[2]).to eq("Số tiền sau khi trừ phí gốc \n(1,21% với thẻ thường, thẻ MB - 0,88%)")
+      styles = nil
+      Zip::File.open_buffer(StringIO.new(export.file.download)) { |zip| styles = zip.read("xl/styles.xml").force_encoding("UTF-8") }
+      expect(styles).to include("&quot;₫&quot;#,##0")
+      expect(styles).to include("[Red]\\(&quot;₫&quot;#,##0\\)")
+      expect(styles).to include("FF0000")
+      expect(styles).to include("FF40FF")
       expect(book.sheet("1,17").last_row).to eq(1)
       expect(book.sheet("1,15").last_row).to eq(1)
     end

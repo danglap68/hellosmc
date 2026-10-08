@@ -42,11 +42,11 @@ module Exports
       [ placed, skipped ]
     end
 
-    def headers_for(sheet_name)
+    def headers_for(_sheet_name)
       [
         "Số tiền giao dịch",
         "Số tiền đã khấu trừ cho đại lý",
-        "Số tiền sau khi trừ phí gốc\n(#{sheet_name}% với thẻ thường, thẻ MB - 0,88%)",
+        "Số tiền sau khi trừ phí gốc \n(1,21% với thẻ thường, thẻ MB - 0,88%)",
         "Tỷ lệ",
         "Lợi nhuận",
         "Số Lô",
@@ -136,6 +136,11 @@ module Exports
         SPECIAL_CARD_KEYS.include?(transaction.card_type&.key)
       end
 
+      def household_card?(rule)
+        ids = rule.fee_rule_card_types.map(&:card_type_id)
+        ids.empty? || (@normal_card_type_id && ids.include?(@normal_card_type_id))
+      end
+
       def direct_sheet(rate)
         percent = KetToanPhiGocLayout.canonical_percent(rate)
         SHEETS.find { |sheet| sheet[:percent] == percent }&.fetch(:name)
@@ -147,11 +152,12 @@ module Exports
         return nil if merchant.nil? || at.nil?
 
         rules = FeeRule.active.effective_at(at)
-          .where(merchant_id: merchant.id, card_type_id: [ nil, @normal_card_type_id ].uniq)
-          .select { |rule| direct_sheet(rule.base_fee_rate) }
+          .assigned_to_merchant(merchant.id)
+          .includes(:fee_rule_card_types)
+          .select { |rule| household_card?(rule) && direct_sheet(rule.base_fee_rate) }
         return nil if rules.empty?
 
-        ranked = rules.group_by { |rule| rule.card_type_id.present? ? 0 : 1 }.min_by(&:first).last
+        ranked = rules.group_by { |rule| rule.fee_rule_card_types.any? ? 0 : 1 }.min_by(&:first).last
         best_priority = ranked.map(&:priority).min
         chosen = ranked.select { |rule| rule.priority == best_priority }
         names = chosen.map { |rule| direct_sheet(rule.base_fee_rate) }.uniq
@@ -165,8 +171,8 @@ module Exports
         return nil if at.nil? || card_type.nil?
 
         rules = FeeRule.active.effective_at(at)
-          .where(card_type_id: card_type.id)
-          .where(merchant_id: [ nil, transaction.merchant_id ].uniq)
+          .covering_merchant(transaction.merchant_id)
+          .assigned_to_card_type(card_type.id)
           .where(dealer_id: [ nil, transaction.dealer_id ].uniq)
           .to_a
         return nil if rules.empty?

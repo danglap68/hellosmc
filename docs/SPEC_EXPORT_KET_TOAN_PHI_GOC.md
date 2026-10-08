@@ -98,7 +98,7 @@ Ba sheet, đúng thứ tự: `1,21`, `1,17`, `1,15`. Sheet không có dòng dữ
 
 Dòng 1, copy đúng chữ trong file mẫu. Cột C xuống dòng trong header:
 
-`Số tiền sau khi trừ phí gốc` + xuống dòng + `(1,21% với thẻ thường, thẻ MB - 0,88%)`
+`Số tiền sau khi trừ phí gốc` + dấu cách + xuống dòng + `(1,21% với thẻ thường, thẻ MB - 0,88%)`. Cả ba sheet dùng đúng câu này, giống file mẫu.
 
 | Cột | Header | Ô dữ liệu | Nguồn |
 |---|---|---|---|
@@ -117,13 +117,17 @@ Dòng 1, copy đúng chữ trong file mẫu. Cột C xuống dòng trong header:
 
 ### 4.2 Định dạng
 
-Khớp file mẫu:
+Khớp file mẫu `MB 2th10.xlsx`, sheet `1,21`:
 
-- Font Times New Roman. Cột A–I cỡ 14, cột J cỡ 16. Căn giữa.
-- A, B, C, E: format tiền `₫` của file mẫu. B, C, E dùng format đỏ khi âm.
-- D: `0.00%`.
-- F: text.
+- Font Times New Roman. Căn giữa, xuống dòng trong ô. Viền mỏng quanh ô dữ liệu. Dòng dữ liệu cao 21. Dòng tiêu đề cao 132,75, chữ đậm cỡ 15, viền dày.
+- A: `"₫"#,##0`, cỡ 14.
+- B và C: `"₫"#,##0_);[Red]("₫"#,##0)`, cỡ 14, đậm, màu đỏ. Số âm hiện trong ngoặc đỏ.
+- D: `0.00%`, cỡ 14.
+- E: cùng format tiền với B, cỡ 14, chữ đen thường. Số âm hiện trong ngoặc đỏ.
+- F và I: chữ, cỡ 14.
 - G: `mm-dd-yy`. H: `h:mm:ss`.
+- J: chữ, cỡ 16, đậm, màu `FF40FF`.
+- Dòng tổng A, B, C, E dùng `"₫"#,##0`, chữ đen thường. D giữ format phần trăm và không cộng.
 
 ### 4.3 Dòng tổng
 
