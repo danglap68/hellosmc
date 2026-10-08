@@ -5,6 +5,19 @@ RSpec.describe "Fee rule management" do
 
   before { sign_in create(:user, :admin) }
 
+  it "suggests rate placeholders from the selected card type" do
+    visit new_admin_fee_rule_path
+
+    expect(page).to have_field("fee_rule_base_fee_percent", placeholder: "1,21")
+    expect(page).to have_field("fee_rule_dealer_percent", placeholder: "1,4")
+    expect(page).to have_css("option[data-key='mb']", text: "MB")
+    expect(page).to have_css("option[data-key='napas']", text: "Napas")
+
+    visit edit_admin_fee_rule_path(mb_rule)
+    expect(page).to have_field("fee_rule_base_fee_percent", placeholder: "0,88")
+    expect(page).to have_field("fee_rule_dealer_percent", placeholder: "1,2")
+  end
+
   it "creates a rule from percentages and stores exact decimals" do
     visit new_admin_fee_rule_path
     select "Anh Trân", from: "Đại lý"

@@ -4,13 +4,15 @@
   <li class="breadcrumb-item active"><%= t("actions.new") %></li>
 <% end %>
 
-<div class="row">
+<div class="row" data-controller="export-columns">
   <div class="col-lg-7">
     <%= tabler_form_with model: [:admin, @excel_export] do |form| %>
       <div class="card">
         <div class="card-body">
           <%= form.error_summary %>
           <p class="text-secondary"><%= t("excel_exports.new.description") %></p>
+          <%= form.select_field :layout, export_layout_options, {}, required: true,
+                data: { export_columns_target: "layout", action: "change->export-columns#apply" } %>
           <div class="row">
             <div class="col-md-6"><%= form.field :export_date, as: :date_field, required: true, label: t("excel_exports.new.from") %></div>
             <div class="col-md-6"><%= form.field :end_date, as: :date_field, required: true, label: t("excel_exports.new.to") %></div>
@@ -28,12 +30,22 @@
   <div class="col-lg-5">
     <div class="card">
       <div class="card-header"><h3 class="card-title"><%= t("excel_exports.new.columns") %></h3></div>
-      <table class="table card-table">
-        <% Exports::LegacyLayout::COLUMNS.each do |column| %>
-          <tr><td><%= column.header.presence || content_tag(:em, t("excel_exports.new.unnamed_column"), class: "text-secondary") %></td></tr>
-        <% end %>
-      </table>
-      <div class="card-footer small text-secondary"><%= t("excel_exports.new.status_mapping") %></div>
+      <div data-export-columns-target="panel" data-layout="legacy">
+        <table class="table card-table">
+          <% Exports::LegacyLayout::COLUMNS.each do |column| %>
+            <tr><td><%= column.header.presence || content_tag(:em, t("excel_exports.new.unnamed_column"), class: "text-secondary") %></td></tr>
+          <% end %>
+        </table>
+        <div class="card-footer small text-secondary"><%= t("excel_exports.new.status_mapping") %></div>
+      </div>
+      <div data-export-columns-target="panel" data-layout="ket_toan_phi_goc" hidden>
+        <table class="table card-table">
+          <% Exports::KetToanPhiGocLayout::PREVIEW_HEADERS.each do |header| %>
+            <tr><td><%= header %></td></tr>
+          <% end %>
+        </table>
+        <div class="card-footer small text-secondary"><%= t("excel_exports.new.ket_toan_note") %></div>
+      </div>
     </div>
   </div>
 </div>

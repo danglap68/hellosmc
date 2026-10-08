@@ -47,7 +47,7 @@ module Admin
     end
 
     def export_params
-      params.require(:excel_export).permit(:export_date, :end_date)
+      params.require(:excel_export).permit(:export_date, :end_date, :layout)
     end
 
     def preview_count(export)

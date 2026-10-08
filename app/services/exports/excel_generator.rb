@@ -17,29 +17,32 @@ module Exports
 
     def call
       @export.update!(status: "processing", error_message: nil)
-      transactions = nil
+      written = nil
 
       # Rows are locked while the workbook is built so a concurrent hold or
       # edit cannot make the file disagree with the database.
       Transaction.transaction do
         transactions = scope.lock.to_a
+        written, metadata = prepare(transactions)
+        generated_at = Time.current
+        @export.generated_at = generated_at
         bytes = build_workbook(transactions)
         @export.file.attach(io: StringIO.new(bytes), filename: @export.filename, content_type: CONTENT_TYPE,
-                            key: "exports/#{Time.current.strftime('%Y/%m')}/#{SecureRandom.uuid}.xlsx", identify: false)
-        mark_exported(transactions)
+                            key: "exports/#{generated_at.strftime('%Y/%m')}/#{SecureRandom.uuid}.xlsx", identify: false)
+        mark_exported(written)
         @export.update!(
           status: "completed",
-          transaction_count: transactions.size,
-          generated_at: Time.current,
+          transaction_count: written.size,
+          generated_at: generated_at,
           storage_key: @export.file.blob.key,
-          metadata: @export.metadata.merge("totals" => AuditLogger.serialize(totals(transactions)))
+          metadata: @export.metadata.merge(metadata)
         )
         AuditLogger.log!(actor: @export.generated_by, action: "export.generated", auditable: @export,
-                         after_data: { "transaction_count" => transactions.size,
+                         after_data: { "transaction_count" => written.size,
                                        "date_from" => @export.export_date, "date_to" => @export.end_date },
-                         metadata: { "transaction_ids" => transactions.map(&:id) })
+                         metadata: { "transaction_ids" => written.map(&:id) })
       end
-      StructuredLog.info("export.generated", excel_export_id: @export.id, transaction_count: transactions.size)
+      StructuredLog.info("export.generated", excel_export_id: @export.id, transaction_count: written.size)
       @export
     rescue StandardError => e
       @export.update_columns(status: "failed", error_message: e.message.truncate(2000), updated_at: Time.current)
@@ -54,11 +57,22 @@ module Exports
       from = zone.local(@export.export_date.year, @export.export_date.month, @export.export_date.day)
       to = zone.local(@export.end_date.year, @export.end_date.month, @export.end_date.day).end_of_day
       Transaction.where(status: LegacyLayout::EXPORTABLE_STATUSES, transaction_at: from..to)
-        .includes(:merchant, :dealer)
+        .includes(:merchant, :dealer, :card_type)
         .order(:transaction_at, :id)
     end
 
+    def prepare(transactions)
+      if @export.ket_toan_phi_goc?
+        @placed, skipped = KetToanPhiGocLayout.partition(transactions)
+        [ @placed.map(&:transaction), { "skipped" => skipped } ]
+      else
+        [ transactions, { "totals" => AuditLogger.serialize(totals(transactions)) } ]
+      end
+    end
+
     def build_workbook(transactions)
+      return build_ket_toan_workbook if @export.ket_toan_phi_goc?
+
       package = Axlsx::Package.new
       package.use_shared_strings = true
       workbook = package.workbook
@@ -86,6 +100,71 @@ module Exports
       end
 
       package.to_stream.read
+    end
+
+    def build_ket_toan_workbook
+      package = Axlsx::Package.new
+      package.use_shared_strings = true
+      workbook = package.workbook
+      workbook.escape_formulas = false
+      styles = ket_toan_styles(workbook)
+      grouped = KetToanPhiGocLayout::SHEET_NAMES.index_with { [] }
+      Array(@placed).each { |row| grouped[row.sheet_name] << row }
+
+      KetToanPhiGocLayout::SHEET_NAMES.each do |sheet_name|
+        workbook.add_worksheet(name: sheet_name) do |sheet|
+          sheet.add_row KetToanPhiGocLayout.headers_for(sheet_name), style: styles[:header], height: 36
+          grouped[sheet_name].each_with_index do |placed, index|
+            row_number = index + 2
+            formulas = KetToanPhiGocLayout.formulas(row_number, placed.formula_percent)
+            local = placed.transaction.transaction_at.in_time_zone("Asia/Ho_Chi_Minh")
+            sheet.add_row [
+              placed.transaction.transaction_amount_vnd,
+              formulas[:b],
+              formulas[:c],
+              placed.dealer_rate.to_f,
+              formulas[:e],
+              placed.transaction.lot_number.to_s,
+              local.to_date,
+              Time.utc(1899, 12, 30, local.hour, local.min, local.sec),
+              placed.transaction.dealer&.name,
+              placed.transaction.merchant&.name
+            ], style: styles[:row], types: [ :integer, nil, nil, :float, nil, :string, :date, :time, :string, :string ]
+          end
+          if grouped[sheet_name].any?
+            last = grouped[sheet_name].size + 1
+            sums = KetToanPhiGocLayout.sum_formulas(last)
+            sheet.add_row [ sums[:a], sums[:b], sums[:c], nil, sums[:e], nil, nil, nil, nil, nil ],
+              style: styles[:sum], types: [ nil, nil, nil, nil, nil, :string, :string, :string, :string, :string ]
+          end
+          sheet.column_widths 22, 28, 36, 12, 16, 14, 18, 16, 22, 36
+        end
+      end
+
+      package.to_stream.read
+    end
+
+    def ket_toan_styles(workbook)
+      styles = workbook.styles
+      font = { font_name: "Times New Roman", alignment: { horizontal: :center, vertical: :center } }
+      money = '#,##0"₫";[Red]-#,##0"₫"'
+      row = [
+        styles.add_style(font.merge(sz: 14, format_code: money)),
+        styles.add_style(font.merge(sz: 14, format_code: money)),
+        styles.add_style(font.merge(sz: 14, format_code: money)),
+        styles.add_style(font.merge(sz: 14, format_code: "0.00%")),
+        styles.add_style(font.merge(sz: 14, format_code: money)),
+        styles.add_style(font.merge(sz: 14)),
+        styles.add_style(font.merge(sz: 14, format_code: "mm-dd-yy")),
+        styles.add_style(font.merge(sz: 14, format_code: "h:mm:ss")),
+        styles.add_style(font.merge(sz: 14)),
+        styles.add_style(font.merge(sz: 16))
+      ]
+      {
+        header: styles.add_style(font.merge(sz: 14, b: true, alignment: { horizontal: :center, vertical: :center, wrap_text: true })),
+        row: row,
+        sum: row
+      }
     end
 
     def build_styles(workbook)

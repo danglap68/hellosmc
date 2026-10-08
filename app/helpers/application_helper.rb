@@ -164,8 +164,24 @@ module ApplicationHelper
     scope.ordered.map { |merchant| [ "#{merchant.name} [#{merchant.code}]", merchant.id ] }
   end
 
-  def card_type_options(value: :id)
-    CardType.ordered.map { |card_type| [ card_type.name, card_type.public_send(value) ] }
+  def export_layout_options
+    ExcelExport::LAYOUTS.map { |layout| [ t("activerecord.enums.excel_export.layout.#{layout}"), layout ] }
+  end
+
+  def card_type_options(value: :id, with_key: false)
+    CardType.ordered.map do |card_type|
+      choice = [ card_type.name, card_type.public_send(value) ]
+      with_key ? choice + [ { data: { key: card_type.key } } ] : choice
+    end
+  end
+
+  # Placeholder gợi ý trên form quy tắc phí. MB và Napas dùng một cặp, các loại còn lại dùng cặp mặc định.
+  def fee_rate_placeholders(card_type)
+    if card_type&.key.in?(%w[mb napas])
+      { base: "0,88", dealer: "1,2" }
+    else
+      { base: "1,21", dealer: "1,4" }
+    end
   end
 
   def fee_rule_label(fee_rule)

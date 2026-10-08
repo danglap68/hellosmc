@@ -1,5 +1,6 @@
+<% placeholders = fee_rate_placeholders(fee_rule.card_type) %>
 <%= tabler_form_with model: [:admin, fee_rule] do |form| %>
-  <div class="card">
+  <div class="card" data-controller="fee-rule-placeholders">
     <div class="card-body">
       <%= form.error_summary %>
       <h4 class="mb-2"><%= t("fee_rules.form.targeting") %></h4>
@@ -7,7 +8,7 @@
       <div class="row">
         <div class="col-md-4"><%= form.select_field :dealer_id, dealer_options, { include_blank: t("fee_rules.form.any_dealer") } %></div>
         <div class="col-md-4"><%= form.select_field :merchant_id, merchant_options, { include_blank: t("fee_rules.form.any_merchant") } %></div>
-        <div class="col-md-4"><%= form.select_field :card_type_id, card_type_options, { include_blank: t("fee_rules.any_card_type") } %></div>
+        <div class="col-md-4"><%= form.select_field :card_type_id, card_type_options(with_key: true), { include_blank: t("fee_rules.any_card_type") }, data: { fee_rule_placeholders_target: "cardType", action: "change->fee-rule-placeholders#apply" } %></div>
       </div>
 
       <h4 class="mb-2 mt-2"><%= t("fee_rules.form.rates") %></h4>
@@ -16,7 +17,7 @@
           <div class="mb-3">
             <%= form.label :base_fee_percent, FeeRule.human_attribute_name(:base_fee_rate), class: "form-label required" %>
             <div class="input-group">
-              <%= form.text_field :base_fee_percent, class: "form-control #{'is-invalid' if fee_rule.errors[:base_fee_rate].any?}", inputmode: "decimal", placeholder: "0,88" %>
+              <%= form.text_field :base_fee_percent, class: "form-control #{'is-invalid' if fee_rule.errors[:base_fee_rate].any?}", inputmode: "decimal", placeholder: placeholders[:base], data: { fee_rule_placeholders_target: "baseFee" } %>
               <span class="input-group-text">%</span>
             </div>
             <% if fee_rule.errors[:base_fee_rate].any? %><div class="invalid-feedback d-block"><%= fee_rule.errors[:base_fee_rate].to_sentence %></div><% end %>
@@ -27,7 +28,7 @@
           <div class="mb-3">
             <%= form.label :dealer_percent, FeeRule.human_attribute_name(:dealer_rate), class: "form-label" %>
             <div class="input-group">
-              <%= form.text_field :dealer_percent, class: "form-control #{'is-invalid' if fee_rule.errors[:dealer_rate].any?}", inputmode: "decimal", placeholder: "1,21" %>
+              <%= form.text_field :dealer_percent, class: "form-control #{'is-invalid' if fee_rule.errors[:dealer_rate].any?}", inputmode: "decimal", placeholder: placeholders[:dealer], data: { fee_rule_placeholders_target: "dealerFee" } %>
               <span class="input-group-text">%</span>
             </div>
             <% if fee_rule.errors[:dealer_rate].any? %><div class="invalid-feedback d-block"><%= fee_rule.errors[:dealer_rate].to_sentence %></div><% end %>
