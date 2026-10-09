@@ -103,6 +103,12 @@ class Transaction < ApplicationRecord
     Array(source_data["review_reasons"])
   end
 
+  # The base fee the amount was priced with: the card base fee when one applied, else the base fee.
+  # applied_base_fee_rate stays the household tier that picks the export sheet.
+  def base_fee_rate_used
+    applied_card_base_fee_rate || applied_base_fee_rate
+  end
+
   # Snapshot used in audit logs: only business-relevant columns.
   def audit_snapshot
     attributes.slice(

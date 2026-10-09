@@ -1,6 +1,6 @@
 # Spec: tính phí gốc theo thẻ lúc tạo giao dịch
 
-Trạng thái: đã implement và chạy local, gồm cả mục 7 (giữ dòng "Phí gốc lấy từ" sau khi duyệt), mục 8 (rule hộ đã ghi thẻ) và đổi nhãn "Phí dùng để tính". 324 spec qua (`services`, `jobs`, `requests`, `models`, `system`). Giao dịch #10 đã được tính lại theo logic này. Chưa commit.
+Trạng thái: đã implement và chạy local, gồm cả mục 7 (giữ dòng "Phí gốc lấy từ" sau khi duyệt), mục 8 (rule hộ đã ghi thẻ) và đổi nhãn "Phí dùng để tính". 329 spec qua (`services`, `jobs`, `requests`, `models`, `system`). Giao dịch #10 đã được tính lại theo logic này. Chưa commit.
 
 Phạm vi: bước tính tiền sau OCR (`Transactions::Evaluator`), tính lại khi sửa hoặc duyệt (`Transactions::Recalculator`), màn chi tiết giao dịch. Không đổi `Transactions::Calculator`. Không đổi thứ tự chọn rule của `FeeRules::Resolver.call`. File Kết toán theo phí gốc chỉ đổi một chỗ ở cột D của thẻ `mb` và `napas` (mục 5.4 và 6), xem `SPEC_QUY_TAC_MB_NAPAS.md`.
 
@@ -147,7 +147,7 @@ Mở `/admin/transactions/10`. Khung **Cách tính** có: phí dùng để tính
 | Giữ tự động duyệt như logic cũ: không có lý do duyệt tay riêng cho phí gốc theo thẻ | Xong |
 | Xóa `Resolver.card_base_rate` | Xong |
 | Cập nhật `SPEC_EXPORT_KET_TOAN_PHI_GOC.md`, `SPEC_QUY_TAC_MB_NAPAS.md`, `PROJECT_CONTEXT.md` | Xong |
-| Spec | Xong, 324 ví dụ qua |
+| Spec | Xong, 329 ví dụ qua |
 | Giao dịch #10 | Đã tính lại |
 | Commit, push | Chưa |
 
@@ -163,6 +163,8 @@ Mở `/admin/transactions/10`. Khung **Cách tính** có: phí dùng để tính
 8. **Giao dịch tính theo phí gốc theo thẻ tự động duyệt.** Không có bước duyệt tay riêng. Người duyệt chỉ thấy phí này qua dòng **Phí gốc lấy từ** và ô **Phí gốc theo thẻ** trên màn chi tiết. Loại thẻ MB đến từ mặc định của hộ (như hộ #5) hay từ tag caption đều xử lý giống nhau. Muốn bắt buộc duyệt tay thì phải thêm lại một lý do duyệt tay trong `Transactions::Evaluator`.
 9. **Tài liệu khác.** Đã cập nhật `SPEC_EXPORT_KET_TOAN_PHI_GOC.md` (mục 4, 8.4, 8.8), `SPEC_QUY_TAC_MB_NAPAS.md` (phạm vi và dữ liệu thử) và `PROJECT_CONTEXT.md` (mục 10, "Dealer rate meaning"), phân biệt giao dịch cũ (`1,21` / `1,40`) với giao dịch mới (`0,88` / `1,20`).
 10. **`FeeRules::Resolver.card_base_rate` đã xóa.** Spec đổi sang kiểm tra `explicit_card_rule`.
+11. **Thẻ không phải `mb`/`napas` không mượn rule thẻ.** Chỉ `mb` và `napas` được mượn phí gốc của rule ghi thẻ khi rule hộ không ghi thẻ đó (`Resolver::SPECIAL_CARD_KEYS`). Loại thẻ khác (ví dụ Thẻ thường) giữ phí gốc, phí đại lý của chính rule hộ, đúng như logic trước tính năng này, và giao dịch có lý do `card_fee_rule_not_applied` nên vào Cần kiểm tra khi có rule khác ghi loại thẻ đó. File xuất khớp vì công thức của thẻ thường là mức cố định của sheet.
+12. **Giao dịch cũ chưa xuất.** Mỗi ngày chỉ xuất một lần, nên giao dịch MB/Napas tính theo cách cũ không còn nằm chờ lâu. Không cần tính lại hàng loạt.
 
 ## 6. Ngoài phạm vi
 

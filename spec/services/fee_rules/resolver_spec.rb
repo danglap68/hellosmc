@@ -161,7 +161,7 @@ RSpec.describe FeeRules::Resolver do
 
     base_fee = described_class.amount_base_fee(rule: household, merchant: merchant, dealer: dealer, card_type: mb, at: at)
 
-    expect(base_fee.tied?).to be(true)
+    expect(base_fee.review_reason).to eq("card_fee_rule_ambiguous")
     expect(base_fee.rule).to eq(first)
     expect(base_fee.rate).to eq(BigDecimal("0.0088"))
     expect(second.id).to be > first.id
@@ -174,8 +174,30 @@ RSpec.describe FeeRules::Resolver do
 
     base_fee = described_class.amount_base_fee(rule: household, merchant: merchant, dealer: dealer, card_type: mb, at: at)
 
-    expect(base_fee.tied?).to be(false)
+    expect(base_fee.review_reason).to be_nil
     expect(base_fee.rule).to eq(with_household)
+  end
+
+  it "keeps the household base fee and asks for review when another rule lists a card that cannot borrow" do
+    household = create(:fee_rule, merchant: merchant, base_fee_rate: BigDecimal("0.0121"), dealer_rate: BigDecimal("0.014"))
+    create(:fee_rule, card_type: normal, base_fee_rate: BigDecimal("0.0100"), dealer_rate: BigDecimal("0.013"))
+
+    base_fee = described_class.amount_base_fee(rule: household, merchant: merchant, dealer: dealer, card_type: normal, at: at)
+
+    expect(base_fee.rate).to eq(BigDecimal("0.0121"))
+    expect(base_fee.rule).to eq(household)
+    expect(base_fee.card_rate).to be_nil
+    expect(base_fee.dealer_rate).to eq(BigDecimal("0.014"))
+    expect(base_fee.review_reason).to eq("card_fee_rule_not_applied")
+  end
+
+  it "does not ask for review when nothing else lists the card" do
+    household = create(:fee_rule, merchant: merchant, base_fee_rate: BigDecimal("0.0121"))
+
+    base_fee = described_class.amount_base_fee(rule: household, merchant: merchant, dealer: dealer, card_type: normal, at: at)
+
+    expect(base_fee.rate).to eq(BigDecimal("0.0121"))
+    expect(base_fee.review_reason).to be_nil
   end
 
   it "is not found without a transaction time" do

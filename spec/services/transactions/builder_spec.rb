@@ -53,6 +53,19 @@ RSpec.describe Transactions::Builder do
     expect(transaction).to be_needs_review
   end
 
+  it "prices a normal card from the household rule and asks for review when a normal-card rule also exists" do
+    household = create(:fee_rule, merchant: merchant, base_fee_rate: BigDecimal("0.0121"), dealer_rate: BigDecimal("0.014"))
+    create(:fee_rule, card_type: normal_card, base_fee_rate: BigDecimal("0.0100"), dealer_rate: BigDecimal("0.013"))
+
+    transaction = described_class.call(bill_image: analyzed_bill).sole
+
+    expect(transaction.fee_rule).to eq(household)
+    expect(transaction.applied_card_base_fee_rate).to be_nil
+    expect(transaction.amount_after_base_fee_vnd).to eq(11_306_516)
+    expect(transaction.review_reason_codes).to include("card_fee_rule_not_applied")
+    expect(transaction).to be_needs_review
+  end
+
   it "keeps pricing from the card rate when recalculating from the snapshot" do
     create(:fee_rule, merchant: merchant, base_fee_rate: BigDecimal("0.0121"), dealer_rate: BigDecimal("0.014"))
     mb_rule.update!(base_fee_rate: BigDecimal("0.0088"), dealer_rate: BigDecimal("0.012"))

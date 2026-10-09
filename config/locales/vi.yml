@@ -738,6 +738,7 @@ vi:
     fee_rule_not_found: "Không có quy tắc phí phù hợp"
     fee_rule_ambiguous: "Có nhiều quy tắc phí cùng mức ưu tiên"
     card_fee_rule_ambiguous: "Có nhiều quy tắc phí gốc theo thẻ cùng mức, đang dùng quy tắc tạo trước"
+    card_fee_rule_not_applied: "Có quy tắc riêng cho loại thẻ này nhưng đã tính theo cấu hình của hộ kinh doanh, cần xác nhận"
     possible_duplicate: "Có thể trùng với giao dịch khác"
     ocr_failed: "OCR xử lý lỗi"
     child_receipt_after_reprocess: "Sau khi chạy lại, bill được nhận diện là bill con"

@@ -8,7 +8,7 @@ module Exports
       { name: "1,15", percent: BigDecimal("1.15"), formula: "1.15%" }
     ].freeze
     SHEET_NAMES = SHEETS.map { |sheet| sheet[:name] }.freeze
-    SPECIAL_CARD_KEYS = %w[mb napas].freeze
+    SPECIAL_CARD_KEYS = FeeRules::Resolver::SPECIAL_CARD_KEYS
     PREVIEW_HEADERS = [
       "Số tiền giao dịch",
       "Số tiền đã khấu trừ cho đại lý",

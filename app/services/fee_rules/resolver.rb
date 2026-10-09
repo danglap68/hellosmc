@@ -26,12 +26,14 @@ module FeeRules
     #   rule        the rule that gave that rate (the winning rule or a borrowed card rule)
     #   card_rate   the rate to store as the card base fee, nil when the rate is just the household base
     #   dealer_rate dealer rate that goes with the rule that gave the base fee
-    #   tied        several card rules were equally specific; the oldest was used and a reviewer must confirm
-    BaseFee = Data.define(:rate, :rule, :card_rate, :dealer_rate, :tied) do
-      def tied?
-        tied
-      end
-    end
+    #   review_reason  set when the amount cannot be auto-approved: "card_fee_rule_ambiguous" (several card
+    #                  rules were equally specific, the oldest was used) or "card_fee_rule_not_applied"
+    #                  (another rule lists this card but the card does not borrow rates, see below)
+    BaseFee = Data.define(:rate, :rule, :card_rate, :dealer_rate, :review_reason)
+
+    # Only these cards may borrow the rate of a card rule when the household rule does not list them.
+    # Any other card keeps the household's own base fee.
+    SPECIAL_CARD_KEYS = %w[mb napas].freeze
 
     # A card rule found for a household rule that does not list the card.
     CardRuleMatch = Data.define(:rule, :tied)
@@ -67,14 +69,19 @@ module FeeRules
     # A household rule that lists this card prices it itself (card base fee, else its base fee).
     # A household rule that does not list this card borrows another rule that does, else uses its base fee.
     def self.amount_base_fee(rule:, merchant:, dealer:, card_type:, at:)
-      return BaseFee.new(rate: nil, rule: nil, card_rate: nil, dealer_rate: nil, tied: false) unless rule
+      return BaseFee.new(rate: nil, rule: nil, card_rate: nil, dealer_rate: nil, review_reason: nil) unless rule
 
       if rule.fee_rule_merchants.any? && !card_listed?(rule, card_type)
         match = explicit_card_match(merchant:, dealer:, card_type:, at:, except: rule)
         return build_base_fee(rule, rule, rule.base_fee_rate) unless match
 
+        unless SPECIAL_CARD_KEYS.include?(card_type.key)
+          return build_base_fee(rule, rule, rule.base_fee_rate, review_reason: "card_fee_rule_not_applied")
+        end
+
         other = match.rule
-        return build_base_fee(rule, other, other.card_base_fee_rate || other.base_fee_rate, tied: match.tied)
+        return build_base_fee(rule, other, other.card_base_fee_rate || other.base_fee_rate,
+                              review_reason: ("card_fee_rule_ambiguous" if match.tied))
       end
 
       build_base_fee(rule, rule, rule.card_base_fee_rate || rule.base_fee_rate, own_card_field: rule.card_base_fee_rate.present?)
@@ -103,14 +110,14 @@ module FeeRules
 
     # The dealer rate follows the rule that gave the base fee. A source without its own
     # dealer rate keeps the winning rule's.
-    def self.build_base_fee(rule, source, rate, tied: false, own_card_field: false)
+    def self.build_base_fee(rule, source, rate, review_reason: nil, own_card_field: false)
       borrowed = source.id != rule.id
       BaseFee.new(
         rate: rate,
         rule: source,
         card_rate: (rate if borrowed || own_card_field),
         dealer_rate: borrowed && source.dealer_rate.present? ? source.dealer_rate : rule.dealer_rate,
-        tied: tied
+        review_reason: review_reason
       )
     end
     private_class_method :build_base_fee

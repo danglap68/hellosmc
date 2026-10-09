@@ -28,7 +28,7 @@ module Transactions
       card_type_result = check_card_type(merchant, dealer)
       fee_result = check_fee_rule(merchant, dealer, card_type_result.card_type, transaction_at)
       base_fee = base_fee_for(fee_result.fee_rule, merchant, dealer, card_type_result.card_type, transaction_at)
-      @reasons << "card_fee_rule_ambiguous" if base_fee.tied?
+      @reasons << base_fee.review_reason if base_fee.review_reason
       calculation = calculate(amount, fee_result.fee_rule, base_fee)
 
       attributes = {

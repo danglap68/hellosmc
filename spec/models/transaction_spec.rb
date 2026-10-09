@@ -47,6 +47,16 @@ RSpec.describe Transaction do
     end
   end
 
+  describe "#base_fee_rate_used" do
+    it "is the card base fee when one applied, else the base fee" do
+      transaction = build(:transaction, applied_base_fee_rate: BigDecimal("0.0121"), applied_card_base_fee_rate: BigDecimal("0.0088"))
+      expect(transaction.base_fee_rate_used).to eq(BigDecimal("0.0088"))
+
+      transaction.applied_card_base_fee_rate = nil
+      expect(transaction.base_fee_rate_used).to eq(BigDecimal("0.0121"))
+    end
+  end
+
   it "uses bigint money columns and decimal rates" do
     columns = Transaction.columns_hash
     expect(columns["transaction_amount_vnd"].sql_type).to eq("bigint")

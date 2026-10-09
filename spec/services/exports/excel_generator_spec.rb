@@ -39,6 +39,20 @@ RSpec.describe Exports::ExcelGenerator do
     expect(sheet.column(6)).to include("bill hold")
   end
 
+  it "writes the base fee the amount was priced with in the legacy file" do
+    create(:fee_rule, merchant: merchant, base_fee_rate: BigDecimal("0.0121"), dealer_rate: BigDecimal("0.014"))
+    mb_rule.update!(base_fee_rate: BigDecimal("0.0088"), dealer_rate: BigDecimal("0.012"))
+    mb = Transactions::Builder.call(bill_image: analyzed_bill(extraction: "mb_settlement", caption: "MB")).sole
+    expect(mb.applied_base_fee_rate).to eq(BigDecimal("0.0121"))
+    expect(mb.applied_card_base_fee_rate).to eq(BigDecimal("0.0088"))
+
+    described_class.call(excel_export: export)
+
+    sheet = read_sheet(export.reload).sheet("Giao dịch")
+    index = sheet.column(3).index(mb.transaction_amount_vnd)
+    expect(sheet.row(index + 1)[3]).to be_within(0.000001).of(0.0088)
+  end
+
   it "marks approved transactions exported and audits the export" do
     described_class.call(excel_export: export)
 
