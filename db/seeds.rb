@@ -55,9 +55,9 @@ if Rails.env.development?
   unless FeeRule.exists?
     FeeRule.create!(base_fee_rate: BigDecimal("0.0088"), effective_from: start, priority: 100,
                     metadata: { "note" => "DEMO: system default" })
-    FeeRule.create!(card_type: CardType.find_by!(key: "mb"), base_fee_rate: BigDecimal("0.011"),
+    FeeRule.create!(card_types: [ CardType.find_by!(key: "mb") ], base_fee_rate: BigDecimal("0.011"),
                     effective_from: start, priority: 100, metadata: { "note" => "DEMO: MB cards" })
-    FeeRule.create!(card_type: CardType.find_by!(key: "napas"), base_fee_rate: BigDecimal("0.0125"),
+    FeeRule.create!(card_types: [ CardType.find_by!(key: "napas") ], base_fee_rate: BigDecimal("0.0125"),
                     effective_from: start, priority: 100, metadata: { "note" => "DEMO: Napas cards" })
   end
   puts "Development sample data ready."

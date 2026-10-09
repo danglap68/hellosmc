@@ -3,7 +3,8 @@ class Merchant < ApplicationRecord
   belongs_to :default_card_type, class_name: "CardType", optional: true
 
   has_many :merchant_aliases, dependent: :destroy
-  has_many :fee_rules, dependent: :restrict_with_error
+  has_many :fee_rule_merchants, dependent: :restrict_with_error
+  has_many :fee_rules, through: :fee_rule_merchants
   has_many :transactions, dependent: :restrict_with_error
 
   before_validation :normalize_fields

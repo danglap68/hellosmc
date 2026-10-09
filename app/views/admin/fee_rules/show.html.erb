@@ -17,9 +17,10 @@
         <dl class="row mb-0">
           <dt class="col-6"><%= t("fee_rules.specificity") %></dt><dd class="col-6"><span class="badge bg-blue-lt"><%= t("fee_rules.levels.#{@fee_rule.specificity_level}") %></span></dd>
           <dt class="col-6"><%= FeeRule.human_attribute_name(:dealer) %></dt><dd class="col-6"><%= @fee_rule.dealer&.name || t("fee_rules.form.any_dealer") %></dd>
-          <dt class="col-6"><%= FeeRule.human_attribute_name(:merchant) %></dt><dd class="col-6"><%= @fee_rule.merchant&.name || t("fee_rules.form.any_merchant") %></dd>
-          <dt class="col-6"><%= FeeRule.human_attribute_name(:card_type) %></dt><dd class="col-6"><%= @fee_rule.card_type&.name || t("fee_rules.any_card_type") %></dd>
+          <dt class="col-6"><%= FeeRule.human_attribute_name(:merchant) %></dt><dd class="col-6"><%= @fee_rule.merchant_label || t("fee_rules.form.any_merchant") %></dd>
+          <dt class="col-6"><%= FeeRule.human_attribute_name(:card_type) %></dt><dd class="col-6"><%= @fee_rule.card_type_label || t("fee_rules.any_card_type") %></dd>
           <dt class="col-6"><%= FeeRule.human_attribute_name(:base_fee_rate) %></dt><dd class="col-6 fw-bold"><%= format_rate(@fee_rule.base_fee_rate) %> <span class="text-secondary small">(<code><%= @fee_rule.base_fee_rate.to_s("F") %></code>)</span></dd>
+          <dt class="col-6"><%= FeeRule.human_attribute_name(:card_base_fee_rate) %></dt><dd class="col-6"><%= format_rate(@fee_rule.card_base_fee_rate) %></dd>
           <dt class="col-6"><%= FeeRule.human_attribute_name(:dealer_rate) %></dt><dd class="col-6"><%= format_rate(@fee_rule.dealer_rate) %></dd>
           <dt class="col-6"><%= FeeRule.human_attribute_name(:effective_from) %></dt><dd class="col-6"><%= format_datetime(@fee_rule.effective_from) %></dd>
           <dt class="col-6"><%= FeeRule.human_attribute_name(:effective_until) %></dt><dd class="col-6"><%= @fee_rule.effective_until ? format_datetime(@fee_rule.effective_until) : t("fee_rules.open_ended") %></dd>

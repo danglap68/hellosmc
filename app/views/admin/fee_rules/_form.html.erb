@@ -1,33 +1,66 @@
+<% placeholders = fee_rate_placeholders(fee_rule.card_types) %>
+<% selected_merchant_ids = fee_rule.merchant_ids.map(&:to_i) %>
+<% selected_card_type_ids = fee_rule.card_type_ids.map(&:to_i) %>
 <%= tabler_form_with model: [:admin, fee_rule] do |form| %>
-  <div class="card">
+  <div class="card" data-controller="fee-rule-placeholders">
     <div class="card-body">
       <%= form.error_summary %>
       <h4 class="mb-2"><%= t("fee_rules.form.targeting") %></h4>
       <p class="text-secondary small"><%= t("fee_rules.form.targeting_help") %></p>
       <div class="row">
         <div class="col-md-4"><%= form.select_field :dealer_id, dealer_options, { include_blank: t("fee_rules.form.any_dealer") } %></div>
-        <div class="col-md-4"><%= form.select_field :merchant_id, merchant_options, { include_blank: t("fee_rules.form.any_merchant") } %></div>
-        <div class="col-md-4"><%= form.select_field :card_type_id, card_type_options, { include_blank: t("fee_rules.any_card_type") } %></div>
+        <div class="col-md-4">
+          <%= render "choice_dropdown",
+                field: "merchant_ids",
+                label: FeeRule.human_attribute_name(:merchant),
+                hint: t("fee_rules.form.merchants_hint"),
+                empty: t("fee_rules.form.any_merchant"),
+                selected_ids: selected_merchant_ids,
+                errors: fee_rule.errors[:merchant_ids],
+                choices: Merchant.ordered.map { |household| { id: household.id, label: "#{household.name} [#{household.code}]" } } %>
+        </div>
+        <div class="col-md-4">
+          <%= render "choice_dropdown",
+                field: "card_type_ids",
+                label: FeeRule.human_attribute_name(:card_type),
+                hint: t("fee_rules.form.card_types_hint"),
+                empty: t("fee_rules.any_card_type"),
+                selected_ids: selected_card_type_ids,
+                errors: fee_rule.errors[:card_type_ids],
+                placeholders: true,
+                choices: CardType.ordered.map { |card_type| { id: card_type.id, label: card_type.name, key: card_type.key } } %>
+        </div>
       </div>
 
       <h4 class="mb-2 mt-2"><%= t("fee_rules.form.rates") %></h4>
       <div class="row">
-        <div class="col-md-6">
+        <div class="col-md-4">
           <div class="mb-3">
             <%= form.label :base_fee_percent, FeeRule.human_attribute_name(:base_fee_rate), class: "form-label required" %>
             <div class="input-group">
-              <%= form.text_field :base_fee_percent, class: "form-control #{'is-invalid' if fee_rule.errors[:base_fee_rate].any?}", inputmode: "decimal", placeholder: "0,88" %>
+              <%= form.text_field :base_fee_percent, class: "form-control #{'is-invalid' if fee_rule.errors[:base_fee_rate].any?}", inputmode: "decimal", placeholder: placeholders[:base], data: { fee_rule_placeholders_target: "baseFee" } %>
               <span class="input-group-text">%</span>
             </div>
             <% if fee_rule.errors[:base_fee_rate].any? %><div class="invalid-feedback d-block"><%= fee_rule.errors[:base_fee_rate].to_sentence %></div><% end %>
             <small class="form-hint"><%= t("fee_rules.form.percent_hint") %></small>
           </div>
         </div>
-        <div class="col-md-6">
+        <div class="col-md-4 <%= "d-none" unless fee_rule.card_type_ids.any? %>" data-fee-rule-placeholders-target="cardBaseField">
+          <div class="mb-3">
+            <%= form.label :card_base_fee_percent, FeeRule.human_attribute_name(:card_base_fee_rate), class: "form-label" %>
+            <div class="input-group">
+              <%= form.text_field :card_base_fee_percent, class: "form-control #{'is-invalid' if fee_rule.errors[:card_base_fee_rate].any?}", inputmode: "decimal", placeholder: placeholders[:card], data: { fee_rule_placeholders_target: "cardBaseFee" } %>
+              <span class="input-group-text">%</span>
+            </div>
+            <% if fee_rule.errors[:card_base_fee_rate].any? %><div class="invalid-feedback d-block"><%= fee_rule.errors[:card_base_fee_rate].to_sentence %></div><% end %>
+            <small class="form-hint"><%= t("fee_rules.form.card_base_fee_hint") %></small>
+          </div>
+        </div>
+        <div class="col-md-4">
           <div class="mb-3">
             <%= form.label :dealer_percent, FeeRule.human_attribute_name(:dealer_rate), class: "form-label" %>
             <div class="input-group">
-              <%= form.text_field :dealer_percent, class: "form-control #{'is-invalid' if fee_rule.errors[:dealer_rate].any?}", inputmode: "decimal", placeholder: "1,21" %>
+              <%= form.text_field :dealer_percent, class: "form-control #{'is-invalid' if fee_rule.errors[:dealer_rate].any?}", inputmode: "decimal", placeholder: placeholders[:dealer], data: { fee_rule_placeholders_target: "dealerFee" } %>
               <span class="input-group-text">%</span>
             </div>
             <% if fee_rule.errors[:dealer_rate].any? %><div class="invalid-feedback d-block"><%= fee_rule.errors[:dealer_rate].to_sentence %></div><% end %>

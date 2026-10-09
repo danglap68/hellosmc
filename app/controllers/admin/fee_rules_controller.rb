@@ -5,10 +5,10 @@ module Admin
     before_action :set_fee_rule, only: %i[show edit update destroy]
 
     def index
-      scope = FeeRule.includes(:merchant, :dealer, :card_type).ordered
+      scope = FeeRule.includes(:fee_rule_merchants, :merchants, :dealer, :fee_rule_card_types, :card_types).ordered
       scope = scope.where(dealer_id: params[:dealer_id]) if params[:dealer_id].present?
-      scope = scope.where(merchant_id: params[:merchant_id]) if params[:merchant_id].present?
-      scope = scope.where(card_type_id: params[:card_type_id]) if params[:card_type_id].present?
+      scope = scope.assigned_to_merchant(params[:merchant_id]) if params[:merchant_id].present?
+      scope = scope.assigned_to_card_type(params[:card_type_id]) if params[:card_type_id].present?
       scope = scope.active.effective_at(Time.current) if params[:state] == "current"
       scope = scope.where(active: false) if params[:state] == "inactive"
       @pagy, @fee_rules = pagy(scope)
@@ -21,7 +21,8 @@ module Admin
 
     def new
       @fee_rule = FeeRule.new(active: true, priority: 100, effective_from: Time.zone.today.beginning_of_day,
-                              merchant_id: params[:merchant_id], dealer_id: params[:dealer_id])
+                              dealer_id: params[:dealer_id])
+      @fee_rule.merchant_ids = [ params[:merchant_id] ] if params[:merchant_id].present?
     end
 
     def create
@@ -60,12 +61,13 @@ module Admin
     private
 
     def set_fee_rule
-      @fee_rule = FeeRule.find(params[:id])
+      @fee_rule = FeeRule.includes(:fee_rule_merchants, :merchants, :dealer, :fee_rule_card_types, :card_types).find(params[:id])
     end
 
     def fee_rule_params
-      params.require(:fee_rule).permit(:merchant_id, :dealer_id, :card_type_id, :base_fee_percent, :dealer_percent,
-                                       :effective_from, :effective_until, :priority, :active, :note)
+      params.require(:fee_rule).permit(:dealer_id, :base_fee_percent, :card_base_fee_percent, :dealer_percent,
+                                       :effective_from, :effective_until, :priority, :active, :note,
+                                       merchant_ids: [], card_type_ids: [])
     end
   end
 end

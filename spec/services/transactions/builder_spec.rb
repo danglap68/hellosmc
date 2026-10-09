@@ -22,6 +22,125 @@ RSpec.describe Transactions::Builder do
     expect(bill_image.telegram_message.reload).to be_processing_processed
   end
 
+  it "prices the amount from the MB rule when the household rule has no card base fee" do
+    household = create(:fee_rule, merchant: merchant, base_fee_rate: BigDecimal("0.0121"), dealer_rate: BigDecimal("0.014"))
+    mb_rule.update!(base_fee_rate: BigDecimal("0.0088"), dealer_rate: BigDecimal("0.012"))
+
+    transaction = described_class.call(bill_image: analyzed_bill(extraction: "mb_settlement", caption: "MB")).sole
+
+    expect(transaction.fee_rule).to eq(household)
+    expect(transaction.applied_base_fee_rate).to eq(BigDecimal("0.0121"))
+    expect(transaction.applied_dealer_rate).to eq(BigDecimal("0.012"))
+    expect(transaction.applied_card_base_fee_rate).to eq(BigDecimal("0.0088"))
+    expect(transaction.amount_after_base_fee_vnd).to eq(9_912_000)
+    expect(transaction.dealer_amount_vnd).to eq(9_880_000)
+    expect(transaction.profit_amount_vnd).to eq(32_000)
+    expect(transaction.calculation_data.dig("base_fee_rule", "id")).to eq(mb_rule.id)
+    expect(transaction).to be_approved
+  end
+
+  it "uses the oldest card rule and sends the transaction to review when two card rules tie" do
+    create(:fee_rule, merchant: merchant, base_fee_rate: BigDecimal("0.0121"), dealer_rate: BigDecimal("0.014"))
+    mb_rule.update!(base_fee_rate: BigDecimal("0.0088"), dealer_rate: BigDecimal("0.012"))
+    build(:fee_rule, card_type: mb_card, base_fee_rate: BigDecimal("0.0090"), dealer_rate: BigDecimal("0.012"),
+                     priority: mb_rule.priority).save!(validate: false)
+
+    transaction = described_class.call(bill_image: analyzed_bill(extraction: "mb_settlement", caption: "MB")).sole
+
+    expect(transaction.calculation_data.dig("base_fee_rule", "id")).to eq(mb_rule.id)
+    expect(transaction.applied_card_base_fee_rate).to eq(BigDecimal("0.0088"))
+    expect(transaction.review_reason_codes).to include("card_fee_rule_ambiguous")
+    expect(transaction).to be_needs_review
+  end
+
+  it "prices a normal card from the household rule and asks for review when a normal-card rule also exists" do
+    household = create(:fee_rule, merchant: merchant, base_fee_rate: BigDecimal("0.0121"), dealer_rate: BigDecimal("0.014"))
+    create(:fee_rule, card_type: normal_card, base_fee_rate: BigDecimal("0.0100"), dealer_rate: BigDecimal("0.013"))
+
+    transaction = described_class.call(bill_image: analyzed_bill).sole
+
+    expect(transaction.fee_rule).to eq(household)
+    expect(transaction.applied_card_base_fee_rate).to be_nil
+    expect(transaction.amount_after_base_fee_vnd).to eq(11_306_516)
+    expect(transaction.review_reason_codes).to include("card_fee_rule_not_applied")
+    expect(transaction).to be_needs_review
+  end
+
+  it "keeps pricing from the card rate when recalculating from the snapshot" do
+    create(:fee_rule, merchant: merchant, base_fee_rate: BigDecimal("0.0121"), dealer_rate: BigDecimal("0.014"))
+    mb_rule.update!(base_fee_rate: BigDecimal("0.0088"), dealer_rate: BigDecimal("0.012"))
+    transaction = described_class.call(bill_image: analyzed_bill(extraction: "mb_settlement", caption: "MB")).sole
+
+    Transactions::Recalculator.call(transaction, resolve: false)
+
+    expect(transaction.applied_base_fee_rate).to eq(BigDecimal("0.0121"))
+    expect(transaction.amount_after_base_fee_vnd).to eq(9_912_000)
+    expect(transaction.dealer_amount_vnd).to eq(9_880_000)
+  end
+
+  it "auto-approves a household rule when no card rate applies" do
+    create(:fee_rule, merchant: merchant, base_fee_rate: BigDecimal("0.0121"), dealer_rate: BigDecimal("0.014"))
+
+    transaction = described_class.call(bill_image: analyzed_bill).sole
+
+    expect(transaction.applied_card_base_fee_rate).to be_nil
+    expect(transaction).to be_approved
+  end
+
+  it "uses the household card base fee when that rule lists the card" do
+    household = create(:fee_rule, merchant: merchant, card_type: mb_card, base_fee_rate: BigDecimal("0.0121"),
+                                  card_base_fee_rate: BigDecimal("0.0088"), dealer_rate: BigDecimal("0.014"))
+
+    transaction = described_class.call(bill_image: analyzed_bill(extraction: "mb_settlement", caption: "MB")).sole
+
+    expect(transaction.fee_rule).to eq(household)
+    expect(transaction.applied_base_fee_rate).to eq(BigDecimal("0.0121"))
+    expect(transaction.applied_card_base_fee_rate).to eq(BigDecimal("0.0088"))
+    expect(transaction.applied_dealer_rate).to eq(BigDecimal("0.014"))
+    expect(transaction.amount_after_base_fee_vnd).to eq(9_912_000)
+    expect(transaction).to be_approved
+  end
+
+  it "prices from its own base fee and dealer rate when a household rule lists the card without a card base fee" do
+    household = create(:fee_rule, merchant: merchant, card_type: mb_card, base_fee_rate: BigDecimal("0.0121"),
+                                  dealer_rate: BigDecimal("0.014"))
+    mb_rule.update!(base_fee_rate: BigDecimal("0.0088"), dealer_rate: BigDecimal("0.012"))
+
+    transaction = described_class.call(bill_image: analyzed_bill(extraction: "mb_settlement", caption: "MB")).sole
+
+    expect(transaction.fee_rule).to eq(household)
+    expect(transaction.applied_card_base_fee_rate).to be_nil
+    expect(transaction.applied_dealer_rate).to eq(BigDecimal("0.014"))
+    expect(transaction.amount_after_base_fee_vnd).to eq(9_879_000)
+    expect(transaction.dealer_amount_vnd).to eq(9_860_000)
+    expect(transaction.calculation_data.dig("base_fee_rule", "id")).to eq(household.id)
+    expect(transaction).to be_approved
+  end
+
+  it "keeps the base fee source and card rate after the reviewer approves" do
+    create(:fee_rule, merchant: merchant, base_fee_rate: BigDecimal("0.0121"), dealer_rate: BigDecimal("0.014"))
+    mb_rule.update!(base_fee_rate: BigDecimal("0.0088"), dealer_rate: BigDecimal("0.012"))
+    transaction = described_class.call(bill_image: analyzed_bill(extraction: "blurry_settlement", caption: "MB")).sole
+    expect(transaction).to be_needs_review
+    expect(transaction.applied_card_base_fee_rate).to eq(BigDecimal("0.0088"))
+
+    expect(Transactions::Approver.call(transaction: transaction, actor: create(:user, :operator))).to be(true)
+
+    transaction.reload
+    expect(transaction).to be_approved
+    expect(transaction.calculation_data.dig("base_fee_rule", "id")).to eq(mb_rule.id)
+    expect(transaction.calculation_data["card_base_fee_rate"]).to eq("0.0088")
+  end
+
+  it "does not add nil keys when approving a transaction without a card rate" do
+    create(:fee_rule, merchant: merchant, base_fee_rate: BigDecimal("0.0121"), dealer_rate: BigDecimal("0.014"))
+    transaction = described_class.call(bill_image: analyzed_bill(extraction: "blurry_settlement")).sole
+
+    expect(Transactions::Approver.call(transaction: transaction, actor: create(:user, :operator))).to be(true)
+
+    expect(transaction.reload.calculation_data).not_to have_key("card_base_fee_rate")
+  end
+
   it "uses the explicit MB tag from the Telegram message" do
     transaction = described_class.call(bill_image: analyzed_bill(extraction: "mb_settlement", caption: "MB")).sole
 

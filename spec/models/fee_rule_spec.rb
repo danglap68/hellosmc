@@ -38,7 +38,7 @@ RSpec.describe FeeRule do
     merchant = create(:merchant)
     rule = build(:fee_rule, merchant: merchant, dealer: create(:dealer))
     expect(rule).not_to be_valid
-    expect(rule.errors[:merchant_id]).to be_present
+    expect(rule.errors[:merchant_ids]).to be_present
   end
 
   describe "overlap protection" do
@@ -59,6 +59,45 @@ RSpec.describe FeeRule do
     it "accepts a non-overlapping window once the old rule is closed" do
       FeeRule.first.update!(effective_until: Time.zone.local(2026, 6, 1))
       expect(build(:fee_rule, merchant: merchant, effective_from: Time.zone.local(2026, 6, 1))).to be_valid
+    end
+  end
+
+  describe "several households on one rule" do
+    it "refuses another rule that shares one household" do
+      first, second = create_list(:merchant, 2)
+      create(:fee_rule, merchants: [ first, second ])
+      expect(build(:fee_rule, merchant: second)).not_to be_valid
+    end
+
+    it "accepts a rule whose households do not overlap" do
+      create(:fee_rule, merchant: create(:merchant))
+      expect(build(:fee_rule, merchant: create(:merchant))).to be_valid
+    end
+  end
+
+  describe "households and card types on one rule" do
+    it "stores a card base fee for any selected card types" do
+      rule = build(:fee_rule, merchants: create_list(:merchant, 2),
+        card_types: [ create(:mb_card_type), create(:napas_card_type) ],
+        card_base_fee_percent: "0,88")
+      expect(rule).to be_valid
+      expect(rule.card_base_fee_rate).to eq(BigDecimal("0.0088"))
+    end
+
+    it "drops the card base fee when no card type is selected" do
+      rule = build(:fee_rule, card_base_fee_percent: "0,88")
+      rule.valid?
+      expect(rule.card_base_fee_rate).to be_nil
+    end
+  end
+
+  describe "several card types on one rule" do
+    it "applies to each selected card and refuses a rule that shares one card" do
+      mb = create(:mb_card_type)
+      napas = create(:napas_card_type)
+      create(:fee_rule, card_types: [ mb, napas ])
+      expect(build(:fee_rule, card_type: napas)).not_to be_valid
+      expect(build(:fee_rule, card_type: create(:normal_card_type))).to be_valid
     end
   end
 

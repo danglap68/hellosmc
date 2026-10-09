@@ -199,7 +199,8 @@ vi:
       reviews: "Lịch sử kiểm tra"
     calculation:
       formula: "Công thức"
-      base_fee_rate: "Phí gốc áp dụng"
+      base_fee_rate: "Phí dùng để tính"
+      base_fee_rule: "Phí gốc lấy từ"
       dealer_formula: "Công thức tiền đại lý"
       profit_formula: "Công thức lợi nhuận"
       rounding: "Làm tròn"
@@ -382,9 +383,12 @@ vi:
       state_current: "Đang hiệu lực"
     form:
       targeting: "Phạm vi áp dụng"
-      targeting_help: "Để trống một trường nghĩa là áp dụng cho tất cả."
+      targeting_help: "Để trống một trường nghĩa là áp dụng cho tất cả. Nhóm hộ chỉ dùng một loại thẻ thì tick các hộ đó cùng loại thẻ."
       any_dealer: "Mọi đại lý"
       any_merchant: "Mọi hộ kinh doanh"
+      merchants_hint: "Mở danh sách và tick từng hộ. Để trống nếu áp dụng cho mọi hộ."
+      card_types_hint: "Mở danh sách và tick từng loại thẻ. Để trống nếu áp dụng cho mọi loại thẻ."
+      card_base_fee_hint: "Hiện khi đã chọn loại thẻ. Phí gốc chọn sheet. Số này đưa vào công thức cột C và E."
       rates: "Mức phí"
       percent_hint: "Nhập theo phần trăm, ví dụ 0,88 cho 0,88%."
       dealer_rate_hint: "Không bắt buộc. Dùng để tính tiền đại lý và lợi nhuận."
@@ -433,6 +437,7 @@ vi:
       columns: "Các cột trong file"
       unnamed_column: "(cột không tên – đại lý)"
       status_mapping: "Trạng thái: Đã duyệt / Đã xuất Excel → “Thành công”; Tạm giữ → “bill hold”."
+      ket_toan_note: "Giao dịch không thuộc ba mức phí gốc thì không có trong file."
     show:
       title: "Lần xuất #%{id}"
       generating: "Đang tạo file… trang sẽ tự cập nhật."
@@ -440,6 +445,13 @@ vi:
       dealer: "Đại lý"
       success_count: "Thành công"
       hold_count: "Bill hold"
+      skipped: "Dòng không ghi vào file"
+      skipped_none: "Mọi giao dịch trong khoảng ngày đều được ghi."
+      transaction: "Giao dịch"
+      skip_reason: "Lý do"
+      skip_reasons:
+        sheet_unmapped: "Không xác định được sheet"
+        dealer_rate_missing: "Thiếu phí đại lý"
     flash:
       queued: "Đang tạo file Excel."
       not_ready: "File chưa sẵn sàng."
@@ -725,6 +737,8 @@ vi:
     card_type_unknown: "Không xác định được loại thẻ"
     fee_rule_not_found: "Không có quy tắc phí phù hợp"
     fee_rule_ambiguous: "Có nhiều quy tắc phí cùng mức ưu tiên"
+    card_fee_rule_ambiguous: "Có nhiều quy tắc phí gốc theo thẻ cùng mức, đang dùng quy tắc tạo trước"
+    card_fee_rule_not_applied: "Có quy tắc riêng cho loại thẻ này nhưng đã tính theo cấu hình của hộ kinh doanh, cần xác nhận"
     possible_duplicate: "Có thể trùng với giao dịch khác"
     ocr_failed: "OCR xử lý lỗi"
     child_receipt_after_reprocess: "Sau khi chạy lại, bill được nhận diện là bill con"
@@ -806,12 +820,16 @@ vi:
       fee_rule:
         merchant: "Hộ kinh doanh"
         merchant_id: "Hộ kinh doanh"
+        merchant_ids: "Hộ kinh doanh"
         dealer: "Đại lý"
         dealer_id: "Đại lý"
         card_type: "Loại thẻ"
         card_type_id: "Loại thẻ"
+        card_type_ids: "Loại thẻ"
         base_fee_rate: "Phí gốc"
         base_fee_percent: "Phí gốc"
+        card_base_fee_rate: "Phí gốc theo thẻ"
+        card_base_fee_percent: "Phí gốc theo thẻ"
         dealer_rate: "Phí đại lý"
         dealer_percent: "Phí đại lý"
         effective_from: "Hiệu lực từ"
@@ -845,6 +863,7 @@ vi:
         transaction_at: "Ngày giờ giao dịch"
         transaction_amount_vnd: "Số tiền giao dịch"
         applied_base_fee_rate: "Phí gốc"
+        applied_card_base_fee_rate: "Phí gốc theo thẻ"
         amount_after_base_fee_vnd: "Số tiền sau khi trừ phí gốc"
         applied_dealer_rate: "Phí đại lý"
         dealer_amount_vnd: "Số tiền đại lý"
@@ -875,6 +894,7 @@ vi:
         generated_by: "Người tạo"
         generated_at: "Tạo lúc"
         error_message: "Lỗi"
+        layout: "Loại file"
     enums:
       transaction:
         status:
@@ -916,6 +936,9 @@ vi:
           processing: "Đang tạo"
           completed: "Hoàn tất"
           failed: "Lỗi"
+        layout:
+          legacy: "File hiện tại"
+          ket_toan_phi_goc: "Kết toán theo phí gốc"
       transaction_review:
         status:
           open: "Đang chờ"

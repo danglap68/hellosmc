@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_04_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_09_133000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -108,8 +108,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_04_120000) do
     t.index ["telegram_file_unique_id"], name: "index_bill_images_on_telegram_file_unique_id", unique: true, where: "(telegram_file_unique_id IS NOT NULL)"
     t.index ["telegram_message_id"], name: "index_bill_images_on_telegram_message_id"
     t.index ["uploaded_by_id"], name: "index_bill_images_on_uploaded_by_id"
-    t.check_constraint "ocr_status::text = ANY (ARRAY['pending'::character varying, 'processing'::character varying, 'completed'::character varying, 'needs_review'::character varying, 'failed'::character varying, 'duplicate'::character varying]::text[])", name: "bill_images_ocr_status_check"
-    t.check_constraint "source::text = ANY (ARRAY['telegram'::character varying, 'manual_upload'::character varying]::text[])", name: "bill_images_source_check"
+    t.check_constraint "ocr_status::text = ANY (ARRAY['pending'::character varying::text, 'processing'::character varying::text, 'completed'::character varying::text, 'needs_review'::character varying::text, 'failed'::character varying::text, 'duplicate'::character varying::text])", name: "bill_images_ocr_status_check"
+    t.check_constraint "source::text = ANY (ARRAY['telegram'::character varying::text, 'manual_upload'::character varying::text])", name: "bill_images_source_check"
   end
 
   create_table "card_types", force: :cascade do |t|
@@ -147,16 +147,32 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_04_120000) do
     t.jsonb "metadata", default: {}, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "layout", default: "legacy", null: false
     t.index ["export_date"], name: "index_excel_exports_on_export_date"
     t.index ["generated_by_id"], name: "index_excel_exports_on_generated_by_id"
     t.check_constraint "end_date >= export_date", name: "excel_exports_date_range"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'processing'::character varying, 'completed'::character varying, 'failed'::character varying]::text[])", name: "excel_exports_status_check"
+    t.check_constraint "layout::text = ANY (ARRAY['legacy'::character varying::text, 'ket_toan_phi_goc'::character varying::text])", name: "excel_exports_layout_check"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'processing'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text])", name: "excel_exports_status_check"
+  end
+
+  create_table "fee_rule_card_types", force: :cascade do |t|
+    t.bigint "fee_rule_id", null: false
+    t.bigint "card_type_id", null: false
+    t.index ["card_type_id"], name: "index_fee_rule_card_types_on_card_type_id"
+    t.index ["fee_rule_id", "card_type_id"], name: "index_fee_rule_card_types_on_fee_rule_id_and_card_type_id", unique: true
+    t.index ["fee_rule_id"], name: "index_fee_rule_card_types_on_fee_rule_id"
+  end
+
+  create_table "fee_rule_merchants", force: :cascade do |t|
+    t.bigint "fee_rule_id", null: false
+    t.bigint "merchant_id", null: false
+    t.index ["fee_rule_id", "merchant_id"], name: "index_fee_rule_merchants_on_fee_rule_id_and_merchant_id", unique: true
+    t.index ["fee_rule_id"], name: "index_fee_rule_merchants_on_fee_rule_id"
+    t.index ["merchant_id"], name: "index_fee_rule_merchants_on_merchant_id"
   end
 
   create_table "fee_rules", force: :cascade do |t|
-    t.bigint "merchant_id"
     t.bigint "dealer_id"
-    t.bigint "card_type_id"
     t.decimal "base_fee_rate", precision: 10, scale: 6, null: false
     t.decimal "dealer_rate", precision: 10, scale: 6
     t.datetime "effective_from", null: false
@@ -166,12 +182,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_04_120000) do
     t.jsonb "metadata", default: {}, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.index ["active", "merchant_id", "dealer_id", "card_type_id"], name: "index_fee_rules_on_targeting"
-    t.index ["card_type_id"], name: "index_fee_rules_on_card_type_id"
+    t.decimal "card_base_fee_rate", precision: 10, scale: 6
+    t.index ["active", "dealer_id"], name: "index_fee_rules_on_targeting"
     t.index ["dealer_id"], name: "index_fee_rules_on_dealer_id"
     t.index ["effective_from", "effective_until"], name: "index_fee_rules_on_effective_from_and_effective_until"
-    t.index ["merchant_id"], name: "index_fee_rules_on_merchant_id"
     t.check_constraint "base_fee_rate >= 0::numeric AND base_fee_rate < 1::numeric", name: "fee_rules_base_fee_rate_range"
+    t.check_constraint "card_base_fee_rate IS NULL OR card_base_fee_rate >= 0::numeric AND card_base_fee_rate < 1::numeric", name: "fee_rules_card_base_fee_rate_range"
     t.check_constraint "dealer_rate IS NULL OR dealer_rate >= 0::numeric AND dealer_rate < 1::numeric", name: "fee_rules_dealer_rate_range"
     t.check_constraint "effective_until IS NULL OR effective_until > effective_from", name: "fee_rules_effective_range"
   end
@@ -187,7 +203,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_04_120000) do
     t.index ["alias_type", "normalized_alias"], name: "index_merchant_aliases_on_alias_type_and_normalized_alias"
     t.index ["merchant_id"], name: "index_merchant_aliases_on_merchant_id"
     t.index ["normalized_alias"], name: "index_merchant_aliases_on_normalized_alias"
-    t.check_constraint "alias_type::text = ANY (ARRAY['receipt_name'::character varying, 'telegram_name'::character varying, 'merchant_id'::character varying, 'terminal_id'::character varying, 'terminal_name'::character varying, 'manual'::character varying]::text[])", name: "merchant_aliases_alias_type_check"
+    t.check_constraint "alias_type::text = ANY (ARRAY['receipt_name'::character varying::text, 'telegram_name'::character varying::text, 'merchant_id'::character varying::text, 'terminal_id'::character varying::text, 'terminal_name'::character varying::text, 'manual'::character varying::text])", name: "merchant_aliases_alias_type_check"
   end
 
   create_table "merchants", force: :cascade do |t|
@@ -253,7 +269,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_04_120000) do
     t.index ["reviewed_by_id"], name: "index_transaction_reviews_on_reviewed_by_id"
     t.index ["status"], name: "index_transaction_reviews_on_status"
     t.index ["transaction_id"], name: "index_transaction_reviews_on_transaction_id"
-    t.check_constraint "status::text = ANY (ARRAY['open'::character varying, 'approved'::character varying, 'rejected'::character varying, 'held'::character varying, 'superseded'::character varying]::text[])", name: "transaction_reviews_status_check"
+    t.check_constraint "status::text = ANY (ARRAY['open'::character varying::text, 'approved'::character varying::text, 'rejected'::character varying::text, 'held'::character varying::text, 'superseded'::character varying::text])", name: "transaction_reviews_status_check"
   end
 
   create_table "transactions", force: :cascade do |t|
@@ -283,6 +299,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_04_120000) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.integer "lock_version", default: 0, null: false
+    t.decimal "applied_card_base_fee_rate", precision: 10, scale: 6
     t.index ["approved_by_id"], name: "index_transactions_on_approved_by_id"
     t.index ["bill_image_id", "source_index"], name: "index_transactions_on_bill_image_and_source_index", unique: true, where: "(bill_image_id IS NOT NULL)"
     t.index ["bill_image_id"], name: "index_transactions_on_bill_image_id"
@@ -296,8 +313,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_04_120000) do
     t.index ["status"], name: "index_transactions_on_status"
     t.index ["telegram_message_id"], name: "index_transactions_on_telegram_message_id"
     t.index ["transaction_at"], name: "index_transactions_on_transaction_at"
-    t.check_constraint "(status::text <> ALL (ARRAY['approved'::character varying, 'exported'::character varying]::text[])) OR dealer_id IS NOT NULL AND merchant_id IS NOT NULL AND card_type_id IS NOT NULL AND transaction_at IS NOT NULL AND transaction_amount_vnd IS NOT NULL AND applied_base_fee_rate IS NOT NULL AND amount_after_base_fee_vnd IS NOT NULL", name: "transactions_approved_complete"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'processing'::character varying, 'needs_review'::character varying, 'approved'::character varying, 'rejected'::character varying, 'hold'::character varying, 'exported'::character varying, 'failed'::character varying]::text[])", name: "transactions_status_check"
+    t.check_constraint "(status::text <> ALL (ARRAY['approved'::character varying::text, 'exported'::character varying::text])) OR dealer_id IS NOT NULL AND merchant_id IS NOT NULL AND card_type_id IS NOT NULL AND transaction_at IS NOT NULL AND transaction_amount_vnd IS NOT NULL AND applied_base_fee_rate IS NOT NULL AND amount_after_base_fee_vnd IS NOT NULL", name: "transactions_approved_complete"
+    t.check_constraint "applied_card_base_fee_rate IS NULL OR applied_card_base_fee_rate >= 0::numeric AND applied_card_base_fee_rate < 1::numeric", name: "transactions_applied_card_base_fee_rate_range"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'processing'::character varying::text, 'needs_review'::character varying::text, 'approved'::character varying::text, 'rejected'::character varying::text, 'hold'::character varying::text, 'exported'::character varying::text, 'failed'::character varying::text])", name: "transactions_status_check"
     t.check_constraint "transaction_amount_vnd IS NULL OR transaction_amount_vnd > 0", name: "transactions_amount_positive"
   end
 
@@ -323,7 +341,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_04_120000) do
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
     t.index ["unlock_token"], name: "index_users_on_unlock_token", unique: true
-    t.check_constraint "role::text = ANY (ARRAY['admin'::character varying, 'operator'::character varying, 'viewer'::character varying]::text[])", name: "users_role_check"
+    t.check_constraint "role::text = ANY (ARRAY['admin'::character varying::text, 'operator'::character varying::text, 'viewer'::character varying::text])", name: "users_role_check"
   end
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
@@ -335,9 +353,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_04_120000) do
   add_foreign_key "bill_images", "users", column: "uploaded_by_id"
   add_foreign_key "dealers", "card_types", column: "default_card_type_id"
   add_foreign_key "excel_exports", "users", column: "generated_by_id"
-  add_foreign_key "fee_rules", "card_types"
+  add_foreign_key "fee_rule_card_types", "card_types"
+  add_foreign_key "fee_rule_card_types", "fee_rules"
+  add_foreign_key "fee_rule_merchants", "fee_rules"
+  add_foreign_key "fee_rule_merchants", "merchants"
   add_foreign_key "fee_rules", "dealers"
-  add_foreign_key "fee_rules", "merchants"
   add_foreign_key "merchant_aliases", "merchants"
   add_foreign_key "merchants", "card_types", column: "default_card_type_id"
   add_foreign_key "merchants", "dealers"

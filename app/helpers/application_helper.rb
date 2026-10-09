@@ -164,8 +164,19 @@ module ApplicationHelper
     scope.ordered.map { |merchant| [ "#{merchant.name} [#{merchant.code}]", merchant.id ] }
   end
 
+  def export_layout_options
+    ExcelExport::LAYOUTS.map { |layout| [ t("activerecord.enums.excel_export.layout.#{layout}"), layout ] }
+  end
+
   def card_type_options(value: :id)
     CardType.ordered.map { |card_type| [ card_type.name, card_type.public_send(value) ] }
+  end
+
+  # Phí gốc luôn gợi ý mức sheet. Phí gốc theo thẻ và phí đại lý chỉ đổi khi mọi loại thẻ đang chọn là MB hoặc Napas.
+  def fee_rate_placeholders(card_types)
+    keys = Array(card_types).compact.map { |card_type| card_type.respond_to?(:key) ? card_type.key : card_type.to_s }
+    special = keys.present? && keys.all? { |key| key.in?(%w[mb napas]) }
+    { base: "1,21", card: (special ? "0,88" : "1,21"), dealer: (special ? "1,2" : "1,4") }
   end
 
   def fee_rule_label(fee_rule)

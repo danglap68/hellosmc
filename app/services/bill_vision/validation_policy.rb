@@ -9,7 +9,8 @@ module BillVision
     end
 
     CONFIGURATION_REASONS = %w[dealer_unmapped dealer_inactive fee_rule_not_found fee_rule_ambiguous
-                               merchant_dealer_mismatch merchant_not_found card_type_conflict card_type_unknown].freeze
+                               card_fee_rule_ambiguous card_fee_rule_not_applied merchant_dealer_mismatch merchant_not_found card_type_conflict
+                               card_type_unknown].freeze
 
     def self.call(normalized:, bill_image: nil)
       new(normalized, bill_image).call

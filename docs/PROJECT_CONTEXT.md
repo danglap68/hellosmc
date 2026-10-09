@@ -34,6 +34,10 @@ into accounting Excel files. SMC automates that, keeps the original evidence, an
    `calculation_data`. Later rule changes never alter booked transactions.
 10. **Calculation** in Ruby only: `amount_after_base_fee = amount × (1 − base_fee_rate)`, BigDecimal,
     rounded half-up to whole VND. Example: 10,000 × (1 − 0.0088) = 9,912.
+    `base_fee_rate` here is the rate used in the formula: normally the winning rule's `base_fee_rate`,
+    but a household rule that lists the card uses its `card_base_fee_rate`, and a household rule that
+    does not list the card borrows another rule that does (stored in `applied_card_base_fee_rate`; see
+    `docs/SPEC_TINH_PHI_THEO_THE.md`). `applied_base_fee_rate` always stays the winning rule's rate.
 11. **Fail safe.** Low confidence, missing values, ambiguity or possible duplicates go to review.
     False positives are worse than review.
 
@@ -41,7 +45,7 @@ into accounting Excel files. SMC automates that, keeps the original evidence, an
 
 | Topic | Decision | Where to change |
 |---|---|---|
-| Dealer rate meaning | If a rule has `dealer_rate`: `dealer_amount = amount × (1 − dealer_rate)`, `profit = amount_after_base_fee − dealer_amount`. Shown and stored, not exported. | `Transactions::Calculator` |
+| Dealer rate meaning | If a rule has `dealer_rate`: `dealer_amount = amount × (1 − dealer_rate)`, `profit = amount_after_base_fee − dealer_amount`. Shown and stored, not exported. The `dealer_rate` comes from the same rule that supplied the formula rate (`FeeRules::Resolver.amount_base_fee(...).dealer_rate`). | `Transactions::Calculator` |
 | Priority direction | Lower number = higher precedence. | `FeeRules::Resolver` |
 | New Telegram groups | Registered inactive; images are stored but not processed until mapped and activated, then processed on demand from the group page. The admin setting "Tự động kích hoạt nhóm Telegram mới" changes this. | `Telegram::UpdateReceiver` |
 | Edited Telegram messages | The new text replaces `message_text` (original kept in `raw_payload` + audit). Bills not yet built use it. If the card-type tags changed, already-built transactions go back to a human (approved/exported → hold, reason `caption_edited`); nothing is re-booked automatically. | `Telegram::UpdateReceiver#handle_edit`, `Transactions::Flagger` |

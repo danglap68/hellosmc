@@ -112,6 +112,10 @@
             <div class="datagrid-content"><%= format_rate(@transaction.applied_base_fee_rate) %></div>
           </div>
           <div class="datagrid-item">
+            <div class="datagrid-title"><%= Transaction.human_attribute_name(:applied_card_base_fee_rate) %></div>
+            <div class="datagrid-content"><%= format_rate(@transaction.applied_card_base_fee_rate) %></div>
+          </div>
+          <div class="datagrid-item">
             <div class="datagrid-title"><%= Transaction.human_attribute_name(:amount_after_base_fee_vnd) %></div>
             <div class="datagrid-content money fw-bold text-green"><%= format_vnd(@transaction.amount_after_base_fee_vnd) %></div>
           </div>
@@ -168,6 +172,14 @@
             <tr><th class="w-50"><%= t("transactions.calculation.formula") %></th><td><code><%= calc["formula"] %></code></td></tr>
             <tr><th><%= Transaction.human_attribute_name(:transaction_amount_vnd) %></th><td class="money"><%= format_vnd(calc["transaction_amount_vnd"]) %></td></tr>
             <tr><th><%= t("transactions.calculation.base_fee_rate") %></th><td><code><%= calc["base_fee_rate"] %></code> (<%= format_rate(calc["base_fee_rate"]) %>)</td></tr>
+            <% source_id = calc.dig("base_fee_rule", "id") %>
+            <% if source_id && source_id != @transaction.fee_rule_id %>
+              <% source_rule = FeeRule.find_by(id: source_id) %>
+              <tr>
+                <th><%= t("transactions.calculation.base_fee_rule") %></th>
+                <td><%= source_rule && can?(:read, :fee_rules) ? link_to(fee_rule_label(source_rule), admin_fee_rule_path(source_rule)) : fee_rule_label(source_rule) %></td>
+              </tr>
+            <% end %>
             <tr><th><%= Transaction.human_attribute_name(:amount_after_base_fee_vnd) %></th><td class="money fw-bold"><%= format_vnd(calc["amount_after_base_fee_vnd"]) %></td></tr>
             <% if calc["dealer_formula"] %>
               <tr><th><%= t("transactions.calculation.dealer_formula") %></th><td><code><%= calc["dealer_formula"] %></code></td></tr>

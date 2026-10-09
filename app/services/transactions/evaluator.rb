@@ -27,7 +27,9 @@ module Transactions
       merchant, merchant_result = check_merchant(dealer)
       card_type_result = check_card_type(merchant, dealer)
       fee_result = check_fee_rule(merchant, dealer, card_type_result.card_type, transaction_at)
-      calculation = calculate(amount, fee_result.fee_rule)
+      base_fee = base_fee_for(fee_result.fee_rule, merchant, dealer, card_type_result.card_type, transaction_at)
+      @reasons << base_fee.review_reason if base_fee.review_reason
+      calculation = calculate(amount, fee_result.fee_rule, base_fee)
 
       attributes = {
         dealer: dealer,
@@ -38,7 +40,8 @@ module Transactions
         transaction_at: transaction_at,
         transaction_amount_vnd: amount,
         confidence_score: @doc["critical_confidence"],
-        **calculation_attributes(calculation, fee_result.fee_rule)
+        **calculation_attributes(calculation, fee_result.fee_rule, base_fee,
+                                 FeeRules::Resolver.household_base_fee_rate(merchant: merchant, at: transaction_at))
       }
 
       Evaluation.new(
@@ -136,24 +139,33 @@ module Transactions
       result
     end
 
-    def calculate(amount, fee_rule)
-      return nil unless amount && fee_rule
+    def calculate(amount, fee_rule, base_fee)
+      return nil unless amount && fee_rule && base_fee.rate
 
-      Calculator.call(transaction_amount_vnd: amount, base_fee_rate: fee_rule.base_fee_rate,
-                      dealer_rate: fee_rule.dealer_rate)
+      Calculator.call(transaction_amount_vnd: amount, base_fee_rate: base_fee.rate, dealer_rate: base_fee.dealer_rate)
     end
 
-    def calculation_attributes(calculation, fee_rule)
+    def base_fee_for(fee_rule, merchant, dealer, card_type, transaction_at)
+      FeeRules::Resolver.amount_base_fee(rule: fee_rule, merchant:, dealer:, card_type:, at: transaction_at)
+    end
+
+    def calculation_attributes(calculation, fee_rule, base_fee, household_base_fee_rate)
       return Recalculator.blank_calculation if calculation.nil?
 
+      base_fee_rule = base_fee.rule
+      card_base_fee_rate = base_fee.card_rate
       {
         applied_base_fee_rate: fee_rule.base_fee_rate,
+        applied_card_base_fee_rate: card_base_fee_rate,
         amount_after_base_fee_vnd: calculation.amount_after_base_fee_vnd,
-        applied_dealer_rate: fee_rule.dealer_rate,
+        applied_dealer_rate: base_fee.dealer_rate,
         dealer_amount_vnd: calculation.dealer_amount_vnd,
         profit_amount_vnd: calculation.profit_amount_vnd,
         calculation_data: calculation.calculation_data.merge(
           "fee_rule" => AuditLogger.serialize(fee_rule.snapshot_attributes),
+          "base_fee_rule" => (AuditLogger.serialize(base_fee_rule.snapshot_attributes) if base_fee_rule),
+          "card_base_fee_rate" => card_base_fee_rate&.to_s("F"),
+          "household_base_fee_rate" => household_base_fee_rate&.to_s("F"),
           "calculated_at" => Time.current.utc.iso8601
         )
       }

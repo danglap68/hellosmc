@@ -1,7 +1,8 @@
 class CardType < ApplicationRecord
   DEFAULT_KEY = "normal".freeze
 
-  has_many :fee_rules, dependent: :restrict_with_error
+  has_many :fee_rule_card_types, dependent: :restrict_with_error
+  has_many :fee_rules, through: :fee_rule_card_types
   has_many :transactions, dependent: :restrict_with_error
 
   before_validation :normalize_key_and_aliases

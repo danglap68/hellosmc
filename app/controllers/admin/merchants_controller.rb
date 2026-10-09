@@ -20,7 +20,7 @@ module Admin
     def show
       @merchant_aliases = @merchant.merchant_aliases.order(:alias_type, :alias)
       @merchant_alias = @merchant.merchant_aliases.build(alias_type: "receipt_name")
-      @fee_rules = @merchant.fee_rules.includes(:card_type, :dealer).ordered
+      @fee_rules = @merchant.fee_rules.includes(:fee_rule_merchants, :fee_rule_card_types, :card_types, :dealer).ordered
     end
 
     def new
