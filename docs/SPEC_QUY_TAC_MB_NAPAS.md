@@ -27,7 +27,7 @@ Quy tắc phí thẻ dùng một cặp số cho mọi loại thẻ đã tick. Ph
 
 Sheet vẫn lấy từ quy tắc được gắn đúng hộ, loại thẻ để trống hoặc có Thẻ thường, phí gốc đúng một trong ba mức sheet, còn hiệu lực tại `transaction_at`. Quy tắc MB/Napas không chọn sheet. Quy tắc hệ thống `1,21` không gắn hộ thì không phải sheet của hộ.
 
-`applied_base_fee_rate` và `applied_dealer_rate` trên giao dịch không đổi sau khi xuất.
+Từ `SPEC_TINH_PHI_THEO_THE.md`, file xuất đọc số đã lưu trên giao dịch (`applied_card_base_fee_rate` hoặc `applied_base_fee_rate`, `applied_dealer_rate`, và mức hộ lưu trong `calculation_data`), không tra lại quy tắc lúc xuất. Phần "Việc lúc xuất" trong bảng trên mô tả quy tắc nào cung cấp các số đó lúc tính tiền.
 
 Một quy tắc được tick hộ và loại thẻ cùng lúc. Field **Phí gốc theo thẻ** hiện khi có ít nhất một loại thẻ. Phí gốc của quy tắc đó chọn sheet nếu đúng `1,21` / `1,17` / `1,15`. Phí gốc theo thẻ đưa vào công thức. Không nhập phí gốc theo thẻ thì công thức dùng phí gốc.
 

@@ -89,10 +89,11 @@ RSpec.describe FeeRules::Resolver do
     household = create(:fee_rule, merchant: merchant, card_type: mb, base_fee_rate: BigDecimal("0.0121"),
                                   card_base_fee_rate: BigDecimal("0.0088"))
 
-    rate, source = described_class.amount_base_fee(rule: household, merchant: merchant, dealer: dealer, card_type: normal, at: at)
+    base_fee = described_class.amount_base_fee(rule: household, merchant: merchant, dealer: dealer, card_type: normal, at: at)
 
-    expect(rate).to eq(BigDecimal("0.0121"))
-    expect(source).to eq(household)
+    expect(base_fee.rate).to eq(BigDecimal("0.0121"))
+    expect(base_fee.rule).to eq(household)
+    expect(base_fee.card_rate).to be_nil
   end
 
   it "uses its own card base fee, else its own base fee, when the household rule lists the card" do
@@ -101,10 +102,12 @@ RSpec.describe FeeRules::Resolver do
                                       card_base_fee_rate: BigDecimal("0.0090"))
     args = { merchant: merchant, dealer: dealer, card_type: mb, at: at }
 
-    expect(described_class.amount_base_fee(rule: with_card_fee, **args)).to eq([ BigDecimal("0.0090"), with_card_fee ])
+    own = described_class.amount_base_fee(rule: with_card_fee, **args)
+    expect([ own.rate, own.rule, own.card_rate ]).to eq([ BigDecimal("0.0090"), with_card_fee, BigDecimal("0.0090") ])
 
     with_card_fee.update!(card_base_fee_rate: nil)
-    expect(described_class.amount_base_fee(rule: with_card_fee.reload, **args)).to eq([ BigDecimal("0.0121"), with_card_fee ])
+    plain = described_class.amount_base_fee(rule: with_card_fee.reload, **args)
+    expect([ plain.rate, plain.rule, plain.card_rate ]).to eq([ BigDecimal("0.0121"), with_card_fee, nil ])
     expect(mb_rule).to be_persisted
   end
 
@@ -140,11 +143,39 @@ RSpec.describe FeeRules::Resolver do
   it "takes the dealer rate from the rule that gave the base fee" do
     household = create(:fee_rule, merchant: merchant, base_fee_rate: BigDecimal("0.0121"), dealer_rate: BigDecimal("0.014"))
     mb_rule = create(:fee_rule, card_type: mb, base_fee_rate: BigDecimal("0.0088"), dealer_rate: BigDecimal("0.012"))
-    no_dealer_rate = create(:fee_rule, card_type: normal, base_fee_rate: BigDecimal("0.0100"), dealer_rate: nil)
+    args = { rule: household, merchant: merchant, dealer: dealer, at: at }
 
-    expect(described_class.amount_dealer_rate(rule: household, source: mb_rule)).to eq(BigDecimal("0.012"))
-    expect(described_class.amount_dealer_rate(rule: household, source: no_dealer_rate)).to eq(BigDecimal("0.014"))
-    expect(described_class.amount_dealer_rate(rule: household, source: household)).to eq(BigDecimal("0.014"))
+    borrowed = described_class.amount_base_fee(card_type: mb, **args)
+    expect([ borrowed.rule, borrowed.dealer_rate, borrowed.card_rate ]).to eq([ mb_rule, BigDecimal("0.012"), BigDecimal("0.0088") ])
+
+    mb_rule.update!(dealer_rate: nil)
+    expect(described_class.amount_base_fee(card_type: mb, **args).dealer_rate).to eq(BigDecimal("0.014"))
+    expect(described_class.amount_base_fee(card_type: normal, **args).dealer_rate).to eq(BigDecimal("0.014"))
+  end
+
+  it "uses the oldest card rule and flags a tie when two card rules are equally specific" do
+    household = create(:fee_rule, merchant: merchant, base_fee_rate: BigDecimal("0.0121"))
+    first = create(:fee_rule, card_type: mb, base_fee_rate: BigDecimal("0.0088"), priority: 100)
+    second = build(:fee_rule, card_type: mb, base_fee_rate: BigDecimal("0.0090"), priority: 100)
+    second.save!(validate: false)
+
+    base_fee = described_class.amount_base_fee(rule: household, merchant: merchant, dealer: dealer, card_type: mb, at: at)
+
+    expect(base_fee.tied?).to be(true)
+    expect(base_fee.rule).to eq(first)
+    expect(base_fee.rate).to eq(BigDecimal("0.0088"))
+    expect(second.id).to be > first.id
+  end
+
+  it "does not flag a tie when a household card rule beats a card-only rule" do
+    household = create(:fee_rule, merchant: merchant, base_fee_rate: BigDecimal("0.0121"))
+    create(:fee_rule, card_type: mb, base_fee_rate: BigDecimal("0.0088"), priority: 100)
+    with_household = create(:fee_rule, merchant: merchant, card_type: mb, base_fee_rate: BigDecimal("0.0095"), priority: 100)
+
+    base_fee = described_class.amount_base_fee(rule: household, merchant: merchant, dealer: dealer, card_type: mb, at: at)
+
+    expect(base_fee.tied?).to be(false)
+    expect(base_fee.rule).to eq(with_household)
   end
 
   it "is not found without a transaction time" do

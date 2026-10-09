@@ -78,17 +78,17 @@ Thẻ thường đối chiếu với số đã chốt trên giao dịch:
 
 Ví dụ thẻ thường của một hộ vào sheet `1,21` và cột D = 1,40%: quy tắc phí của hộ đó có **Phí gốc `1,21`**, **Phí đại lý `1,40`**, và giao dịch đã chốt hai số đó.
 
-Thẻ `mb` hoặc `napas` dùng hai nguồn lúc xuất file. Snapshot trên giao dịch không đổi, và không được dùng cho sheet, cho phần trăm trong C/E, hay cho cột D.
+Thẻ `mb` hoặc `napas` cũng chỉ đọc số đã lưu trên giao dịch lúc tính tiền. File không tra lại bảng quy tắc, nên sửa quy tắc sau khi duyệt không làm lệch công thức Excel so với số tiền đã lưu.
 
 | Việc | Nguồn |
 |---|---|
-| Tên sheet | Quy tắc đang hiệu lực của đúng hộ, loại thẻ để trống hoặc `normal`, phí gốc đúng `1,21` / `1,17` / `1,15` |
-| Công thức cột C và E | `base_fee_rate` của quy tắc loại thẻ `mb` hoặc `napas` |
-| Cột D | `dealer_rate` của cùng quy tắc loại thẻ đó |
+| Công thức cột C và E | `applied_card_base_fee_rate`, nếu trống thì `applied_base_fee_rate` (đúng mức đã dùng để tính tiền) |
+| Cột D | `applied_dealer_rate` |
+| Tên sheet | `applied_base_fee_rate` nếu quy tắc thắng gắn đúng hộ và mức đó là `1,21` / `1,17` / `1,15`. Nếu không (quy tắc thắng là quy tắc chỉ thẻ, hoặc mức không phải mức sheet) thì dùng `calculation_data["household_base_fee_rate"]`, mức phí gốc của quy tắc hộ (loại thẻ để trống hoặc `normal`) được lưu lúc tính tiền |
 
-Quy tắc loại thẻ phải còn hiệu lực tại `transaction_at`. Merchant và đại lý của quy tắc khớp giao dịch, hoặc để trống. Mức cụ thể nhất thắng: hộ + thẻ, rồi đại lý + thẻ, rồi chỉ loại thẻ. Cùng mức, cùng `priority`, nhiều hơn một quy tắc thì không ghi dòng.
+Giao dịch được tính trước khi có `household_base_fee_rate` (không có khóa này) thì mức hộ được tra lại theo quy tắc đang hiệu lực. Nếu không tìm được sheet thì bỏ dòng với lý do `sheet_unmapped`.
 
-Ví dụ hộ có phí gốc `1,21` và phí đại lý `1,40`. Quy tắc thẻ MB có phí gốc `0,88` và phí đại lý `1,20`. Giao dịch thẻ MB của hộ đó có thể đang chốt `1,21` và `1,40` (giao dịch cũ) hoặc `applied_card_base_fee_rate` `0,88` và `applied_dealer_rate` `1,20` (giao dịch mới, xem `SPEC_TINH_PHI_THEO_THE.md`) trong database. File ghi dòng vào sheet `1,21`, cột C và E dùng `0.88%`, cột D là `0.012`. Sheet không được suy ra từ `0,88`.
+Ví dụ hộ có phí gốc `1,21` và phí đại lý `1,40`. Quy tắc thẻ MB có phí gốc `0,88` và phí đại lý `1,20`. Giao dịch thẻ MB của hộ đó lưu `applied_base_fee_rate` `1,21`, `applied_card_base_fee_rate` `0,88` và `applied_dealer_rate` `1,20` (xem `SPEC_TINH_PHI_THEO_THE.md`). File ghi dòng vào sheet `1,21`, cột C và E dùng `0.88%`, cột D là `0.012`.
 
 ## 4. File đích
 
@@ -251,7 +251,7 @@ Ba giao dịch cùng ngày, phí gốc lần lượt 1,21%, 1,17%, 1,15%, đều
 
 Hộ có quy tắc không gắn loại thẻ, phí gốc 1,21%, phí đại lý 1,40%. Quy tắc chỉ loại thẻ `mb` có phí gốc 0,88%, phí đại lý 1,20%. Giao dịch loại thẻ `mb` được tạo trước khi có `SPEC_TINH_PHI_THEO_THE.md` đang chốt phí gốc 1,21% và phí đại lý 1,40%, vì quy tắc của hộ thắng lúc duyệt. Giao dịch tạo sau đó chốt `applied_base_fee_rate` `0.0121`, `applied_card_base_fee_rate` `0.0088` và `applied_dealer_rate` `0.012`, vì quy tắc hộ không ghi loại thẻ nên mượn quy tắc MB để tính tiền.
 
-Dòng nằm trên sheet `1,21`. C = `=A2-(A2*0.88%)`. E = `=A2*(D2-0.88%)`. D = `0.012`. File luôn đọc quy tắc thẻ lúc xuất, nên cả giao dịch cũ lẫn mới cho cùng kết quả. Sau khi xuất, `applied_base_fee_rate` vẫn là `0.0121`; `applied_dealer_rate` giữ nguyên số đã chốt (`0.014` với giao dịch cũ, `0.012` với giao dịch mới).
+Dòng nằm trên sheet `1,21`. C = `=A2-(A2*0.88%)`. E = `=A2*(D2-0.88%)`. D = `0.012`. File dùng số đã lưu trên giao dịch, nên sửa quy tắc sau khi duyệt không đổi dòng đã xuất. Giao dịch tạo trước khi có `SPEC_TINH_PHI_THEO_THE.md` vẫn mang `0.0121` và `0.014`, nên công thức là `1.21%` và cột D là `0.014`, đúng với số tiền đã lưu.
 
 Quy tắc hộ + thẻ MB, nếu có và còn hiệu lực, được dùng thay cho quy tắc chỉ loại thẻ. Sheet vẫn lấy từ quy tắc phí gốc của hộ.
 
@@ -302,4 +302,4 @@ Mở `/admin/excel_exports/new`.
 
 Giao dịch thẻ thường vào sheet `1,21` khi hộ có quy tắc **Phí gốc `1,21`**, **Phí đại lý `1,40`**, và giao dịch đã duyệt chốt hai số đó.
 
-Giao dịch thẻ MB hoặc Napas của hộ đó vào cùng sheet `1,21` khi có thêm quy tắc loại thẻ, ví dụ MB **Phí gốc `0,88`**, **Phí đại lý `1,20`**. Không cần duyệt lại để đổi snapshot: file đọc quy tắc loại thẻ lúc xuất. Vào `/admin/excel_exports/new`, chọn **Kết toán theo phí gốc**, khoảng ngày có `transaction_at` của giao dịch.
+Giao dịch thẻ MB hoặc Napas của hộ đó vào cùng sheet `1,21` khi có thêm quy tắc loại thẻ, ví dụ MB **Phí gốc `0,88`**, **Phí đại lý `1,20`**. Giao dịch phải được tính (hoặc tính lại) sau khi có quy tắc loại thẻ thì snapshot mới mang mức `0,88` và `1,20`. Vào `/admin/excel_exports/new`, chọn **Kết toán theo phí gốc**, khoảng ngày có `transaction_at` của giao dịch.

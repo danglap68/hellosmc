@@ -1,6 +1,6 @@
 # Spec: tính phí gốc theo thẻ lúc tạo giao dịch
 
-Trạng thái: đã implement và chạy local, gồm cả mục 7 (giữ dòng "Phí gốc lấy từ" sau khi duyệt), mục 8 (rule hộ đã ghi thẻ) và đổi nhãn "Phí dùng để tính". 319 spec qua (`services`, `jobs`, `requests`, `models`, `system`). Giao dịch #10 đã được tính lại theo logic này. Chưa commit.
+Trạng thái: đã implement và chạy local, gồm cả mục 7 (giữ dòng "Phí gốc lấy từ" sau khi duyệt), mục 8 (rule hộ đã ghi thẻ) và đổi nhãn "Phí dùng để tính". 324 spec qua (`services`, `jobs`, `requests`, `models`, `system`). Giao dịch #10 đã được tính lại theo logic này. Chưa commit.
 
 Phạm vi: bước tính tiền sau OCR (`Transactions::Evaluator`), tính lại khi sửa hoặc duyệt (`Transactions::Recalculator`), màn chi tiết giao dịch. Không đổi `Transactions::Calculator`. Không đổi thứ tự chọn rule của `FeeRules::Resolver.call`. File Kết toán theo phí gốc chỉ đổi một chỗ ở cột D của thẻ `mb` và `napas` (mục 5.4 và 6), xem `SPEC_QUY_TAC_MB_NAPAS.md`.
 
@@ -44,21 +44,15 @@ flowchart TD
 | 2. Rule hộ có ghi loại thẻ của giao dịch | Phí gốc theo thẻ của chính nó, nếu trống thì phí gốc của chính nó. Không mượn rule khác | `dealer_rate` của rule hộ |
 | 3. Rule thắng không gắn HKD | Phí gốc theo thẻ, nếu trống thì phí gốc | `dealer_rate` của rule thắng |
 
-Trường hợp 2 gộp 2a (có phí gốc theo thẻ) và 2b cũ. Rule có phí gốc theo thẻ luôn ghi ít nhất một loại thẻ. Rule thắng do resolver chọn luôn bao phủ loại thẻ của giao dịch, nên rule hộ có ghi thẻ luôn rơi vào trường hợp 2. Rule hộ không ghi loại thẻ giao dịch chỉ xảy ra với rule để trống mọi thẻ, hoặc khi người duyệt chọn tay một rule phí: khi đó áp dụng trường hợp 1 và 1b. Cách này khớp với `KetToanPhiGocLayout::SheetPicker#card_fee_rule` của file xuất (xem mục 8).
+Trường hợp 2 gộp 2a (có phí gốc theo thẻ) và 2b cũ. Rule có phí gốc theo thẻ luôn ghi ít nhất một loại thẻ. Rule thắng do resolver chọn luôn bao phủ loại thẻ của giao dịch, nên rule hộ có ghi thẻ luôn rơi vào trường hợp 2. Rule hộ không ghi loại thẻ giao dịch chỉ xảy ra với rule để trống mọi thẻ, hoặc khi người duyệt chọn tay một rule phí: khi đó áp dụng trường hợp 1 và 1b. File xuất đọc số đã lưu trên giao dịch nên luôn khớp với cách tính này (xem mục 8).
 
-Chọn rule thẻ ở trường hợp 1: rule còn hiệu lực tại `transaction_at`, đang bật, có ghi đúng `card_type_id`, đại lý để trống hoặc bằng đại lý của giao dịch, hộ để trống hoặc có hộ của giao dịch, bỏ rule thắng ra. Lấy mức cụ thể nhất, rồi `priority` nhỏ nhất. Còn nhiều hơn một rule thì không chọn rule nào (coi như 1b), không đoán.
+Chọn rule thẻ ở trường hợp 1: rule còn hiệu lực tại `transaction_at`, đang bật, có ghi đúng `card_type_id`, đại lý để trống hoặc bằng đại lý của giao dịch, hộ để trống hoặc có hộ của giao dịch, bỏ rule thắng ra. Lấy mức cụ thể nhất, rồi `priority` nhỏ nhất. Còn nhiều hơn một rule thì lấy rule tạo trước (`id` nhỏ nhất) và đánh dấu hòa: giao dịch có lý do `card_fee_rule_ambiguous`, vào Cần kiểm tra, không tự duyệt.
 
 ### 2.2 Duyệt tay
 
-Giao dịch thuộc trường hợp phức tạp không tự động duyệt. Khi rule thắng gắn HKD và phí tính đến từ phí gốc theo thẻ (trường hợp 1 có rule thẻ, trường hợp 2 khi rule điền phí gốc theo thẻ), giao dịch vào hàng chờ **Cần kiểm tra** với lý do `card_fee_rule_applied`: "Phí tính theo phí gốc theo thẻ (quy tắc thẻ hoặc ô phí gốc theo thẻ) – kiểm tra phí gốc và phí đại lý trước khi duyệt".
+Không thêm lý do duyệt tay nào cho các trường hợp trong bảng 2.1. Giao dịch tính theo phí gốc theo thẻ (trường hợp 1, 2) vẫn **tự động duyệt** như logic cũ, nếu không có lý do khác (hộ không rõ, độ tin cậy thấp, trùng, v.v.). Chỉ cách tính tiền đổi, không đổi điều kiện duyệt. Đã từng thử thêm lý do `card_fee_rule_applied` rồi `card_type_specified` để bắt buộc duyệt tay, và đã bỏ cả hai theo yêu cầu quay về tự duyệt.
 
-| Trường hợp | Trạng thái sau OCR |
-|---|---|
-| 1 có rule thẻ, 2 có phí gốc theo thẻ | `needs_review`, lý do `card_fee_rule_applied` |
-| 1b, 2 bỏ trống phí gốc theo thẻ | Tự động duyệt nếu không có lý do khác |
-| 3 (rule thắng không gắn HKD) | Tự động duyệt nếu không có lý do khác |
-
-Người duyệt bấm duyệt thì hệ thống tính lại số tiền từ các tỷ lệ đã lưu trên giao dịch (`applied_card_base_fee_rate` nếu có, không thì `applied_base_fee_rate`, cùng `applied_dealer_rate`), không tìm lại rule. Lý do này không kích hoạt gọi OCR lần hai.
+Người duyệt bấm duyệt thì hệ thống tính lại số tiền từ các tỷ lệ đã lưu trên giao dịch (`applied_card_base_fee_rate` nếu có, không thì `applied_base_fee_rate`, cùng `applied_dealer_rate`), không tìm lại rule. 
 
 ### 2.3 Dữ liệu lưu trên giao dịch
 
@@ -78,7 +72,7 @@ Các cột tiền và `applied_*` là snapshot. Đổi rule sau này không đ�
 
 ### 2.4 Ví dụ #10
 
-Thẻ MB, hộ `099`, số tiền `77.953.000`. Giao dịch này thuộc trường hợp 1 nên khi tạo mới sẽ nằm ở **Cần kiểm tra**. Bản #10 đang có trên máy được tạo trước khi thêm bước duyệt tay, nên vẫn ở trạng thái đã duyệt.
+Thẻ MB, hộ `099`, số tiền `77.953.000`. Giao dịch này thuộc trường hợp 1 và tự động duyệt nếu không có lý do khác.
 
 | | Rule #6 (thắng) | Rule #2 (nguồn) |
 |---|---|---|
@@ -107,7 +101,7 @@ Rule #6 không có phí gốc theo thẻ, rule #2 ghi MB, nên trường hợp 1
 | Cùng rule hộ, xóa phí gốc theo thẻ | `amount_base_fee` trả phí gốc `1,21%`, nguồn là chính rule hộ, không mượn rule MB riêng |
 | Rule hộ không ghi thẻ (rule thắng), rule chỉ thẻ MB và rule hộ + MB cùng `priority` | `explicit_card_rule` chọn rule hộ + MB, không chọn rule chỉ thẻ MB |
 | Hai rule đang bật cùng đại lý, cùng `priority`, cùng bao phủ thẻ MB | Lưu rule thứ hai bị từ chối (`overlapping_rule`) |
-| Rule nguồn có `dealer_rate` | `amount_dealer_rate` = `dealer_rate` của rule nguồn |
+| Rule nguồn có `dealer_rate` | `BaseFee#dealer_rate` = `dealer_rate` của rule nguồn |
 | Rule nguồn không có `dealer_rate` | Giữ `dealer_rate` của rule thắng |
 | Nguồn chính là rule thắng | `dealer_rate` của rule thắng |
 
@@ -115,10 +109,10 @@ Rule #6 không có phí gốc theo thẻ, rule #2 ghi MB, nên trường hợp 1
 
 | Trường hợp | Kỳ vọng |
 |---|---|
-| Rule hộ `1,21%` / `1,40%`, rule MB `0,88%` / `1,20%`, bill MB `10.000.000` | `fee_rule` là rule hộ. `applied_base_fee_rate` `0.0121`, `applied_dealer_rate` `0.012`, `applied_card_base_fee_rate` `0.0088`. Sau phí gốc `9.912.000`, tiền đại lý `9.880.000`, lợi nhuận `32.000`. `calculation_data["base_fee_rule"]["id"]` là rule MB. Trạng thái `needs_review`, lý do `card_fee_rule_applied` |
-| Rule HKD + MB có phí gốc theo thẻ `0,88%`, bill MB | `applied_base_fee_rate` `0.0121`, `applied_card_base_fee_rate` `0.0088`, sau phí gốc `9.912.000`, phí đại lý của rule hộ. Trạng thái `needs_review`, lý do `card_fee_rule_applied` |
+| Rule hộ `1,21%` / `1,40%`, rule MB `0,88%` / `1,20%`, bill MB `10.000.000` | `fee_rule` là rule hộ. `applied_base_fee_rate` `0.0121`, `applied_dealer_rate` `0.012`, `applied_card_base_fee_rate` `0.0088`. Sau phí gốc `9.912.000`, tiền đại lý `9.880.000`, lợi nhuận `32.000`. `calculation_data["base_fee_rule"]["id"]` là rule MB. Tự động duyệt |
+| Rule HKD + MB có phí gốc theo thẻ `0,88%`, bill MB | `applied_base_fee_rate` `0.0121`, `applied_card_base_fee_rate` `0.0088`, sau phí gốc `9.912.000`, phí đại lý của rule hộ. Tự động duyệt |
 | Rule hộ không có phí gốc theo thẻ, không có rule thẻ, bill thẻ thường | `applied_card_base_fee_rate` trống, tự động duyệt |
-| Rule hộ + MB, không có phí gốc theo thẻ, rule MB riêng `0,88%` / `1,20%` | Phí `1,21%`, phí đại lý `1,40%`, sau phí gốc `9.879.000`, tiền đại lý `9.860.000`, `applied_card_base_fee_rate` trống, `base_fee_rule` là rule hộ, tự động duyệt |
+| Rule hộ + MB, không có phí gốc theo thẻ, rule MB riêng `0,88%` / `1,20%` | Phí `1,21%`, phí đại lý `1,40%`, sau phí gốc `9.879.000`, tiền đại lý `9.860.000`, `applied_card_base_fee_rate` trống, `base_fee_rule` là rule hộ. Tự động duyệt |
 | Duyệt tay giao dịch thuộc trường hợp 1 | `calculation_data["base_fee_rule"]["id"]` vẫn là rule MB và `["card_base_fee_rate"]` vẫn là `"0.0088"` |
 | Duyệt tay giao dịch không có phí gốc theo thẻ | Không sinh khóa `card_base_fee_rate` |
 | Bill thẻ thường, rule mặc định | Không đổi so với trước: phí `0,88%` của rule mặc định, `applied_card_base_fee_rate` trống, tự động duyệt |
@@ -132,8 +126,8 @@ Rule #6 không có phí gốc theo thẻ, rule #2 ghi MB, nên trường hợp 1
 |---|---|
 | Sửa lô, không đổi hộ, thẻ, giờ | Giữ số đã lưu |
 | Đổi loại thẻ sang MB | Tính lại, lấy phí của rule MB |
-| Giao dịch MB có lý do `card_fee_rule_applied`, sửa loại thẻ sang thẻ thường | `applied_card_base_fee_rate` trống, lý do `card_fee_rule_applied` bị bỏ. Các lý do khác giữ nguyên |
-| Sửa lại sang MB | `applied_card_base_fee_rate` `0.0088`, lý do `card_fee_rule_applied` có lại |
+| Giao dịch MB có caption `MB`, sửa loại thẻ sang thẻ thường rồi sửa lại sang MB | `applied_card_base_fee_rate` trống rồi `0.0088`. Danh sách lý do duyệt tay không đổi |
+| Edited Telegram captions | Không đổi: giao dịch có tag đã duyệt vẫn chuyển sang `hold` khi caption bị sửa |
 
 ### 3.4 Kiểm thủ công trên giao dịch #10
 
@@ -144,16 +138,16 @@ Mở `/admin/transactions/10`. Khung **Cách tính** có: phí dùng để tính
 | Hạng mục | Trạng thái |
 |---|---|
 | Cột `transactions.applied_card_base_fee_rate`, migration `20261009133000` | Xong, đã chạy dev và test |
-| `Resolver.amount_base_fee`, `amount_dealer_rate`, `applied_card_rate`, `explicit_card_rule` | Xong |
+| `Resolver.amount_base_fee` (trả `BaseFee`: `rate`, `rule`, `card_rate`, `dealer_rate`, `tied`), `explicit_card_match` | Xong |
 | `calculation_data["base_fee_rule"]` và `["card_base_fee_rate"]` còn nguyên sau khi duyệt tay | Xong, xem mục 7 |
 | Rule hộ đã ghi thẻ, bỏ trống phí gốc theo thẻ: tạo giao dịch khớp file xuất | Xong, xem mục 8 |
 | `Evaluator`, `Recalculator` | Xong |
 | Màn chi tiết giao dịch, nhãn tiếng Việt | Xong |
 | Đổi nhãn khung Cách tính thành "Phí dùng để tính" | Xong |
-| Lý do `card_fee_rule_applied` đồng bộ khi sửa giao dịch (`Corrector#sync_card_fee_reason`) | Xong |
+| Giữ tự động duyệt như logic cũ: không có lý do duyệt tay riêng cho phí gốc theo thẻ | Xong |
 | Xóa `Resolver.card_base_rate` | Xong |
 | Cập nhật `SPEC_EXPORT_KET_TOAN_PHI_GOC.md`, `SPEC_QUY_TAC_MB_NAPAS.md`, `PROJECT_CONTEXT.md` | Xong |
-| Spec | Xong, 319 ví dụ qua |
+| Spec | Xong, 324 ví dụ qua |
 | Giao dịch #10 | Đã tính lại |
 | Commit, push | Chưa |
 
@@ -161,19 +155,19 @@ Mở `/admin/transactions/10`. Khung **Cách tính** có: phí dùng để tính
 
 1. **Phí gốc theo hộ giữ nguyên trên giao dịch.** `applied_base_fee_rate` luôn là phí gốc của rule thắng, nên file xuất chọn sheet cho thẻ thường đúng như trước. Phí gốc theo thẻ chỉ ảnh hưởng số tiền, không ảnh hưởng sheet. Khung **Cách tính** ghi "Phí dùng để tính" cho phí đưa vào công thức (ví dụ `0,88%`), còn ô **Phí gốc** phía trên ghi phí của hộ (`1,21%`). Nhãn cũ "Phí gốc áp dụng" dễ nhầm nên đã đổi (khóa `transactions.calculation.base_fee_rate` trong `config/locales/vi.yml`). **Đã implement.**
 2. **Giao dịch cũ không tự cập nhật.** Giao dịch #6 đến #8 vẫn giữ số cũ. Chỉ giao dịch được tính lại mới đổi.
-3. **Hai rule thẻ cùng mức, cùng `priority`.** Rule thẻ gắn kèm HKD (`merchant_card_type`) luôn được ưu tiên hơn rule chỉ thẻ (`card_type`) vì mức cụ thể cao hơn, không cần so `priority`. Hòa chỉ xảy ra khi hai rule cùng mức, cùng đại lý, cùng `priority`, cùng bao phủ giao dịch. `FeeRule` đã chặn trường hợp này lúc lưu (`no_overlapping_rule_with_same_precedence`, lỗi `overlapping_rule`), nên chỉ còn xảy ra với dữ liệu nhập ngoài form. Khi đó vẫn không chọn rule nào và dùng phí của rule hộ. Không thêm cảnh báo riêng.
-4. **Rule thẻ không có phí đại lý.** Đã chốt: giữ phí đại lý của rule hộ (`amount_dealer_rate` không đổi), nên giao dịch vẫn có tiền đại lý và lợi nhuận. File xuất khớp với quyết định này: với thẻ `mb` và `napas`, `KetToanPhiGocLayout#place_special_card` lấy `dealer_rate` của rule thẻ, nếu rule thẻ để trống thì lấy `applied_dealer_rate` của giao dịch. Chỉ khi cả hai trống mới bỏ dòng với lý do `dealer_rate_missing`. Đã implement.
+3. **Hai rule thẻ cùng mức, cùng `priority`.** Rule thẻ gắn kèm HKD (`merchant_card_type`) luôn được ưu tiên hơn rule chỉ thẻ (`card_type`) vì mức cụ thể cao hơn, không cần so `priority`. Hòa chỉ xảy ra khi hai rule cùng mức, cùng đại lý, cùng `priority`, cùng bao phủ giao dịch. `FeeRule` đã chặn trường hợp này lúc lưu (`no_overlapping_rule_with_same_precedence`, lỗi `overlapping_rule`), nên chỉ còn xảy ra với dữ liệu nhập ngoài form. Khi đó lấy rule tạo trước (`id` nhỏ nhất), file xuất chọn cùng rule, và giao dịch bị đánh dấu `card_fee_rule_ambiguous` nên không tự duyệt. Rule thẻ gắn HKD vẫn thắng rule chỉ thẻ, không bị coi là hòa.
+4. **Rule thẻ không có phí đại lý.** Đã chốt: giữ phí đại lý của rule hộ (`BaseFee#dealer_rate`), nên giao dịch vẫn có tiền đại lý và lợi nhuận. File xuất khớp vì cột D của thẻ `mb` và `napas` lấy `applied_dealer_rate` đã lưu trên giao dịch, đúng số đã dùng để tính tiền. Chỉ khi số này trống mới bỏ dòng với lý do `dealer_rate_missing`. Đã implement.
 5. **Rule hộ ghi thẻ không mượn rule khác.** Rule hộ ghi loại thẻ của giao dịch luôn dùng phí của chính nó, kể cả khi có rule MB riêng rẻ hơn. Đã chốt ở mục 8.
 6. **Duyệt tay từng làm mất dấu rule nguồn.** Đã sửa, chi tiết ở mục 7.
 7. **Tạo giao dịch và xuất file từng lệch nhau khi rule hộ đã ghi loại thẻ nhưng bỏ trống phí gốc theo thẻ.** Đã sửa, chi tiết ở mục 8.
-8. **Lý do `card_fee_rule_applied` theo kết quả tính lại.** `Corrector` bỏ hoặc thêm lý do này sau mỗi lần tính lại, theo việc phí gốc theo thẻ có đang được dùng hay không. Các lý do khác (ví dụ `merchant_not_found`) không bị đụng tới. Đã sửa.
+8. **Giao dịch tính theo phí gốc theo thẻ tự động duyệt.** Không có bước duyệt tay riêng. Người duyệt chỉ thấy phí này qua dòng **Phí gốc lấy từ** và ô **Phí gốc theo thẻ** trên màn chi tiết. Loại thẻ MB đến từ mặc định của hộ (như hộ #5) hay từ tag caption đều xử lý giống nhau. Muốn bắt buộc duyệt tay thì phải thêm lại một lý do duyệt tay trong `Transactions::Evaluator`.
 9. **Tài liệu khác.** Đã cập nhật `SPEC_EXPORT_KET_TOAN_PHI_GOC.md` (mục 4, 8.4, 8.8), `SPEC_QUY_TAC_MB_NAPAS.md` (phạm vi và dữ liệu thử) và `PROJECT_CONTEXT.md` (mục 10, "Dealer rate meaning"), phân biệt giao dịch cũ (`1,21` / `1,40`) với giao dịch mới (`0,88` / `1,20`).
 10. **`FeeRules::Resolver.card_base_rate` đã xóa.** Spec đổi sang kiểm tra `explicit_card_rule`.
 
 ## 6. Ngoài phạm vi
 
 - Không đưa việc dò phí gốc theo thẻ vào OCR. OCR chỉ đọc chữ trên bill. Tỷ lệ nằm trong bảng rule.
-- Không đổi file Kết toán theo phí gốc, ngoại trừ một chỗ: cột D của thẻ `mb` và `napas` lấy `applied_dealer_rate` của giao dịch khi rule thẻ không có phí đại lý (mục 5.4). File vẫn đọc rule thẻ lúc xuất cho phí gốc và sheet.
+- Không đổi file Kết toán theo phí gốc, ngoại trừ một chỗ: cột D của thẻ `mb` và `napas` lấy `applied_dealer_rate` của giao dịch khi rule thẻ không có phí đại lý (mục 5.4). File đọc số đã lưu trên giao dịch (`applied_*` và `calculation_data["household_base_fee_rate"]`), không tra lại rule lúc xuất.
 - Không đổi ngày hiệu lực rule #6. Không kích hoạt nhóm Telegram chat 5.
 
 ## 7. Duyệt tay làm mất dòng "Phí gốc lấy từ"
@@ -192,7 +186,7 @@ Nút duyệt gọi `Transactions::Approver`, và `Approver` gọi `Recalculator`
 
 Màn chi tiết đọc dòng **Phí gốc lấy từ** từ `calculation_data["base_fee_rule"]["id"]`. Khóa mất thì dòng đó không hiện.
 
-Không ảnh hưởng: các cột `applied_*`, ba cột tiền, và dòng **Phí dùng để tính** trong khung Cách tính (do `Calculator` ghi lại). Giao dịch loại `card_fee_rule_applied` luôn phải duyệt tay, nên mọi giao dịch loại này đều bị.
+Không ảnh hưởng: các cột `applied_*`, ba cột tiền, và dòng **Phí dùng để tính** trong khung Cách tính (do `Calculator` ghi lại). Chỉ giao dịch nằm ở Cần kiểm tra vì lý do khác mới được duyệt tay, nên chỉ những giao dịch đó bị mất dòng này.
 
 ### 7.2 Solution
 
@@ -212,7 +206,7 @@ Bộ `calculation_data` đã có `.compact`, nên khóa không có giá trị c�
 | Tạo giao dịch thẻ MB theo trường hợp 1, `calculation_data["base_fee_rule"]["id"]` là rule MB. Sau đó `Approver.call` | Sau khi duyệt, `calculation_data["base_fee_rule"]["id"]` vẫn là rule MB và `calculation_data["card_base_fee_rate"]` vẫn là `"0.0088"` |
 | Giao dịch không dùng card base, duyệt tay | `base_fee_rule` vẫn có và là chính rule thắng. Không có khóa `card_base_fee_rate`, không có khóa `nil` |
 | Giao dịch cũ không có hai khóa, duyệt tay | Duyệt bình thường, số tiền không đổi |
-| Kiểm thủ công | Giao dịch mới thuộc trường hợp 1, vào Cần kiểm tra, bấm duyệt, mở chi tiết: dòng **Phí gốc lấy từ** còn hiện |
+| Kiểm thủ công | Giao dịch thuộc trường hợp 1 nằm ở Cần kiểm tra vì lý do khác (ví dụ độ tin cậy thấp), bấm duyệt, mở chi tiết: dòng **Phí gốc lấy từ** còn hiện |
 
 ### 7.4 Status
 
@@ -232,7 +226,7 @@ Tạo giao dịch và xuất file tìm rule thẻ bằng hai cách khác nhau.
 | | Cách tìm | Với rule hộ + MB, phí gốc theo thẻ để trống |
 |---|---|---|
 | Tạo giao dịch, trước khi sửa (`FeeRules::Resolver.amount_base_fee`, trường hợp 1) | Bỏ rule thắng ra, mượn rule khác ghi đúng thẻ | Mượn rule thẻ MB riêng (#2): `0,88%` / `1,2%` |
-| Xuất file (`KetToanPhiGocLayout::SheetPicker#card_fee_rule`) | Lấy rule cụ thể nhất có ghi thẻ của giao dịch, trong đó có cả rule thắng | Rule hộ + MB là rule cụ thể nhất, nên dùng chính nó: công thức theo phí gốc `1.21%`, cột D `0.014` |
+| Xuất file (`KetToanPhiGocLayout::SheetPicker`, trước khi đổi sang dùng snapshot) | Tra lại rule cụ thể nhất có ghi thẻ lúc xuất | Rule hộ + MB là rule cụ thể nhất, nên dùng chính nó: công thức theo phí gốc `1.21%`, cột D `0.014` |
 
 Dữ liệu minh họa (đã chạy thử trên dữ liệu local, có rollback, không để lại rule nào):
 
@@ -261,7 +255,7 @@ Cách này gộp trường hợp 2a (có phí gốc theo thẻ) và 2b cũ (lo�
 
 Không đổi: rule thắng của resolver, rule không gắn HKD (trường hợp 3), file xuất, giao dịch #10.
 
-Lý do duyệt tay `card_fee_rule_applied` giữ nguyên điều kiện: rule thắng gắn HKD và phí tính đến từ phí gốc theo thẻ (của chính rule hoặc của rule mượn). Rule hộ + MB bỏ trống phí gốc theo thẻ không có phí gốc theo thẻ nào được dùng, nên tự duyệt như rule hộ thường.
+Không thêm lý do duyệt tay: giao dịch tính theo phí gốc theo thẻ vẫn tự duyệt (mục 2.2).
 
 Không chọn hai hướng còn lại:
 
@@ -272,10 +266,10 @@ Không chọn hai hướng còn lại:
 
 | Trường hợp | Kỳ vọng |
 |---|---|
-| Rule hộ + MB, phí gốc `1,21%` / đại lý `1,40%`, không có phí gốc theo thẻ. Rule MB riêng `0,88%` / `1,20%`. Bill MB `10.000.000` | Phí tính `1,21%`, phí đại lý `1,40%`. Sau phí gốc `9.879.000`, tiền đại lý `9.860.000`. `applied_card_base_fee_rate` trống, `base_fee_rule` là chính rule hộ. Tự duyệt |
+| Rule hộ + MB, phí gốc `1,21%` / đại lý `1,40%`, không có phí gốc theo thẻ. Rule MB riêng `0,88%` / `1,20%`. Bill MB `10.000.000` | Phí tính `1,21%`, phí đại lý `1,40%`. Sau phí gốc `9.879.000`, tiền đại lý `9.860.000`. `applied_card_base_fee_rate` trống, `base_fee_rule` là chính rule hộ. Tự động duyệt |
 | Cùng cấu hình, chạy `partition` file xuất | Công thức `1.21%`, cột D `0.014`. Khớp với giao dịch |
-| Rule hộ + MB, phí gốc theo thẻ `0,88%`. Bill MB | Như hiện tại: phí tính `0,88%`, phí đại lý của rule hộ, `needs_review` |
-| Rule hộ không ghi thẻ (như #6), rule MB riêng | Như hiện tại: mượn rule MB, `needs_review`. Giao dịch #10 không đổi |
+| Rule hộ + MB, phí gốc theo thẻ `0,88%`. Bill MB | Như hiện tại: phí tính `0,88%`, phí đại lý của rule hộ, tự động duyệt |
+| Rule hộ không ghi thẻ (như #6), rule MB riêng | Như hiện tại: mượn rule MB, tự động duyệt |
 | Rule hộ không ghi thẻ, không có rule thẻ riêng | Phí gốc của rule hộ, tự duyệt |
 
 Ghi chú: test `uses the household base fee when the card is not listed on a rule that has a card base fee` ở `resolver_spec.rb` gọi `amount_base_fee` trực tiếp với thẻ không nằm trong rule. Sau khi sửa, kết quả vẫn là phí gốc của rule hộ, nhưng lý do là "không ghi thẻ này và không có rule thẻ riêng", nên test đã đổi tên thành `uses the household base fee when the card is not listed and no other rule lists it`. Rule hộ chỉ ghi Napas thì không bao phủ giao dịch MB, nên resolver không chọn nó cho giao dịch MB, không cần test riêng.

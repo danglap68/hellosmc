@@ -45,7 +45,7 @@ into accounting Excel files. SMC automates that, keeps the original evidence, an
 
 | Topic | Decision | Where to change |
 |---|---|---|
-| Dealer rate meaning | If a rule has `dealer_rate`: `dealer_amount = amount × (1 − dealer_rate)`, `profit = amount_after_base_fee − dealer_amount`. Shown and stored, not exported. The `dealer_rate` comes from the same rule that supplied the formula rate (`FeeRules::Resolver.amount_dealer_rate`). | `Transactions::Calculator` |
+| Dealer rate meaning | If a rule has `dealer_rate`: `dealer_amount = amount × (1 − dealer_rate)`, `profit = amount_after_base_fee − dealer_amount`. Shown and stored, not exported. The `dealer_rate` comes from the same rule that supplied the formula rate (`FeeRules::Resolver.amount_base_fee(...).dealer_rate`). | `Transactions::Calculator` |
 | Priority direction | Lower number = higher precedence. | `FeeRules::Resolver` |
 | New Telegram groups | Registered inactive; images are stored but not processed until mapped and activated, then processed on demand from the group page. The admin setting "Tự động kích hoạt nhóm Telegram mới" changes this. | `Telegram::UpdateReceiver` |
 | Edited Telegram messages | The new text replaces `message_text` (original kept in `raw_payload` + audit). Bills not yet built use it. If the card-type tags changed, already-built transactions go back to a human (approved/exported → hold, reason `caption_edited`); nothing is re-booked automatically. | `Telegram::UpdateReceiver#handle_edit`, `Transactions::Flagger` |

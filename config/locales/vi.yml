@@ -737,7 +737,7 @@ vi:
     card_type_unknown: "Không xác định được loại thẻ"
     fee_rule_not_found: "Không có quy tắc phí phù hợp"
     fee_rule_ambiguous: "Có nhiều quy tắc phí cùng mức ưu tiên"
-    card_fee_rule_applied: "Phí tính theo phí gốc theo thẻ (quy tắc thẻ hoặc ô phí gốc theo thẻ) – kiểm tra phí gốc và phí đại lý trước khi duyệt"
+    card_fee_rule_ambiguous: "Có nhiều quy tắc phí gốc theo thẻ cùng mức, đang dùng quy tắc tạo trước"
     possible_duplicate: "Có thể trùng với giao dịch khác"
     ocr_failed: "OCR xử lý lỗi"
     child_receipt_after_reprocess: "Sau khi chạy lại, bill được nhận diện là bill con"

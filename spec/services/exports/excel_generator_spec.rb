@@ -116,10 +116,13 @@ RSpec.describe Exports::ExcelGenerator do
       mb_rule.update!(base_fee_rate: BigDecimal("0.0088"), dealer_rate: BigDecimal("0.012"))
       row = place_transaction(card_type: mb_card, applied_base_fee_rate: BigDecimal("0.0121"),
         applied_dealer_rate: BigDecimal("0.014"), transaction_amount_vnd: 1_000_000, lot_number: "1")
+      Transactions::Recalculator.call(row, resolve: true)
+      row.save!
       described_class.call(excel_export: export)
 
       expect(row.reload.applied_base_fee_rate).to eq(BigDecimal("0.0121"))
-      expect(row.applied_dealer_rate).to eq(BigDecimal("0.014"))
+      expect(row.applied_card_base_fee_rate).to eq(BigDecimal("0.0088"))
+      expect(row.applied_dealer_rate).to eq(BigDecimal("0.012"))
       sheet = read_sheet(export).sheet("1,21")
       expect(sheet.row(2)[3]).to be_within(0.0000001).of(0.012)
       xml = sheet_xml(export, "1,21")

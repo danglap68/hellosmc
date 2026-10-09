@@ -39,8 +39,7 @@ module Transactions
         raise ActiveRecord::Rollback if @transaction.errors.any?
 
         Recalculator.call(@transaction, fee_rule_override: fee_rule_override, resolve: resolve_fee_rule?)
-        sync_card_fee_reason
-        changed = @transaction.changed - %w[updated_at calculation_data lock_version source_data]
+        changed = @transaction.changed - %w[updated_at calculation_data lock_version]
         record_correction(changed)
         @transaction.save!
         @transaction.transition_to!("needs_review") if @transaction.failed?
@@ -131,17 +130,6 @@ module Transactions
       return nil unless id
 
       @fee_rule_override ||= FeeRule.active.find_by(id: id)
-    end
-
-    # `card_fee_rule_applied` describes how the amount is priced right now, so it follows the
-    # recalculated result instead of staying from OCR time.
-    def sync_card_fee_reason
-      reasons = @transaction.review_reason_codes
-      applies = @transaction.fee_rule&.fee_rule_merchants&.any? && @transaction.applied_card_base_fee_rate.present?
-      updated = applies ? reasons | [ "card_fee_rule_applied" ] : reasons - [ "card_fee_rule_applied" ]
-      return if updated == reasons
-
-      @transaction.source_data = @transaction.source_data.merge("review_reasons" => updated)
     end
 
     def record_correction(changed)
