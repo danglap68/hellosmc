@@ -85,6 +85,68 @@ RSpec.describe FeeRules::Resolver do
     expect(resolve.status).to eq(:not_found)
   end
 
+  it "uses the household base fee when the card is not listed and no other rule lists it" do
+    household = create(:fee_rule, merchant: merchant, card_type: mb, base_fee_rate: BigDecimal("0.0121"),
+                                  card_base_fee_rate: BigDecimal("0.0088"))
+
+    rate, source = described_class.amount_base_fee(rule: household, merchant: merchant, dealer: dealer, card_type: normal, at: at)
+
+    expect(rate).to eq(BigDecimal("0.0121"))
+    expect(source).to eq(household)
+  end
+
+  it "uses its own card base fee, else its own base fee, when the household rule lists the card" do
+    mb_rule = create(:fee_rule, card_type: mb, base_fee_rate: BigDecimal("0.0088"), dealer_rate: BigDecimal("0.012"))
+    with_card_fee = create(:fee_rule, merchant: merchant, card_type: mb, base_fee_rate: BigDecimal("0.0121"),
+                                      card_base_fee_rate: BigDecimal("0.0090"))
+    args = { merchant: merchant, dealer: dealer, card_type: mb, at: at }
+
+    expect(described_class.amount_base_fee(rule: with_card_fee, **args)).to eq([ BigDecimal("0.0090"), with_card_fee ])
+
+    with_card_fee.update!(card_base_fee_rate: nil)
+    expect(described_class.amount_base_fee(rule: with_card_fee.reload, **args)).to eq([ BigDecimal("0.0121"), with_card_fee ])
+    expect(mb_rule).to be_persisted
+  end
+
+  it "reads the MB rule when the household rule has no card base fee" do
+    create(:fee_rule, merchant: merchant, base_fee_rate: BigDecimal("0.0121"), dealer_rate: BigDecimal("0.014"))
+    mb_rule = create(:fee_rule, card_type: mb, base_fee_rate: BigDecimal("0.0088"), dealer_rate: BigDecimal("0.012"))
+
+    expect(resolve.fee_rule).not_to eq(mb_rule)
+    expect(described_class.explicit_card_rule(merchant: merchant, dealer: dealer, card_type: mb, at: at)).to eq(mb_rule)
+  end
+
+  it "prefers a card rule configured with the household over a card-only rule with the same priority" do
+    household = create(:fee_rule, merchant: merchant, base_fee_rate: BigDecimal("0.0121"))
+    card_only = create(:fee_rule, card_type: mb, base_fee_rate: BigDecimal("0.0088"), priority: 100)
+    args = { merchant: merchant, dealer: dealer, card_type: mb, at: at }
+
+    expect(described_class.explicit_card_rule(**args, except: household)).to eq(card_only)
+
+    household_card = create(:fee_rule, merchant: merchant, card_type: mb, base_fee_rate: BigDecimal("0.0095"),
+                                       priority: 100)
+
+    expect(described_class.explicit_card_rule(**args, except: household)).to eq(household_card)
+  end
+
+  it "does not allow two active rules to tie for the same household and card type" do
+    create(:fee_rule, card_type: mb, base_fee_rate: BigDecimal("0.0088"), priority: 100)
+    tie = build(:fee_rule, card_type: mb, base_fee_rate: BigDecimal("0.0090"), priority: 100)
+
+    expect(tie).not_to be_valid
+    expect(tie.errors[:base]).to be_present
+  end
+
+  it "takes the dealer rate from the rule that gave the base fee" do
+    household = create(:fee_rule, merchant: merchant, base_fee_rate: BigDecimal("0.0121"), dealer_rate: BigDecimal("0.014"))
+    mb_rule = create(:fee_rule, card_type: mb, base_fee_rate: BigDecimal("0.0088"), dealer_rate: BigDecimal("0.012"))
+    no_dealer_rate = create(:fee_rule, card_type: normal, base_fee_rate: BigDecimal("0.0100"), dealer_rate: nil)
+
+    expect(described_class.amount_dealer_rate(rule: household, source: mb_rule)).to eq(BigDecimal("0.012"))
+    expect(described_class.amount_dealer_rate(rule: household, source: no_dealer_rate)).to eq(BigDecimal("0.014"))
+    expect(described_class.amount_dealer_rate(rule: household, source: household)).to eq(BigDecimal("0.014"))
+  end
+
   it "is not found without a transaction time" do
     create(:fee_rule)
     expect(resolve(time: nil).status).to eq(:not_found)

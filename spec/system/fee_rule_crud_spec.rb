@@ -18,7 +18,8 @@ RSpec.describe "Fee rule management" do
 
     visit edit_admin_fee_rule_path(mb_rule)
     expect(page).to have_button("MB")
-    expect(page).to have_field("fee_rule_base_fee_percent", placeholder: "0,88")
+    expect(page).to have_field("fee_rule_base_fee_percent", placeholder: "1,21")
+    expect(page).to have_field("fee_rule_card_base_fee_percent", placeholder: "0,88")
     expect(page).to have_field("fee_rule_dealer_percent", placeholder: "1,2")
   end
 
@@ -38,8 +39,29 @@ RSpec.describe "Fee rule management" do
 
     visit edit_admin_fee_rule_path(rule)
     expect(page).to have_button("MB, Napas")
-    expect(page).to have_field("fee_rule_base_fee_percent", placeholder: "0,88")
+    expect(page).to have_field("fee_rule_base_fee_percent", placeholder: "1,21")
+    expect(page).to have_field("fee_rule_card_base_fee_percent", placeholder: "0,88")
     expect(page).to have_field("fee_rule_dealer_percent", placeholder: "1,2")
+  end
+
+  it "stores households and card types on one rule with a card base fee" do
+    second = create(:merchant, name: "TRAN3 Trân 3", code: "TRAN3", dealer: dealer)
+    visit new_admin_fee_rule_path
+    check "#{merchant.name} [#{merchant.code}]"
+    check "#{second.name} [#{second.code}]"
+    check "Napas"
+    fill_in "fee_rule_base_fee_percent", with: "1,21"
+    fill_in "fee_rule_card_base_fee_percent", with: "0,88"
+    fill_in "fee_rule_dealer_percent", with: "1,2"
+    fill_in "Ưu tiên", with: "40"
+    click_button "Lưu"
+
+    rule = FeeRule.order(:id).last
+    expect(rule.merchant_ids).to contain_exactly(merchant.id, second.id)
+    expect(rule.card_type_ids).to contain_exactly(napas_card.id)
+    expect(rule.base_fee_rate).to eq(BigDecimal("0.0121"))
+    expect(rule.card_base_fee_rate).to eq(BigDecimal("0.0088"))
+    expect(rule.dealer_rate).to eq(BigDecimal("0.012"))
   end
 
   it "stores one rule for several households" do

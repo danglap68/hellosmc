@@ -172,15 +172,11 @@ module ApplicationHelper
     CardType.ordered.map { |card_type| [ card_type.name, card_type.public_send(value) ] }
   end
 
-  # Placeholder gợi ý trên form quy tắc phí. Chỉ khi mọi loại thẻ đang chọn là MB hoặc Napas
-  # thì dùng 0,88 / 1,2. Để trống, thẻ thường, hoặc chọn lẫn loại khác thì dùng 1,21 / 1,4.
+  # Phí gốc luôn gợi ý mức sheet. Phí gốc theo thẻ và phí đại lý chỉ đổi khi mọi loại thẻ đang chọn là MB hoặc Napas.
   def fee_rate_placeholders(card_types)
     keys = Array(card_types).compact.map { |card_type| card_type.respond_to?(:key) ? card_type.key : card_type.to_s }
-    if keys.present? && keys.all? { |key| key.in?(%w[mb napas]) }
-      { base: "0,88", dealer: "1,2" }
-    else
-      { base: "1,21", dealer: "1,4" }
-    end
+    special = keys.present? && keys.all? { |key| key.in?(%w[mb napas]) }
+    { base: "1,21", card: (special ? "0,88" : "1,21"), dealer: (special ? "1,2" : "1,4") }
   end
 
   def fee_rule_label(fee_rule)

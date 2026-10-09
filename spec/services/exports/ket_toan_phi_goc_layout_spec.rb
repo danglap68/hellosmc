@@ -46,6 +46,55 @@ RSpec.describe Exports::KetToanPhiGocLayout do
       expect(placed.first.dealer_rate).to eq(BigDecimal("0.011"))
     end
 
+    it "uses the rule base fee as the sheet and the card base fee in the formula" do
+      create(:fee_rule, merchant: merchant, card_type: napas_card, base_fee_rate: BigDecimal("0.0121"),
+        card_base_fee_rate: BigDecimal("0.0088"), dealer_rate: BigDecimal("0.012"))
+      transaction = transaction_with(card_type: napas_card, applied_base_fee_rate: BigDecimal("0.0121"),
+        applied_dealer_rate: BigDecimal("0.014"))
+
+      placed, skipped = described_class.partition([ transaction ])
+
+      expect(skipped).to be_empty
+      expect(placed.first.sheet_name).to eq("1,21")
+      expect(placed.first.formula_percent).to eq("0.88%")
+      expect(placed.first.dealer_rate).to eq(BigDecimal("0.012"))
+      expect(transaction.applied_base_fee_rate).to eq(BigDecimal("0.0121"))
+    end
+
+    it "matches the stored transaction when a household rule lists the card without a card base fee" do
+      create(:fee_rule, merchant: merchant, card_type: mb_card, base_fee_rate: BigDecimal("0.0121"),
+        dealer_rate: BigDecimal("0.014"))
+      mb_rule.update!(base_fee_rate: BigDecimal("0.0088"), dealer_rate: BigDecimal("0.012"))
+      transaction = Transactions::Builder.call(bill_image: analyzed_bill(extraction: "mb_settlement", caption: "MB")).sole
+
+      placed, skipped = described_class.partition([ transaction ])
+
+      expect(skipped).to be_empty
+      expect(placed.first.sheet_name).to eq("1,21")
+      expect(placed.first.formula_percent).to eq("1.21%")
+      expect(placed.first.dealer_rate).to eq(transaction.applied_dealer_rate)
+      expect(transaction.amount_after_base_fee_vnd).to eq(9_879_000)
+    end
+
+    it "prices MB and Napas from one rule that lists both cards" do
+      create(:fee_rule, merchant: merchant, base_fee_rate: BigDecimal("0.0121"), dealer_rate: BigDecimal("0.014"))
+      create(:fee_rule, card_types: [ mb_card, napas_card ], base_fee_rate: BigDecimal("0.0088"),
+        dealer_rate: BigDecimal("0.012"), priority: 40)
+      mb_transaction = transaction_with(card_type: mb_card, applied_base_fee_rate: BigDecimal("0.0121"),
+        applied_dealer_rate: BigDecimal("0.014"))
+      napas_transaction = transaction_with(card_type: napas_card, applied_base_fee_rate: BigDecimal("0.0121"),
+        applied_dealer_rate: BigDecimal("0.014"))
+
+      placed, skipped = described_class.partition([ mb_transaction, napas_transaction ])
+
+      expect(skipped).to be_empty
+      expect(placed.map(&:sheet_name)).to eq([ "1,21", "1,21" ])
+      expect(placed.map(&:formula_percent)).to eq([ "0.88%", "0.88%" ])
+      expect(placed.map(&:dealer_rate)).to all(eq(BigDecimal("0.012")))
+      expect(mb_transaction.applied_base_fee_rate).to eq(BigDecimal("0.0121"))
+      expect(napas_transaction.applied_dealer_rate).to eq(BigDecimal("0.014"))
+    end
+
     it "prices a Napas row from the Napas card rule" do
       create(:fee_rule, merchant: merchant, card_type: normal_card, base_fee_rate: BigDecimal("0.0115"))
       create(:fee_rule, card_type: napas_card, base_fee_rate: BigDecimal("0.0088"), dealer_rate: BigDecimal("0.012"))
@@ -70,10 +119,21 @@ RSpec.describe Exports::KetToanPhiGocLayout do
       expect(skipped).to eq([ { "transaction_id" => transaction.id, "reason" => "sheet_unmapped" } ])
     end
 
-    it "skips MB when the card rule has no dealer rate" do
+    it "uses the transaction dealer rate when the MB card rule has none" do
       create(:fee_rule, merchant: merchant, base_fee_rate: BigDecimal("0.0121"), dealer_rate: BigDecimal("0.014"))
       transaction = transaction_with(card_type: mb_card, applied_base_fee_rate: BigDecimal("0.0121"),
         applied_dealer_rate: BigDecimal("0.014"))
+
+      placed, skipped = described_class.partition([ transaction ])
+
+      expect(skipped).to be_empty
+      expect(placed.first.dealer_rate).to eq(BigDecimal("0.014"))
+    end
+
+    it "skips MB when neither the card rule nor the transaction has a dealer rate" do
+      create(:fee_rule, merchant: merchant, base_fee_rate: BigDecimal("0.0121"), dealer_rate: BigDecimal("0.014"))
+      transaction = transaction_with(card_type: mb_card, applied_base_fee_rate: BigDecimal("0.0121"),
+        applied_dealer_rate: nil)
 
       _placed, skipped = described_class.partition([ transaction ])
 

@@ -18,7 +18,7 @@ module Transactions
 
     def self.blank_calculation
       {
-        applied_base_fee_rate: nil, amount_after_base_fee_vnd: nil, applied_dealer_rate: nil,
+        applied_base_fee_rate: nil, applied_card_base_fee_rate: nil, amount_after_base_fee_vnd: nil, applied_dealer_rate: nil,
         dealer_amount_vnd: nil, profit_amount_vnd: nil, calculation_data: {}
       }
     end
@@ -49,7 +49,8 @@ module Transactions
       return Result.new(fee_rule: @transaction.fee_rule, fee_status: :not_found) if amount.nil?
 
       previous = @transaction.calculation_data
-      calculation = Calculator.call(transaction_amount_vnd: amount, base_fee_rate: @transaction.applied_base_fee_rate,
+      calculation = Calculator.call(transaction_amount_vnd: amount,
+                                    base_fee_rate: @transaction.applied_card_base_fee_rate || @transaction.applied_base_fee_rate,
                                     dealer_rate: @transaction.applied_dealer_rate)
       @transaction.assign_attributes(
         amount_after_base_fee_vnd: calculation.amount_after_base_fee_vnd,
@@ -57,6 +58,8 @@ module Transactions
         profit_amount_vnd: calculation.profit_amount_vnd,
         calculation_data: calculation.calculation_data.merge(
           "fee_rule" => previous["fee_rule"],
+          "base_fee_rule" => previous["base_fee_rule"],
+          "card_base_fee_rate" => previous["card_base_fee_rate"],
           "fee_rule_source" => previous["fee_rule_source"] || "resolved",
           "rates_from" => "snapshot",
           "calculated_at" => Time.current.utc.iso8601
@@ -68,17 +71,26 @@ module Transactions
     def apply_rule(fee_rule, status)
       amount = @transaction.transaction_amount_vnd
       if fee_rule && amount
-        calculation = Calculator.call(transaction_amount_vnd: amount, base_fee_rate: fee_rule.base_fee_rate,
-                                      dealer_rate: fee_rule.dealer_rate)
+        base_fee_rate, base_fee_rule = FeeRules::Resolver.amount_base_fee(
+          rule: fee_rule, merchant: @transaction.merchant, dealer: @transaction.dealer,
+          card_type: @transaction.card_type, at: @transaction.transaction_at
+        )
+        dealer_rate = FeeRules::Resolver.amount_dealer_rate(rule: fee_rule, source: base_fee_rule)
+        calculation = Calculator.call(transaction_amount_vnd: amount, base_fee_rate: base_fee_rate,
+                                      dealer_rate: dealer_rate)
+        card_base_fee_rate = FeeRules::Resolver.applied_card_rate(rule: fee_rule, rate: base_fee_rate, source: base_fee_rule)
         @transaction.assign_attributes(
           fee_rule: fee_rule,
           applied_base_fee_rate: fee_rule.base_fee_rate,
+          applied_card_base_fee_rate: card_base_fee_rate,
           amount_after_base_fee_vnd: calculation.amount_after_base_fee_vnd,
-          applied_dealer_rate: fee_rule.dealer_rate,
+          applied_dealer_rate: dealer_rate,
           dealer_amount_vnd: calculation.dealer_amount_vnd,
           profit_amount_vnd: calculation.profit_amount_vnd,
           calculation_data: calculation.calculation_data.merge(
             "fee_rule" => AuditLogger.serialize(fee_rule.snapshot_attributes),
+            "base_fee_rule" => (AuditLogger.serialize(base_fee_rule.snapshot_attributes) if base_fee_rule),
+            "card_base_fee_rate" => card_base_fee_rate&.to_s("F"),
             "fee_rule_source" => status.to_s,
             "calculated_at" => Time.current.utc.iso8601
           )

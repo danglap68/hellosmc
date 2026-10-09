@@ -75,6 +75,22 @@ RSpec.describe FeeRule do
     end
   end
 
+  describe "households and card types on one rule" do
+    it "stores a card base fee for any selected card types" do
+      rule = build(:fee_rule, merchants: create_list(:merchant, 2),
+        card_types: [ create(:mb_card_type), create(:napas_card_type) ],
+        card_base_fee_percent: "0,88")
+      expect(rule).to be_valid
+      expect(rule.card_base_fee_rate).to eq(BigDecimal("0.0088"))
+    end
+
+    it "drops the card base fee when no card type is selected" do
+      rule = build(:fee_rule, card_base_fee_percent: "0,88")
+      rule.valid?
+      expect(rule.card_base_fee_rate).to be_nil
+    end
+  end
+
   describe "several card types on one rule" do
     it "applies to each selected card and refuses a rule that shares one card" do
       mb = create(:mb_card_type)

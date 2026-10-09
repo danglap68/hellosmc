@@ -95,6 +95,10 @@ module Exports
         @normal_card_type_id = CardType.find_by(key: "normal")&.id
       end
 
+      # Active rules are small configuration. Load them once per export instead of
+      # querying again for every MB/Napas row. The filters match covering_merchant,
+      # assigned_to_merchant, assigned_to_card_type and effective_at.
+
       def place(transaction)
         return place_special_card(transaction) if special_card?(transaction)
 
@@ -117,28 +121,65 @@ module Exports
         )
       end
 
-      # Sheet from the household's normal fee. Formula percent and column D from the card rule.
+      # Phí gốc của quy tắc gắn đúng hộ chọn sheet. Phí gốc theo thẻ, nếu có, đưa vào công thức.
+      # Quy tắc không gắn hộ giữ cách cũ: sheet từ quy tắc hộ, công thức từ phí gốc của quy tắc thẻ.
       def place_special_card(transaction)
-        sheet_name = household_sheet(transaction)
+        rule = card_fee_rule(transaction)
+        sheet_name = sheet_for_special(transaction, rule)
         return skip(transaction, "sheet_unmapped") if sheet_name.nil?
 
-        rule = card_fee_rule(transaction)
-        formula_percent = KetToanPhiGocLayout.formula_percent_for(rule&.base_fee_rate)
-        if rule.nil? || rule.dealer_rate.nil? || formula_percent.nil?
-          return skip(transaction, "dealer_rate_missing")
-        end
+        formula_percent = KetToanPhiGocLayout.formula_percent_for(formula_rate_for(rule))
+        # A card rule without its own dealer rate falls back to the dealer rate stored on the
+        # transaction, which is what Transactions::Evaluator used when it priced the amount.
+        dealer_rate = rule&.dealer_rate || transaction.applied_dealer_rate
+        return skip(transaction, "dealer_rate_missing") if rule.nil? || dealer_rate.nil? || formula_percent.nil?
         return skip(transaction, "sheet_unmapped") if transaction.transaction_amount_vnd.nil?
 
-        Placed.new(transaction:, sheet_name:, formula_percent:, dealer_rate: rule.dealer_rate)
+        Placed.new(transaction:, sheet_name:, formula_percent:, dealer_rate:)
+      end
+
+      def sheet_for_special(transaction, rule)
+        if rule && assigned_to_merchant?(rule, transaction.merchant_id)
+          direct_sheet(rule.base_fee_rate) || household_sheet(transaction)
+        else
+          household_sheet(transaction)
+        end
+      end
+
+      def assigned_to_merchant?(rule, merchant_id)
+        return false if merchant_id.nil?
+
+        rule.fee_rule_merchants.any? { |link| link.merchant_id == merchant_id }
+      end
+
+      def formula_rate_for(rule)
+        return nil if rule.nil?
+
+        rule.card_base_fee_rate || rule.base_fee_rate
       end
 
       def special_card?(transaction)
         SPECIAL_CARD_KEYS.include?(transaction.card_type&.key)
       end
 
+      def rules
+        @rules ||= FeeRule.active.includes(:fee_rule_merchants, :fee_rule_card_types).to_a
+      end
+
       def household_card?(rule)
-        ids = rule.fee_rule_card_types.map(&:card_type_id)
+        ids = card_type_ids_for(rule)
         ids.empty? || (@normal_card_type_id && ids.include?(@normal_card_type_id))
+      end
+
+      def card_type_ids_for(rule)
+        rule.fee_rule_card_types.map(&:card_type_id)
+      end
+
+      def covers_merchant?(rule, merchant_id)
+        ids = rule.fee_rule_merchants.map(&:merchant_id)
+        return ids.empty? if merchant_id.nil?
+
+        ids.empty? || ids.include?(merchant_id)
       end
 
       def direct_sheet(rate)
@@ -151,16 +192,23 @@ module Exports
         at = transaction.transaction_at
         return nil if merchant.nil? || at.nil?
 
-        rules = FeeRule.active.effective_at(at)
-          .assigned_to_merchant(merchant.id)
-          .includes(:fee_rule_card_types)
-          .select { |rule| household_card?(rule) && direct_sheet(rule.base_fee_rate) }
-        return nil if rules.empty?
+        grouped = {}
+        rules.each do |rule|
+          next unless rule.effective_at?(at)
+          next unless rule.fee_rule_merchants.any? { |link| link.merchant_id == merchant.id }
+          next unless household_card?(rule)
 
-        ranked = rules.group_by { |rule| rule.fee_rule_card_types.any? ? 0 : 1 }.min_by(&:first).last
-        best_priority = ranked.map(&:priority).min
-        chosen = ranked.select { |rule| rule.priority == best_priority }
-        names = chosen.map { |rule| direct_sheet(rule.base_fee_rate) }.uniq
+          sheet_name = direct_sheet(rule.base_fee_rate)
+          next if sheet_name.nil?
+
+          rank = card_type_ids_for(rule).any? ? 0 : 1
+          (grouped[rank] ||= []) << [ rule, sheet_name ]
+        end
+        return nil if grouped.empty?
+
+        ranked = grouped[grouped.keys.min]
+        best_priority = ranked.map { |rule, _sheet| rule.priority }.min
+        names = ranked.select { |rule, _sheet| rule.priority == best_priority }.map(&:last).uniq
         names.one? ? names.first : nil
       end
 
@@ -170,14 +218,16 @@ module Exports
         card_type = transaction.card_type
         return nil if at.nil? || card_type.nil?
 
-        rules = FeeRule.active.effective_at(at)
-          .covering_merchant(transaction.merchant_id)
-          .assigned_to_card_type(card_type.id)
-          .where(dealer_id: [ nil, transaction.dealer_id ].uniq)
-          .to_a
-        return nil if rules.empty?
+        dealer_ids = [ nil, transaction.dealer_id ].uniq
+        matches = rules.select do |rule|
+          rule.effective_at?(at) &&
+            dealer_ids.include?(rule.dealer_id) &&
+            covers_merchant?(rule, transaction.merchant_id) &&
+            card_type_ids_for(rule).include?(card_type.id)
+        end
+        return nil if matches.empty?
 
-        level = rules.group_by(&:specificity_rank).min_by(&:first).last
+        level = matches.group_by(&:specificity_rank).min_by(&:first).last
         best_priority = level.map(&:priority).min
         chosen = level.select { |rule| rule.priority == best_priority }
         chosen.one? ? chosen.first : nil

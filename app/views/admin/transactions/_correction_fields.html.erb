@@ -56,7 +56,7 @@
 <div class="mb-3">
   <label class="form-label" for="transaction_fee_rule_id"><%= t("reviews.fee_rule_override") %></label>
   <%= select_tag "transaction[fee_rule_id]",
-        options_for_select(FeeRule.active.includes(:merchants, :dealer, :card_types).ordered.map { |rule| ["#{fee_rule_label(rule)} · #{[rule.merchant_label, rule.dealer&.name, rule.card_type_label].compact.join(' / ').presence || t('fee_rules.levels.system_default')}", rule.id] }, override_id),
+        options_for_select(FeeRule.active.includes(:fee_rule_merchants, :merchants, :dealer, :fee_rule_card_types, :card_types).ordered.map { |rule| ["#{fee_rule_label(rule)} · #{[rule.merchant_label, rule.dealer&.name, rule.card_type_label].compact.join(' / ').presence || t('fee_rules.levels.system_default')}", rule.id] }, override_id),
         include_blank: t("reviews.fee_rule_auto"), id: "transaction_fee_rule_id",
         class: "form-select #{'is-invalid' if transaction.errors[:fee_rule].any?}" %>
   <% if transaction.errors[:fee_rule].any? %><div class="invalid-feedback d-block"><%= transaction.errors[:fee_rule].to_sentence %></div><% end %>

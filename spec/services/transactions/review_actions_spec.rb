@@ -139,6 +139,23 @@ RSpec.describe "Concurrent review decisions" do
     Transactions::Corrector.call(transaction: transaction, actor: operator, params: { card_type_id: mb_card.id })
     expect(transaction.reload.applied_base_fee_rate).to eq(BigDecimal("0.011"))
   end
+
+  it "drops and restores card_fee_rule_applied when the card type changes" do
+    create(:fee_rule, merchant: merchant, base_fee_rate: BigDecimal("0.0121"), dealer_rate: BigDecimal("0.014"))
+    mb_rule.update!(base_fee_rate: BigDecimal("0.0088"), dealer_rate: BigDecimal("0.012"))
+    mb_transaction = Transactions::Builder.call(bill_image: analyzed_bill(extraction: "mb_settlement", caption: "MB")).sole
+    expect(mb_transaction.review_reason_codes).to include("card_fee_rule_applied")
+
+    Transactions::Corrector.call(transaction: mb_transaction, actor: operator, params: { card_type_id: normal_card.id })
+    mb_transaction.reload
+    expect(mb_transaction.applied_card_base_fee_rate).to be_nil
+    expect(mb_transaction.review_reason_codes).not_to include("card_fee_rule_applied")
+
+    Transactions::Corrector.call(transaction: mb_transaction, actor: operator, params: { card_type_id: mb_card.id })
+    mb_transaction.reload
+    expect(mb_transaction.applied_card_base_fee_rate).to eq(BigDecimal("0.0088"))
+    expect(mb_transaction.review_reason_codes).to include("card_fee_rule_applied")
+  end
 end
 
 RSpec.describe "Edited Telegram captions" do

@@ -5,7 +5,7 @@ module Admin
     before_action :set_fee_rule, only: %i[show edit update destroy]
 
     def index
-      scope = FeeRule.includes(:merchants, :dealer, :card_types).ordered
+      scope = FeeRule.includes(:fee_rule_merchants, :merchants, :dealer, :fee_rule_card_types, :card_types).ordered
       scope = scope.where(dealer_id: params[:dealer_id]) if params[:dealer_id].present?
       scope = scope.assigned_to_merchant(params[:merchant_id]) if params[:merchant_id].present?
       scope = scope.assigned_to_card_type(params[:card_type_id]) if params[:card_type_id].present?
@@ -61,11 +61,11 @@ module Admin
     private
 
     def set_fee_rule
-      @fee_rule = FeeRule.find(params[:id])
+      @fee_rule = FeeRule.includes(:fee_rule_merchants, :merchants, :dealer, :fee_rule_card_types, :card_types).find(params[:id])
     end
 
     def fee_rule_params
-      params.require(:fee_rule).permit(:dealer_id, :base_fee_percent, :dealer_percent,
+      params.require(:fee_rule).permit(:dealer_id, :base_fee_percent, :card_base_fee_percent, :dealer_percent,
                                        :effective_from, :effective_until, :priority, :active, :note,
                                        merchant_ids: [], card_type_ids: [])
     end

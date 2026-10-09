@@ -88,7 +88,7 @@ Thẻ `mb` hoặc `napas` dùng hai nguồn lúc xuất file. Snapshot trên gia
 
 Quy tắc loại thẻ phải còn hiệu lực tại `transaction_at`. Merchant và đại lý của quy tắc khớp giao dịch, hoặc để trống. Mức cụ thể nhất thắng: hộ + thẻ, rồi đại lý + thẻ, rồi chỉ loại thẻ. Cùng mức, cùng `priority`, nhiều hơn một quy tắc thì không ghi dòng.
 
-Ví dụ hộ có phí gốc `1,21` và phí đại lý `1,40`. Quy tắc thẻ MB có phí gốc `0,88` và phí đại lý `1,20`. Giao dịch thẻ MB của hộ đó vẫn có thể đang chốt `1,21` và `1,40` trong database. File ghi dòng vào sheet `1,21`, cột C và E dùng `0.88%`, cột D là `0.012`. Sheet không được suy ra từ `0,88`.
+Ví dụ hộ có phí gốc `1,21` và phí đại lý `1,40`. Quy tắc thẻ MB có phí gốc `0,88` và phí đại lý `1,20`. Giao dịch thẻ MB của hộ đó có thể đang chốt `1,21` và `1,40` (giao dịch cũ) hoặc `applied_card_base_fee_rate` `0,88` và `applied_dealer_rate` `1,20` (giao dịch mới, xem `SPEC_TINH_PHI_THEO_THE.md`) trong database. File ghi dòng vào sheet `1,21`, cột C và E dùng `0.88%`, cột D là `0.012`. Sheet không được suy ra từ `0,88`.
 
 ## 4. File đích
 
@@ -160,7 +160,7 @@ Thẻ thường:
 Thẻ `mb` hoặc `napas`:
 
 1. Sheet lấy từ quy tắc đang hiệu lực của cùng merchant, không gắn loại thẻ hoặc gắn loại thẻ `normal`, có phí gốc `1.21` / `1.17` / `1.15`. Không tìm thấy, hoặc các quy tắc cùng mức trỏ hai sheet khác nhau, thì không ghi dòng.
-2. Một quy tắc loại thẻ được chọn theo mục 4, phí gốc của quy tắc đó là mức phần trăm đúng 2 chữ số, và `dealer_rate` có giá trị. Thiếu một trong ba thì không ghi dòng.
+2. Một quy tắc loại thẻ được chọn theo mục 4, phí gốc của quy tắc đó là mức phần trăm đúng 2 chữ số, và có phí đại lý: `dealer_rate` của quy tắc, nếu quy tắc để trống thì `applied_dealer_rate` của giao dịch. Thiếu một trong ba thì không ghi dòng.
 
 Không ghi, và không chuyển sang `exported`:
 
@@ -212,7 +212,8 @@ Số tiền dùng trong test phải là số nguyên VND. Kỳ vọng cột B, C
 | 1,21% (snapshot của hộ) | mb, hộ có quy tắc 1,21, quy tắc thẻ MB là 0,88 và 1,20 | sheet `1,21`, C/E dùng `0.88%`, D = `0.012` |
 | 1,17% | napas, hộ có quy tắc normal 1,15, quy tắc Napas là 0,88 và 1,20 | sheet `1,15`, C/E dùng `0.88%`, D = `0.012` |
 | 1,21% | mb, hộ không có quy tắc 1,21/1,17/1,15 | không ghi, `sheet_unmapped` |
-| 1,21% | mb, hộ có sheet, quy tắc thẻ MB không có `dealer_rate` | không ghi, `dealer_rate_missing` |
+| 1,21% | mb, hộ có sheet, quy tắc thẻ MB không có `dealer_rate`, giao dịch có `applied_dealer_rate` | ghi, cột D lấy `applied_dealer_rate` của giao dịch |
+| 1,21% | mb, hộ có sheet, quy tắc thẻ MB không có `dealer_rate`, giao dịch `applied_dealer_rate` nil | không ghi, `dealer_rate_missing` |
 | 0,88% | normal | không ghi, `sheet_unmapped` |
 | 1,10% hoặc 1,25% | normal | không ghi, `sheet_unmapped` |
 | 1,21% | normal, `applied_dealer_rate` nil | không ghi, `dealer_rate_missing` |
@@ -248,11 +249,19 @@ Ba giao dịch cùng ngày, phí gốc lần lượt 1,21%, 1,17%, 1,15%, đều
 
 ### 8.4 MB nằm trên sheet của hộ, tính theo quy tắc thẻ
 
-Hộ có quy tắc không gắn loại thẻ, phí gốc 1,21%, phí đại lý 1,40%. Quy tắc chỉ loại thẻ `mb` có phí gốc 0,88%, phí đại lý 1,20%. Giao dịch loại thẻ `mb` đang chốt phí gốc 1,21% và phí đại lý 1,40%, vì quy tắc của hộ thắng lúc duyệt.
+Hộ có quy tắc không gắn loại thẻ, phí gốc 1,21%, phí đại lý 1,40%. Quy tắc chỉ loại thẻ `mb` có phí gốc 0,88%, phí đại lý 1,20%. Giao dịch loại thẻ `mb` được tạo trước khi có `SPEC_TINH_PHI_THEO_THE.md` đang chốt phí gốc 1,21% và phí đại lý 1,40%, vì quy tắc của hộ thắng lúc duyệt. Giao dịch tạo sau đó chốt `applied_base_fee_rate` `0.0121`, `applied_card_base_fee_rate` `0.0088` và `applied_dealer_rate` `0.012`, vì quy tắc hộ không ghi loại thẻ nên mượn quy tắc MB để tính tiền.
 
-Dòng nằm trên sheet `1,21`. C = `=A2-(A2*0.88%)`. E = `=A2*(D2-0.88%)`. D = `0.012`. Sau khi xuất, giao dịch vẫn giữ `applied_base_fee_rate` `0.0121` và `applied_dealer_rate` `0.014`.
+Dòng nằm trên sheet `1,21`. C = `=A2-(A2*0.88%)`. E = `=A2*(D2-0.88%)`. D = `0.012`. File luôn đọc quy tắc thẻ lúc xuất, nên cả giao dịch cũ lẫn mới cho cùng kết quả. Sau khi xuất, `applied_base_fee_rate` vẫn là `0.0121`; `applied_dealer_rate` giữ nguyên số đã chốt (`0.014` với giao dịch cũ, `0.012` với giao dịch mới).
 
 Quy tắc hộ + thẻ MB, nếu có và còn hiệu lực, được dùng thay cho quy tắc chỉ loại thẻ. Sheet vẫn lấy từ quy tắc phí gốc của hộ.
+
+### 8.8 Một quy tắc cho cả MB và Napas
+
+Hợp đồng đầy đủ: `docs/SPEC_QUY_TAC_MB_NAPAS.md`.
+
+Một quy tắc không gắn hộ, gắn cả `mb` và `napas`, phí gốc `0,88`, phí đại lý `1,20`, ưu tiên nhỏ hơn quy tắc chỉ MB. Hộ có quy tắc không gắn loại thẻ, phí gốc `1,21`. Hai giao dịch của hộ đó, một `mb` và một `napas`, được tạo trước `SPEC_TINH_PHI_THEO_THE.md` nên đang chốt `1,21` / `1,40`. File không đọc hai số này cho `mb` và `napas`.
+
+Cả hai dòng vào sheet `1,21`. C và E dùng `0.88%`. D = `0.012`. Snapshot trên hai giao dịch không đổi.
 
 ### 8.5 Bộ lọc ngày và trạng thái
 

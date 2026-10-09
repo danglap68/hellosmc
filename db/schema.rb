@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_08_130000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_09_133000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -182,10 +182,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_08_130000) do
     t.jsonb "metadata", default: {}, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.decimal "card_base_fee_rate", precision: 10, scale: 6
     t.index ["active", "dealer_id"], name: "index_fee_rules_on_targeting"
     t.index ["dealer_id"], name: "index_fee_rules_on_dealer_id"
     t.index ["effective_from", "effective_until"], name: "index_fee_rules_on_effective_from_and_effective_until"
     t.check_constraint "base_fee_rate >= 0::numeric AND base_fee_rate < 1::numeric", name: "fee_rules_base_fee_rate_range"
+    t.check_constraint "card_base_fee_rate IS NULL OR card_base_fee_rate >= 0::numeric AND card_base_fee_rate < 1::numeric", name: "fee_rules_card_base_fee_rate_range"
     t.check_constraint "dealer_rate IS NULL OR dealer_rate >= 0::numeric AND dealer_rate < 1::numeric", name: "fee_rules_dealer_rate_range"
     t.check_constraint "effective_until IS NULL OR effective_until > effective_from", name: "fee_rules_effective_range"
   end
@@ -297,6 +299,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_08_130000) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.integer "lock_version", default: 0, null: false
+    t.decimal "applied_card_base_fee_rate", precision: 10, scale: 6
     t.index ["approved_by_id"], name: "index_transactions_on_approved_by_id"
     t.index ["bill_image_id", "source_index"], name: "index_transactions_on_bill_image_and_source_index", unique: true, where: "(bill_image_id IS NOT NULL)"
     t.index ["bill_image_id"], name: "index_transactions_on_bill_image_id"
@@ -311,6 +314,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_08_130000) do
     t.index ["telegram_message_id"], name: "index_transactions_on_telegram_message_id"
     t.index ["transaction_at"], name: "index_transactions_on_transaction_at"
     t.check_constraint "(status::text <> ALL (ARRAY['approved'::character varying::text, 'exported'::character varying::text])) OR dealer_id IS NOT NULL AND merchant_id IS NOT NULL AND card_type_id IS NOT NULL AND transaction_at IS NOT NULL AND transaction_amount_vnd IS NOT NULL AND applied_base_fee_rate IS NOT NULL AND amount_after_base_fee_vnd IS NOT NULL", name: "transactions_approved_complete"
+    t.check_constraint "applied_card_base_fee_rate IS NULL OR applied_card_base_fee_rate >= 0::numeric AND applied_card_base_fee_rate < 1::numeric", name: "transactions_applied_card_base_fee_rate_range"
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'processing'::character varying::text, 'needs_review'::character varying::text, 'approved'::character varying::text, 'rejected'::character varying::text, 'hold'::character varying::text, 'exported'::character varying::text, 'failed'::character varying::text])", name: "transactions_status_check"
     t.check_constraint "transaction_amount_vnd IS NULL OR transaction_amount_vnd > 0", name: "transactions_amount_positive"
   end
