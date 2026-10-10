@@ -45,7 +45,7 @@ RSpec.describe "Fee rule management" do
   end
 
   it "stores households and card types on one rule with a card base fee" do
-    second = create(:merchant, name: "TRAN3 Trân 3", code: "TRAN3", dealer: dealer)
+    second = create(:merchant, name: "TRAN3 Trân 3", code: "TRAN3")
     visit new_admin_fee_rule_path
     check "#{merchant.name} [#{merchant.code}]"
     check "#{second.name} [#{second.code}]"
@@ -65,7 +65,7 @@ RSpec.describe "Fee rule management" do
   end
 
   it "stores one rule for several households" do
-    second = create(:merchant, name: "TRAN3 Trân 3", code: "TRAN3", dealer: dealer)
+    second = create(:merchant, name: "TRAN3 Trân 3", code: "TRAN3")
     visit new_admin_fee_rule_path
     check "#{merchant.name} [#{merchant.code}]"
     check "#{second.name} [#{second.code}]"

@@ -1,0 +1,19 @@
+require "rails_helper"
+
+RSpec.describe WriteHelloSmcWorkbookJob do
+  let(:transaction) { create(:transaction) }
+
+  it "calls the workbook writer with the transaction" do
+    expect(Workbook::HelloSmcWriter).to receive(:call).with(transaction:).and_return(:identified)
+    described_class.perform_now(transaction.id)
+  end
+
+  it "fails loudly when the spreadsheet id is missing and leaves the transaction intact" do
+    allow(AppConfig).to receive(:hello_smc_spreadsheet_id).and_return(nil)
+    expect {
+      described_class.perform_now(transaction.id)
+    }.to raise_error(Workbook::HelloSmcWriter::ConfigurationError)
+    expect(WorkbookEntry.count).to eq(0)
+    expect(Transaction.find(transaction.id)).to be_present
+  end
+end

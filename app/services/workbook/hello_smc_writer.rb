@@ -1,11 +1,17 @@
 module Workbook
   # Writes one transaction into the live Hello SMC Google Sheet.
+  #
+  # Every cell of one transaction goes out in a single values.batchUpdate, so a
+  # partial write cannot leave the sheet half-updated. Writes are serialized per
+  # spreadsheet with a session-level Postgres advisory lock.
   class HelloSmcWriter
     DS_PREFIX = "DS MB T"
     RD_SHEET = "R&D Report"
     MB_SHEET = "MB"
     UNIDENTIFIED_SHEET = "Bill vô chủ"
-    LOCK_KEY = "hello-smc-workbook"
+
+    class ConfigurationError < StandardError; end
+    class CellMissing < StandardError; end
 
     def self.call(transaction:, client: nil, spreadsheet_id: AppConfig.hello_smc_spreadsheet_id)
       new(transaction:, client:, spreadsheet_id:).call
@@ -21,19 +27,14 @@ module Workbook
       return :skipped_no_amount if @transaction.transaction_amount_vnd.blank?
       return :skipped_failed if @transaction.failed?
       return :already_written if WorkbookEntry.exists?(transaction_id: @transaction.id)
-      return :skipped_unconfigured if @spreadsheet_id.blank?
+      raise ConfigurationError, "hello_smc_spreadsheet_id is not configured" if @spreadsheet_id.blank?
 
       client = @client || GoogleSheetClient.new(spreadsheet_id: @spreadsheet_id)
-      Transaction.connection.execute(
-        Transaction.sanitize_sql_array([ "SELECT pg_advisory_xact_lock(hashtext(?))", LOCK_KEY ])
-      )
-      return :already_written if WorkbookEntry.exists?(transaction_id: @transaction.id)
+      with_advisory_lock do
+        return :already_written if WorkbookEntry.exists?(transaction_id: @transaction.id)
 
-      resolution = Resolver.call(transaction: @transaction)
-      if resolution.identified?
-        write_identified(client, resolution)
-      else
-        write_unidentified(client, resolution)
+        resolution = Resolver.call(transaction: @transaction)
+        resolution.identified? ? write_identified(client, resolution) : write_unidentified(client, resolution)
       end
     end
 
@@ -41,10 +42,19 @@ module Workbook
 
     def write_identified(client, resolution)
       amount = @transaction.transaction_amount_vnd
-      ds_sheet, ds_cell = increment_daily(client, resolution.merchant_dealer, amount)
-      rd_cell = increment_remitter(client, resolution) if resolution.remitter
-      mb_row = append_mb(client, resolution)
+      ds_update, ds_cell, ds_sheet = increment_daily(client, resolution.merchant_dealer, amount)
+      updates = [ ds_update ]
 
+      rd_cell = nil
+      if resolution.remitter
+        rd_update, rd_cell = increment_remitter(client, resolution, amount)
+        updates << rd_update if rd_update
+      end
+
+      mb_row, mb_update = append_mb(client, resolution)
+      updates << mb_update
+
+      client.batch_update_values(updates)
       record!(branch: "identified", ds_sheet:, ds_cell:, rd_cell:, mb_row:,
               payload: payload(resolution, issue: rd_cell.nil? && resolution.remitter ? "rd_cell_missing" : nil))
       :identified
@@ -53,15 +63,16 @@ module Workbook
     end
 
     def write_unidentified(client, resolution, issue: resolution.issue)
-      row = append_unidentified(client)
-      record!(branch: "unidentified", unidentified_row: row,
-              payload: payload(resolution, issue:))
+      row, update = append_unidentified(client)
+      client.batch_update_values([ update ])
+      record!(branch: "unidentified", unidentified_row: row, payload: payload(resolution, issue:))
       :unidentified
     end
 
     def increment_daily(client, link, amount)
       sheet = monthly_sheet(client)
       grid = client.values(sheet, "A1:X80")
+
       header_row, header_col = find_cell(grid) { |value| same_text?(value, link.ds_sheet_anchor) }
       raise CellMissing, "ds_anchor" unless header_row
 
@@ -76,24 +87,22 @@ module Workbook
       raise CellMissing, "ds_date" unless date_row
 
       current = numeric(grid.dig(date_row, agent_col))
-      a1 = a1(date_row, agent_col)
-      client.update(sheet, "#{a1}:#{a1}", [ [ current + amount ] ])
-      [ sheet, a1 ]
+      cell = a1(date_row, agent_col)
+      [ { sheet: sheet, range: "#{cell}:#{cell}", rows: [ [ current + amount ] ] }, cell, sheet ]
     end
 
-    def increment_remitter(client, resolution)
+    def increment_remitter(client, resolution, amount)
       grid = client.values(RD_SHEET, "A1:R120")
       label = resolution.merchant_dealer.rd_agent_label
       block_row, block_col = find_cell(grid) { |value| agent_label?(value, label) }
-      return nil unless block_row
+      return [ nil, nil ] unless block_row
 
       remitter_col = remitter_column(grid, block_col, resolution.remitter.excel_key)
-      return nil unless remitter_col
+      return [ nil, nil ] unless remitter_col
 
-      a1 = a1(block_row, remitter_col)
+      cell = a1(block_row, remitter_col)
       current = numeric(grid.dig(block_row, remitter_col))
-      client.update(RD_SHEET, "#{a1}:#{a1}", [ [ current + @transaction.transaction_amount_vnd ] ])
-      a1
+      [ { sheet: RD_SHEET, range: "#{cell}:#{cell}", rows: [ [ current + amount ] ] }, cell ]
     end
 
     def remitter_column(grid, agent_col, excel_key)
@@ -107,14 +116,17 @@ module Workbook
       row = col_a.index { |value| value.blank? }
       row ||= col_a.length
       n = row + 1
-      rate = @transaction.base_fee_rate_used
-      percent = formula_percent(rate)
+
+      percent = percent_formula(@transaction.base_fee_rate_used)
+      c_formula = percent && "=A#{n}-(A#{n}*#{percent})"
+      e_formula = percent && "=A#{n}*(D#{n}-#{percent})"
+
       values = [ [
         @transaction.transaction_amount_vnd,
         "=A#{n}-(A#{n}*D#{n})",
-        "=A#{n}-(A#{n}*#{percent})",
+        c_formula,
         @transaction.applied_dealer_rate&.to_f,
-        "=A#{n}*(D#{n}-#{percent})",
+        e_formula,
         @transaction.lot_number,
         @transaction.transaction_at&.in_time_zone&.strftime("%d/%m/%Y"),
         @transaction.transaction_at&.in_time_zone&.strftime("%H:%M:%S"),
@@ -122,8 +134,7 @@ module Workbook
         resolution.merchant.name,
         resolution.remitter&.name
       ] ]
-      client.update(MB_SHEET, "A#{n}:K#{n}", values)
-      n
+      [ n, { sheet: MB_SHEET, range: "A#{n}:K#{n}", rows: values } ]
     end
 
     def append_unidentified(client)
@@ -131,17 +142,18 @@ module Workbook
       row = col_a.index { |value| value.blank? }
       row ||= col_a.length
       n = row + 1
+
       rate = @transaction.base_fee_rate_used || BigDecimal("0.0088")
-      status = @transaction.approved? || @transaction.exported? ? "Thành công" : "Cần kiểm tra"
-      client.update(UNIDENTIFIED_SHEET, "A#{n}:F#{n}", [ [
+      status = (@transaction.approved? || @transaction.exported?) ? "Thành công" : "Cần kiểm tra"
+      values = [ [
         @transaction.raw_merchant_name.presence || "—",
         "=C#{n}-(C#{n}*D#{n})",
         @transaction.transaction_amount_vnd,
         rate&.to_f,
         @transaction.transaction_at&.in_time_zone&.strftime("%d/%m/%Y %H:%M:%S"),
         status
-      ] ])
-      n
+      ] ]
+      [ n, { sheet: UNIDENTIFIED_SHEET, range: "A#{n}:F#{n}", rows: values } ]
     end
 
     def monthly_sheet(client)
@@ -149,25 +161,40 @@ module Workbook
       title = "#{DS_PREFIX}#{month}"
       return title if client.titles.include?(title)
 
-      source = client.titles.select { |name| name.start_with?(DS_PREFIX) }.max_by { |name| name.delete_prefix(DS_PREFIX).to_i }
+      source = client.titles.select { |name| name.start_with?(DS_PREFIX) }
+        .max_by { |name| name.delete_prefix(DS_PREFIX).to_i }
       raise CellMissing, "ds_sheet" unless source
 
       client.duplicate_sheet(source_title: source, dest_title: title)
-      clear_daily_amounts(client, title)
+      client.batch_update_values(month_setup_updates(client, title))
       title
     end
 
-    def clear_daily_amounts(client, title)
+    # Rewrites the date column to the new month and blanks every amount cell,
+    # leaving the SUM formulas untouched.
+    def month_setup_updates(client, title)
       grid = client.values(title, "A1:X80")
+      month = @transaction.transaction_at.in_time_zone.month
+      year = @transaction.transaction_at.in_time_zone.year
+      days_in_month = Date.new(year, month, -1).day
+
       updates = []
       grid.each_with_index do |row, r|
-        row.each_with_index do |value, c|
-          next unless value.is_a?(Numeric) && r.positive? && date_of(row[0] || row[c - 1])
+        next if r.zero?
 
-          updates << [ r, c ]
+        row.each_with_index do |value, c|
+          next if value.nil?
+
+          day = date_of(value)
+          if day
+            new_date = (day.day <= days_in_month) ? Date.new(year, month, day.day) : nil
+            updates << { sheet: title, range: "#{a1(r, c)}:#{a1(r, c)}", rows: [ [ new_date ] ] }
+          elsif value.is_a?(Numeric)
+            updates << { sheet: title, range: "#{a1(r, c)}:#{a1(r, c)}", rows: [ [ nil ] ] }
+          end
         end
       end
-      updates.each { |r, c| client.update(title, "#{a1(r, c)}:#{a1(r, c)}", [ [ nil ] ]) }
+      updates
     end
 
     def record!(**attrs)
@@ -190,6 +217,17 @@ module Workbook
       }.compact
     end
 
+    def with_advisory_lock
+      key = "hello-smc-workbook:#{@spreadsheet_id}"
+      connection = Transaction.connection
+      connection.execute(Transaction.sanitize_sql_array([ "SELECT pg_advisory_lock(hashtext(?))", key ]))
+      begin
+        yield
+      ensure
+        connection.execute(Transaction.sanitize_sql_array([ "SELECT pg_advisory_unlock(hashtext(?))", key ]))
+      end
+    end
+
     def find_cell(grid)
       grid.each_with_index do |row, r|
         row.each_with_index do |value, c|
@@ -203,8 +241,9 @@ module Workbook
       VietnameseText.normalize(left) == VietnameseText.normalize(right)
     end
 
+    # Matches an R&D agent label, ignoring the "(MB+SP)" channel suffix.
     def agent_label?(cell, label)
-      VietnameseText.normalize(cell.to_s.split("\n").first) == VietnameseText.normalize(label)
+      VietnameseText.normalize(cell.to_s).sub(/\s+mb\s+sp\z/, "") == VietnameseText.normalize(label)
     end
 
     def numeric(value)
@@ -215,21 +254,24 @@ module Workbook
       end
     end
 
+    # Dates come back as Excel serial numbers (UNFORMATTED_VALUE); amounts are
+    # large numbers and must not be mistaken for dates.
     def date_of(value)
       case value
       when Date then value
       when Time, DateTime then value.to_date
-      when Numeric then Date.new(1899, 12, 30) + value
-      when String
-        Date.parse(value)
+      when Numeric
+        serial = value.to_i
+        return nil unless serial.between?(1, 110_000)
+
+        Date.new(1899, 12, 30) + serial
       end
     rescue ArgumentError, TypeError
       nil
     end
 
-    def formula_percent(rate)
-      points = (BigDecimal(rate.to_s) * 100).round(2)
-      format("%.2f%%", points)
+    def percent_formula(rate)
+      Exports::KetToanPhiGocLayout.formula_percent_for(rate)
     end
 
     def a1(row, col)
@@ -241,7 +283,5 @@ module Workbook
       end
       "#{letters}#{row + 1}"
     end
-
-    class CellMissing < StandardError; end
   end
 end

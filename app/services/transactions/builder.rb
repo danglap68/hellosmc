@@ -26,13 +26,12 @@ module Transactions
       return [ build_failed(0) ] + fail_leftovers if @bill_image.ocr_failed?
       return [] unless @bill_image.ocr_completed? || @bill_image.ocr_needs_review?
 
-      dealer_result = Dealers::Resolver.call(bill_image: @bill_image)
       processing_rows = @bill_image.transactions.where(status: "processing").order(:source_index).to_a
       transactions =
         if processing_rows.any?
-          rebuild(processing_rows, dealer_result)
+          rebuild(processing_rows)
         else
-          first_build(dealer_result)
+          first_build
         end
       @bill_image.telegram_message&.update!(processing_status: "processed")
       transactions
@@ -41,7 +40,7 @@ module Transactions
     private
 
     # First analysis (or a retry of it): one row per document, keyed by position.
-    def first_build(dealer_result)
+    def first_build
       @bill_image.documents.filter_map do |document|
         index = document.fetch("index")
         if skippable_child_receipt?(document)
@@ -49,11 +48,11 @@ module Transactions
           next
         end
 
-        build_document(document, index, dealer_result)
+        build_document(document, index)
       end
     end
 
-    def rebuild(processing_rows, dealer_result)
+    def rebuild(processing_rows)
       decided_rows = @bill_image.transactions.where.not(status: "processing").to_a
       documents = @bill_image.documents.reject { |document| skippable_child_receipt?(document) }
       # A settlement that already has a decided row is not booked twice.
@@ -68,7 +67,7 @@ module Transactions
       results = processing_rows.map do |row|
         document = assignments[row]
         if document
-          build_document(document, row.source_index, dealer_result,
+          build_document(document, row.source_index,
                          extra_reasons: multi_settlement ? [ "reprocessed_multi_settlement" ] : [])
         else
           move_leftover(row, "needs_review", "document_missing_after_reprocess")
@@ -77,16 +76,16 @@ module Transactions
 
       next_index = @bill_image.transactions.maximum(:source_index).to_i + 1
       (available - assignments.values.compact).each_with_index do |document, offset|
-        results << build_document(document, next_index + offset, dealer_result,
+        results << build_document(document, next_index + offset,
                                   extra_reasons: [ "document_added_after_reprocess" ])
       end
       results
     end
 
-    def build_document(document, index, dealer_result, extra_reasons: [])
+    def build_document(document, index, extra_reasons: [])
       with_transaction_row(index) do |transaction, creating|
         before = creating ? nil : transaction.audit_snapshot
-        evaluation = Evaluator.call(document: document, bill_image: @bill_image, dealer_result: dealer_result)
+        evaluation = Evaluator.call(document: document, bill_image: @bill_image)
 
         transaction.assign_attributes(evaluation.attributes)
         transaction.source_data = evaluation.source_data
@@ -206,8 +205,6 @@ module Transactions
     def build_failed(index)
       with_transaction_row(index) do |transaction, creating|
         before = creating ? nil : transaction.audit_snapshot
-        dealer_result = Dealers::Resolver.call(bill_image: @bill_image)
-        transaction.assign_attributes(dealer: dealer_result.dealer)
         transaction.source_data = transaction.source_data.merge(
           "review_reasons" => [ "ocr_failed" ],
           "ocr_error" => @bill_image.processing_error,

@@ -23,6 +23,7 @@ Rails.application.routes.draw do
     resources :bill_uploads, only: [ :new, :create ]
 
     resources :dealers
+    resources :remitters, except: [ :show ]
     resources :telegram_chats do
       member { post :process_stored }
     end

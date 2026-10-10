@@ -24,7 +24,9 @@ module Workbook
       merchant = @transaction.merchant || @transaction.bill_image&.telegram_chat&.merchant
       return unidentified("merchant_missing") unless merchant
 
-      tid_key = TidParser.call(ocr_merchant_name) || TidParser.call(ocr_terminal)
+      # Agent TID comes only from the OCR merchant name; terminal_or_merchant_id
+      # is a merchant identifier (MID) and does not tell which agent to use.
+      tid_key = TidParser.call(ocr_merchant_name)
       return unidentified("agent_tid_missing") if tid_key.blank?
 
       link = MerchantDealer.active.find_by(merchant:, tid_key:)
@@ -46,10 +48,6 @@ module Workbook
 
     def ocr_merchant_name
       @transaction.extraction["merchant_name"].to_s
-    end
-
-    def ocr_terminal
-      @transaction.extraction["terminal_or_merchant_id"].to_s
     end
   end
 end

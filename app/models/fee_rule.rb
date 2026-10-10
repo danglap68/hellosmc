@@ -146,7 +146,7 @@ class FeeRule < ApplicationRecord
     return if dealer_id.blank?
 
     merchants.each do |household|
-      next if household.dealer_id.blank? || household.dealer_id == dealer_id
+      next if household.merchant_dealers.empty? || household.merchant_dealers.exists?(dealer_id: dealer_id)
 
       errors.add(:merchant_ids, :dealer_mismatch)
       break

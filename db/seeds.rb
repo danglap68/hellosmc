@@ -16,6 +16,9 @@
 end
 puts "Card types: #{CardType.pluck(:key).join(', ')}"
 
+# Hello SMC workbook: remitters + agent×HKD mapping (idempotent).
+Workbook::Seed.call
+
 admin_email = ENV["SEED_ADMIN_EMAIL"].presence || "danglap686868@gmail.com"
 unless User.exists?(email: admin_email)
   password = ENV["SEED_ADMIN_PASSWORD"].presence
@@ -38,16 +41,14 @@ if Rails.env.development?
 
   thien_kim = Merchant.find_or_create_by!(code: "001") do |merchant|
     merchant.name = "001_ HỘ KINH DOANH THIÊN KIM GV"
-    merchant.dealer = tran
   end
   thien_kim.merchant_aliases.find_or_create_by!(alias_type: "receipt_name", alias: "HỘ KINH DOANH THIÊN KIM GV")
-  Merchant.find_or_create_by!(code: "TRAN3") { |merchant| merchant.name = "Trân 3"; merchant.dealer = tran }
-  Merchant.find_or_create_by!(code: "CD1") { |merchant| merchant.name = "Cường Duyên 1"; merchant.dealer = cuong_duyen }
-  Merchant.find_or_create_by!(code: "CD2") { |merchant| merchant.name = "Cường Duyên 2"; merchant.dealer = cuong_duyen }
+  Merchant.find_or_create_by!(code: "TRAN3") { |merchant| merchant.name = "Trân 3" }
+  Merchant.find_or_create_by!(code: "CD1") { |merchant| merchant.name = "Cường Duyên 1" }
+  Merchant.find_or_create_by!(code: "CD2") { |merchant| merchant.name = "Cường Duyên 2" }
 
   TelegramChat.find_or_create_by!(telegram_chat_id: -1001000000001) do |chat|
     chat.name = "Anh Trân - Bill (demo)"
-    chat.dealer = tran
     chat.active = true
   end
 

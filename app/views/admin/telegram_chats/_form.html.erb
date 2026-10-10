@@ -4,7 +4,7 @@
       <%= form.error_summary %>
       <%= form.field :telegram_chat_id, required: true, hint: t("telegram_chats.form.chat_id_hint") %>
       <%= form.field :name %>
-      <%= form.select_field :dealer_id, dealer_options, { include_blank: t("telegram_chats.unmapped") }, hint: t("telegram_chats.form.dealer_hint") %>
+      <%= form.select_field :merchant_id, merchant_options, { include_blank: t("telegram_chats.unmapped_hkd") }, hint: t("telegram_chats.form.merchant_hint") %>
       <%= form.switch_field :active, hint: t("telegram_chats.form.active_hint") %>
     </div>
     <div class="card-footer d-flex gap-2">

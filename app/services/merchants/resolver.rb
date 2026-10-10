@@ -22,14 +22,13 @@ module Merchants
 
     FUZZY_MARGIN = 0.05
 
-    def self.call(merchant_name:, merchant_identifier: nil, dealer: nil)
-      new(merchant_name: merchant_name, merchant_identifier: merchant_identifier, dealer: dealer).call
+    def self.call(merchant_name:, merchant_identifier: nil)
+      new(merchant_name:, merchant_identifier:).call
     end
 
-    def initialize(merchant_name:, merchant_identifier:, dealer:)
+    def initialize(merchant_name:, merchant_identifier:)
       @merchant_name = merchant_name
       @merchant_identifier = merchant_identifier
-      @dealer = dealer
     end
 
     def call
@@ -97,18 +96,10 @@ module Merchants
       Result.new(merchant: nil, method: :none, candidates: [], score: nil)
     end
 
-    # One match resolves. Several matches resolve only if the configured
-    # dealer narrows them to exactly one; otherwise the result is ambiguous.
+    # One match resolves; several matches are ambiguous (no dealer to narrow).
     def pick(merchants, method)
       return nil if merchants.empty?
       return Result.new(merchant: merchants.first, method: method, candidates: merchants, score: 1.0) if merchants.one?
-
-      if @dealer
-        same_dealer = merchants.select { |merchant| merchant.dealer_id == @dealer.id }
-        if same_dealer.one?
-          return Result.new(merchant: same_dealer.first, method: method, candidates: merchants, score: 1.0)
-        end
-      end
 
       Result.new(merchant: nil, method: :ambiguous, candidates: merchants, score: nil)
     end

@@ -161,16 +161,17 @@ RSpec.describe Transactions::Builder do
   end
 
   it "creates one transaction per settlement in the same image" do
-    create(:merchant, name: "Cường Duyên 1", code: "CD1", dealer: create(:dealer, name: "Cường Duyên"))
+    cuong = create(:dealer, name: "Cường Duyên")
+    cuong_merchant = create(:merchant, name: "Cường Duyên 1", code: "CD1")
+    create(:merchant_dealer, merchant: cuong_merchant, dealer: cuong, tid_key: "tid1",
+           ds_sheet_anchor: "Cường Duyên 1", ds_header: "Cường Duyên (tid1)", rd_agent_label: "Cường Duyên")
     transactions = described_class.call(bill_image: analyzed_bill(extraction: "two_settlements"))
 
     expect(transactions.size).to eq(2)
     expect(transactions.map(&:source_index)).to eq([ 0, 1 ])
     expect(transactions.map(&:transaction_amount_vnd)).to eq([ 11_445_000, 5_000_000 ])
     expect(transactions.first).to be_approved
-    # Second settlement's merchant belongs to another dealer than the chat's.
-    expect(transactions.second).to be_needs_review
-    expect(transactions.second.review_reason_codes).to include("merchant_dealer_mismatch")
+    expect(transactions.second).to be_approved
   end
 
   it "is idempotent" do
@@ -190,8 +191,8 @@ RSpec.describe Transactions::Builder do
     }.not_to change(Merchant, :count)
   end
 
-  it "requires review when the chat has no dealer" do
-    chat.update!(dealer: nil)
+  it "requires review when the merchant has no TID agent" do
+    merchant_dealer_link.destroy!
     transaction = described_class.call(bill_image: analyzed_bill).sole
     expect(transaction.review_reason_codes).to include("dealer_unmapped")
   end
@@ -236,8 +237,20 @@ RSpec.describe Transactions::Builder do
                                      ocr_status: "failed", processing_error: "boom")
     transaction = described_class.call(bill_image: bill_image).sole
     expect(transaction).to be_failed
-    expect(transaction.dealer).to eq(dealer)
+    expect(transaction.dealer).to be_nil
     expect(transaction.review_reason_codes).to eq([ "ocr_failed" ])
+  end
+
+  it "enqueues the workbook job after building a transaction with an amount" do
+    expect { described_class.call(bill_image: analyzed_bill) }
+      .to have_enqueued_job(WriteHelloSmcWorkbookJob)
+  end
+
+  it "does not enqueue the workbook job when OCR failed" do
+    bill_image = create(:bill_image, telegram_message: create(:telegram_message, telegram_chat: chat),
+                                     ocr_status: "failed", processing_error: "boom")
+    expect { described_class.call(bill_image: bill_image) }
+      .not_to have_enqueued_job(WriteHelloSmcWorkbookJob)
   end
 
   it "rebuilds a transaction that is being reprocessed" do
@@ -259,11 +272,15 @@ end
 RSpec.describe Transactions::Builder, "reprocessing a multi-settlement image" do
   include_context "accounting setup"
 
-  let!(:tran3) { create(:merchant, name: "Trân 3", code: "TRAN3", dealer: dealer) }
+  let!(:tran3) { create(:merchant, name: "Trân 3", code: "TRAN3") }
+  let!(:tran3_link) do
+    create(:merchant_dealer, merchant: tran3, dealer: dealer, tid_key: "tid1",
+           ds_sheet_anchor: "Trân 3", ds_header: "Trân (tid1)", rd_agent_label: "Trân")
+  end
 
   def document(merchant_name:, amount:, time:, lot:)
     { "document_type" => "settlement", "total_amount_vnd" => amount, "lot_number" => lot,
-      "transaction_date" => "2026-10-04", "transaction_time" => time, "merchant_name" => merchant_name,
+      "transaction_date" => "2026-10-04", "transaction_time" => time, "merchant_name" => "#{merchant_name}-1",
       "terminal_or_merchant_id" => nil,
       "confidence" => BillVision::Prompt::FIELDS.index_with { 0.97 }.merge("terminal_or_merchant_id" => 0.0) }
   end

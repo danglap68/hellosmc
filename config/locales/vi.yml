@@ -27,6 +27,7 @@ vi:
     telegram_chats: "Nhóm Telegram"
     merchants: "Hộ kinh doanh"
     fee_rules: "Quy tắc phí"
+    remitters: "Người đi tiền"
     excel_exports: "Xuất Excel"
     audit_logs: "Nhật ký thay đổi"
     users: "Người dùng"
@@ -306,9 +307,23 @@ vi:
       map_group: "Gán nhóm Telegram"
       no_groups: "Chưa gán nhóm Telegram nào."
 
+  remitters:
+    index:
+      title: "Người đi tiền"
+      new: "Thêm người đi tiền"
+      empty: "Chưa có người đi tiền"
+    form:
+      excel_key_hint: "Khớp hàng 2 của sheet R&D Report. Ví dụ: LẬP, KIM."
+      telegram_username_hint: "Không cần ký tự @, không phân biệt hoa thường."
+    new:
+      title: "Thêm người đi tiền"
+    edit:
+      title: "Sửa người đi tiền %{name}"
+
   telegram_chats:
     messages: "Tin nhắn"
     unmapped: "Chưa gán đại lý"
+    unmapped_hkd: "Chưa gán hộ kinh doanh"
     index:
       title: "Nhóm Telegram"
       new: "Thêm nhóm"
@@ -322,6 +337,7 @@ vi:
     form:
       chat_id_hint: "ID số của nhóm, ví dụ -1001234567890"
       dealer_hint: "Bill từ nhóm này được tính cho đại lý đã chọn."
+      merchant_hint: "HKD dùng làm fallback khi OCR không nhận ra hộ kinh doanh trên bill."
       active_hint: "Chỉ nhóm đang hoạt động mới được xử lý bill."
     new:
       title: "Thêm nhóm Telegram"
@@ -549,18 +565,21 @@ vi:
       telegram: "Telegram"
       uploads: "Ảnh bill"
       email: "Email"
+      exports: "Google Sheet Hello SMC"
     group_hints:
       ocr: "Nhà cung cấp, mô hình và ngưỡng độ tin cậy để tự động duyệt."
       matching: "Cách nhận diện hộ kinh doanh và phát hiện bill trùng."
       telegram: "Cách xử lý nhóm Telegram mới."
       uploads: "Giới hạn ảnh nhận từ Telegram và tải lên thủ công."
       email: "Địa chỉ gửi email đặt lại mật khẩu."
+      exports: "Spreadsheet ID của bảng Hello SMC (bản Google Sheet native)."
     group_icons:
       ocr: "scan"
       matching: "git-compare"
       telegram: "brand-telegram"
       uploads: "photo"
       email: "mail"
+      exports: "table"
     keys:
       vision_provider: "Nhà cung cấp OCR"
       openai_vision_model: "Mô hình OpenAI"
@@ -579,6 +598,7 @@ vi:
       telegram_auto_activate_chats: "Tự động kích hoạt nhóm Telegram mới"
       max_bill_image_mb: "Dung lượng ảnh tối đa"
       mailer_sender: "Email người gửi"
+      hello_smc_spreadsheet_id: "Spreadsheet ID"
     hints:
       vision_provider: "Cần khai báo API key tương ứng trên máy chủ."
       openai_vision_model: "Ví dụ: gpt-4.1"
@@ -765,6 +785,7 @@ vi:
       telegram_chat: "Nhóm Telegram"
       merchant: "Hộ kinh doanh"
       merchant_alias: "Alias"
+      remitter: "Người đi tiền"
       card_type: "Loại thẻ"
       fee_rule: "Quy tắc phí"
       telegram_message: "Tin nhắn Telegram"
@@ -793,8 +814,8 @@ vi:
         name: "Tên nhóm"
         telegram_chat_id: "Telegram chat ID"
         chat_type: "Loại chat"
-        dealer: "Đại lý"
-        dealer_id: "Đại lý"
+        merchant: "Hộ kinh doanh"
+        merchant_id: "Hộ kinh doanh"
         active: "Hoạt động"
       merchant:
         name: "Tên hộ kinh doanh"
@@ -809,6 +830,12 @@ vi:
         alias: "Alias"
         alias_type: "Loại alias"
         normalized_alias: "Dạng chuẩn hoá"
+        active: "Hoạt động"
+      remitter:
+        name: "Tên"
+        excel_key: "Mã Excel"
+        telegram_user_id: "Telegram user ID"
+        telegram_username: "Telegram username"
         active: "Hoạt động"
       card_type:
         key: "Mã"

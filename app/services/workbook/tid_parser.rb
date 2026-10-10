@@ -24,5 +24,15 @@ module Workbook
 
       nil
     end
+
+    # Returns the merchant name without the trailing TID marker, so the HKD can
+    # be matched while the TID is read separately. "… GV-1" → "… GV".
+    def strip(text)
+      raw = text.to_s
+      return raw if raw.blank?
+
+      raw = raw.sub(/\s*[-–]\s*\d+\s*\z/, "")
+      raw.sub(/\s*\(?\s*(?:tid|terminal)\s*[:#-]?\s*\d+\s*\)?\s*\z/i, "").strip
+    end
   end
 end

@@ -17,8 +17,10 @@ module Workbook
         .sheets.map { |sheet| sheet.properties.title }
     end
 
-    def values(sheet, range)
-      Array(@service.get_spreadsheet_values(@spreadsheet_id, "'#{sheet}'!#{range}").values)
+    def values(sheet, range, value_render_option: "UNFORMATTED_VALUE")
+      Array(@service.get_spreadsheet_values(
+        @spreadsheet_id, "'#{sheet}'!#{range}", value_render_option: value_render_option
+      ).values)
     end
 
     def update(sheet, range, rows)
@@ -28,6 +30,20 @@ module Workbook
         Google::Apis::SheetsV4::ValueRange.new(values: rows),
         value_input_option: "USER_ENTERED"
       )
+    end
+
+    def batch_update_values(updates)
+      data = updates.map do |update|
+        Google::Apis::SheetsV4::ValueRange.new(
+          range: "'#{update[:sheet]}'!#{update[:range]}",
+          values: update[:rows]
+        )
+      end
+      request = Google::Apis::SheetsV4::BatchUpdateValuesRequest.new(
+        value_input_option: "USER_ENTERED",
+        data: data
+      )
+      @service.batch_update_values(@spreadsheet_id, request)
     end
 
     def duplicate_sheet(source_title:, dest_title:)

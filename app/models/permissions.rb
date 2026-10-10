@@ -7,7 +7,7 @@ module Permissions
     "admin" => :all,
     "operator" => {
       manage: %i[transactions reviews bill_uploads excel_exports],
-      read: %i[dashboard bill_images dealers telegram_chats merchants fee_rules card_types audit_logs]
+      read: %i[dashboard bill_images dealers telegram_chats merchants fee_rules remitters card_types audit_logs]
     },
     "viewer" => {
       manage: [],

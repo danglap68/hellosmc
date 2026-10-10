@@ -24,6 +24,10 @@ module Workbook
       end
     end
 
+    def batch_update_values(updates)
+      updates.each { |update| update(update[:sheet], update[:range], update[:rows]) }
+    end
+
     def duplicate_sheet(source_title:, dest_title:)
       @sheets[dest_title] = @sheets.fetch(source_title).map(&:dup)
     end

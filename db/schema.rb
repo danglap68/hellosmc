@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_09_133000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_11_000000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -78,6 +78,29 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_09_133000) do
     t.index ["created_at"], name: "index_audit_logs_on_created_at"
   end
 
+  create_table "bill_albums", force: :cascade do |t|
+    t.bigint "telegram_chat_id", null: false
+    t.string "media_group_id", null: false
+    t.string "status", default: "collecting", null: false
+    t.datetime "collect_until"
+    t.string "reconciliation_status"
+    t.bigint "transfer_bill_image_id"
+    t.bigint "transfer_amount_vnd"
+    t.bigint "child_total_vnd"
+    t.integer "child_count", default: 0, null: false
+    t.integer "transfer_count", default: 0, null: false
+    t.bigint "match_difference_vnd"
+    t.jsonb "metadata", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["status"], name: "index_bill_albums_on_status"
+    t.index ["telegram_chat_id", "media_group_id"], name: "index_bill_albums_on_chat_and_media_group", unique: true
+    t.index ["telegram_chat_id"], name: "index_bill_albums_on_telegram_chat_id"
+    t.index ["transfer_bill_image_id"], name: "index_bill_albums_on_transfer_bill_image_id"
+    t.check_constraint "reconciliation_status IS NULL OR (reconciliation_status::text = ANY (ARRAY['matched'::character varying, 'mismatched'::character varying, 'multiple_transfers'::character varying, 'missing_bills'::character varying, 'no_transfer'::character varying, 'transfer_duplicate'::character varying, 'incomplete'::character varying]::text[]))", name: "bill_albums_reconciliation_status_check"
+    t.check_constraint "status::text = ANY (ARRAY['collecting'::character varying, 'processing'::character varying, 'reconciled'::character varying, 'needs_review'::character varying, 'skipped'::character varying, 'failed'::character varying]::text[])", name: "bill_albums_status_check"
+  end
+
   create_table "bill_images", force: :cascade do |t|
     t.bigint "telegram_message_id"
     t.string "source", default: "telegram", null: false
@@ -102,6 +125,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_09_133000) do
     t.jsonb "metadata", default: {}, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.bigint "bill_album_id"
+    t.index ["bill_album_id"], name: "index_bill_images_on_bill_album_id"
     t.index ["duplicate_of_id"], name: "index_bill_images_on_duplicate_of_id"
     t.index ["ocr_status"], name: "index_bill_images_on_ocr_status"
     t.index ["sha256"], name: "index_bill_images_on_sha256"
@@ -151,7 +176,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_09_133000) do
     t.index ["export_date"], name: "index_excel_exports_on_export_date"
     t.index ["generated_by_id"], name: "index_excel_exports_on_generated_by_id"
     t.check_constraint "end_date >= export_date", name: "excel_exports_date_range"
-    t.check_constraint "layout::text = ANY (ARRAY['legacy'::character varying::text, 'ket_toan_phi_goc'::character varying::text])", name: "excel_exports_layout_check"
+    t.check_constraint "layout::text = ANY (ARRAY['legacy'::character varying, 'ket_toan_phi_goc'::character varying]::text[])", name: "excel_exports_layout_check"
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'processing'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text])", name: "excel_exports_status_check"
   end
 
@@ -206,8 +231,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_09_133000) do
     t.check_constraint "alias_type::text = ANY (ARRAY['receipt_name'::character varying::text, 'telegram_name'::character varying::text, 'merchant_id'::character varying::text, 'terminal_id'::character varying::text, 'terminal_name'::character varying::text, 'manual'::character varying::text])", name: "merchant_aliases_alias_type_check"
   end
 
+  create_table "merchant_dealers", force: :cascade do |t|
+    t.bigint "merchant_id", null: false
+    t.bigint "dealer_id", null: false
+    t.string "tid_key", null: false
+    t.string "tid_label", null: false
+    t.string "ds_sheet_anchor", null: false
+    t.string "ds_header", null: false
+    t.string "rd_agent_label", null: false
+    t.boolean "active", default: true, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["dealer_id"], name: "index_merchant_dealers_on_dealer_id"
+    t.index ["merchant_id", "dealer_id", "tid_key"], name: "index_merchant_dealers_on_trio", unique: true
+    t.index ["merchant_id", "tid_key"], name: "index_merchant_dealers_on_merchant_tid", unique: true, where: "(active = true)"
+    t.index ["merchant_id"], name: "index_merchant_dealers_on_merchant_id"
+  end
+
   create_table "merchants", force: :cascade do |t|
-    t.bigint "dealer_id"
     t.string "name", null: false
     t.string "normalized_name", null: false
     t.string "code", null: false
@@ -217,21 +258,33 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_09_133000) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["code"], name: "index_merchants_on_code", unique: true
-    t.index ["dealer_id"], name: "index_merchants_on_dealer_id"
     t.index ["default_card_type_id"], name: "index_merchants_on_default_card_type_id"
     t.index ["normalized_name"], name: "index_merchants_on_normalized_name"
+  end
+
+  create_table "remitters", force: :cascade do |t|
+    t.string "name", null: false
+    t.string "excel_key", null: false
+    t.bigint "telegram_user_id"
+    t.string "telegram_username"
+    t.boolean "active", default: true, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["excel_key"], name: "index_remitters_on_excel_key", unique: true
+    t.index ["telegram_user_id"], name: "index_remitters_on_telegram_user_id", unique: true, where: "(telegram_user_id IS NOT NULL)"
+    t.index ["telegram_username"], name: "index_remitters_on_telegram_username", unique: true, where: "(telegram_username IS NOT NULL)"
   end
 
   create_table "telegram_chats", force: :cascade do |t|
     t.bigint "telegram_chat_id", null: false
     t.string "name"
     t.string "chat_type"
-    t.bigint "dealer_id"
     t.boolean "active", default: true, null: false
     t.jsonb "metadata", default: {}, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.index ["dealer_id"], name: "index_telegram_chats_on_dealer_id"
+    t.bigint "merchant_id"
+    t.index ["merchant_id"], name: "index_telegram_chats_on_merchant_id"
     t.index ["telegram_chat_id"], name: "index_telegram_chats_on_telegram_chat_id", unique: true
   end
 
@@ -248,6 +301,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_09_133000) do
     t.jsonb "raw_payload", default: {}, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "telegram_username"
     t.index ["media_group_id"], name: "index_telegram_messages_on_media_group_id"
     t.index ["telegram_chat_id", "telegram_message_id"], name: "index_telegram_messages_on_chat_and_message", unique: true
     t.index ["telegram_chat_id"], name: "index_telegram_messages_on_telegram_chat_id"
@@ -344,10 +398,30 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_09_133000) do
     t.check_constraint "role::text = ANY (ARRAY['admin'::character varying::text, 'operator'::character varying::text, 'viewer'::character varying::text])", name: "users_role_check"
   end
 
+  create_table "workbook_entries", force: :cascade do |t|
+    t.bigint "transaction_id", null: false
+    t.string "spreadsheet_id", null: false
+    t.string "branch", null: false
+    t.string "ds_sheet"
+    t.string "ds_cell"
+    t.string "rd_cell"
+    t.integer "mb_row"
+    t.integer "unidentified_row"
+    t.bigint "amount_vnd", null: false
+    t.jsonb "payload", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["transaction_id"], name: "index_workbook_entries_on_transaction_id"
+    t.index ["transaction_id"], name: "index_workbook_entries_on_transaction_id_unique", unique: true
+  end
+
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "app_secrets", "users", column: "updated_by_id"
   add_foreign_key "app_settings", "users", column: "updated_by_id"
+  add_foreign_key "bill_albums", "bill_images", column: "transfer_bill_image_id"
+  add_foreign_key "bill_albums", "telegram_chats"
+  add_foreign_key "bill_images", "bill_albums"
   add_foreign_key "bill_images", "bill_images", column: "duplicate_of_id"
   add_foreign_key "bill_images", "telegram_messages"
   add_foreign_key "bill_images", "users", column: "uploaded_by_id"
@@ -359,9 +433,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_09_133000) do
   add_foreign_key "fee_rule_merchants", "merchants"
   add_foreign_key "fee_rules", "dealers"
   add_foreign_key "merchant_aliases", "merchants"
+  add_foreign_key "merchant_dealers", "dealers"
+  add_foreign_key "merchant_dealers", "merchants"
   add_foreign_key "merchants", "card_types", column: "default_card_type_id"
-  add_foreign_key "merchants", "dealers"
-  add_foreign_key "telegram_chats", "dealers"
+  add_foreign_key "telegram_chats", "merchants"
   add_foreign_key "telegram_messages", "telegram_chats"
   add_foreign_key "transaction_reviews", "transactions"
   add_foreign_key "transaction_reviews", "users", column: "reviewed_by_id"
@@ -373,4 +448,5 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_09_133000) do
   add_foreign_key "transactions", "merchants"
   add_foreign_key "transactions", "telegram_messages"
   add_foreign_key "transactions", "users", column: "approved_by_id"
+  add_foreign_key "workbook_entries", "transactions"
 end

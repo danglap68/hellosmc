@@ -3,7 +3,7 @@ require "rails_helper"
 RSpec.describe FeeRules::Resolver do
   let(:at) { Time.zone.local(2026, 10, 4, 10, 0) }
   let(:dealer) { create(:dealer) }
-  let(:merchant) { create(:merchant, dealer: dealer) }
+  let(:merchant) { create(:merchant) }
   let(:mb) { create(:mb_card_type) }
   let(:normal) { create(:normal_card_type) }
 
@@ -71,12 +71,12 @@ RSpec.describe FeeRules::Resolver do
   end
 
   it "applies one rule to every household listed on it" do
-    other = create(:merchant, dealer: dealer)
+    other = create(:merchant)
     shared = create(:fee_rule, merchants: [ merchant, other ], base_fee_rate: BigDecimal("0.0121"))
 
     expect(resolve.fee_rule).to eq(shared)
     expect(resolve(merchant: other).fee_rule).to eq(shared)
-    expect(resolve(merchant: create(:merchant, dealer: dealer)).status).to eq(:not_found)
+    expect(resolve(merchant: create(:merchant)).status).to eq(:not_found)
   end
 
   it "does not apply rules targeted at another merchant or dealer" do

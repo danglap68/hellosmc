@@ -17,7 +17,7 @@ RSpec.describe BillVision::Normalizer do
       "transaction_date" => "2026-10-04",
       "transaction_time" => "10:57:25",
       "transaction_at" => "2026-10-04T10:57:25+07:00",
-      "merchant_name" => "HỘ KINH DOANH THIÊN KIM GV",
+      "merchant_name" => "HỘ KINH DOANH THIÊN KIM GV-1",
       "low_confidence_fields" => []
     )
   end

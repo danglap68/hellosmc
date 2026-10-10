@@ -5,8 +5,7 @@ module Admin
     before_action :set_merchant, only: %i[show edit update destroy]
 
     def index
-      scope = Merchant.includes(:dealer, :default_card_type).ordered
-      scope = scope.where(dealer_id: params[:dealer_id]) if params[:dealer_id].present?
+      scope = Merchant.includes(:default_card_type).ordered
       if params[:q].present?
         like = "%#{Merchant.sanitize_sql_like(params[:q])}%"
         normalized = "%#{VietnameseText.normalize(params[:q])}%"
@@ -24,7 +23,7 @@ module Admin
     end
 
     def new
-      @merchant = Merchant.new(active: true, dealer_id: params[:dealer_id])
+      @merchant = Merchant.new(active: true)
     end
 
     def create
@@ -66,7 +65,7 @@ module Admin
     end
 
     def merchant_params
-      params.require(:merchant).permit(:name, :code, :dealer_id, :default_card_type_id, :active)
+      params.require(:merchant).permit(:name, :code, :default_card_type_id, :active)
     end
   end
 end

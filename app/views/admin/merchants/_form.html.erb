@@ -5,7 +5,6 @@
       <%= form.field :name, required: true, hint: t("merchants.form.name_hint") %>
       <div class="row">
         <div class="col-md-4"><%= form.field :code, required: true %></div>
-        <div class="col-md-8"><%= form.select_field :dealer_id, dealer_options, { include_blank: t("merchants.form.no_dealer") } %></div>
       </div>
       <%= form.select_field :default_card_type_id, card_type_options, { include_blank: t("merchants.form.no_default_card_type") },
             hint: t("merchants.form.default_card_type_hint") %>

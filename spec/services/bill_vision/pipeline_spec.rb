@@ -119,30 +119,30 @@ RSpec.describe BillVision::Pipeline do
   end
 
   it "does not escalate an unmapped dealer, even if OCR also needs review" do
-    chat.update!(dealer: nil)
+    merchant_dealer_link.destroy!
     stub_model("gpt-6-luna", data: blurry)
     analyze
     expect(metadata["calls"]["validator"]).to eq(0)
     expect(metadata["deterministic_business_review_reasons"]).to include("dealer_unmapped")
   end
 
-  it "does not spend a validator call on malformed output when the dealer is unmapped" do
-    chat.update!(dealer: nil)
+  it "still rereads malformed output when no agent is mapped" do
+    merchant_dealer_link.destroy!
+    validator = stub_model("gpt-6.1-sol")
     stub_model("gpt-6-luna", content: "invalid JSON")
     analyze
-    expect(metadata["calls"]["validator"]).to eq(0)
-    expect(metadata["deterministic_business_review_reasons"]).to include("dealer_unmapped")
+    expect(validator).to have_been_requested.once
     expect(bill_image).to be_ocr_needs_review
   end
 
   it "confirms equivalent MID formatting without modifying the primary identifier" do
     create(:merchant_alias, merchant: merchant, alias_type: "merchant_id", alias: "MID001")
     primary_data = blurry.deep_dup
-    primary_data["documents"][0].merge!("terminal_or_merchant_id" => "mid-001", "merchant_name" => nil)
-    primary_data["documents"][0]["confidence"].merge!("terminal_or_merchant_id" => 0.5, "merchant_name" => 0)
+    primary_data["documents"][0].merge!("terminal_or_merchant_id" => "mid-001")
+    primary_data["documents"][0]["confidence"].merge!("terminal_or_merchant_id" => 0.5)
     validator_data = clean.deep_dup
-    validator_data["documents"][0].merge!("terminal_or_merchant_id" => "MID 001", "merchant_name" => nil)
-    validator_data["documents"][0]["confidence"].merge!("terminal_or_merchant_id" => 0.99, "merchant_name" => 0)
+    validator_data["documents"][0].merge!("terminal_or_merchant_id" => "MID 001")
+    validator_data["documents"][0]["confidence"].merge!("terminal_or_merchant_id" => 0.99)
     stub_model("gpt-6-luna", data: primary_data)
     stub_model("gpt-6.1-sol", data: validator_data)
     analyze
