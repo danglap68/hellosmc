@@ -85,6 +85,7 @@ module Transactions
     def build_document(document, index, extra_reasons: [])
       with_transaction_row(index) do |transaction, creating|
         before = creating ? nil : transaction.audit_snapshot
+        document = inherit_album_fields(document)
         evaluation = Evaluator.call(document: document, bill_image: @bill_image)
 
         transaction.assign_attributes(evaluation.attributes)
@@ -122,6 +123,49 @@ module Transactions
       return [] unless document["document_type"].in?(%w[settlement transfer])
 
       [ "album_total_review" ]
+    end
+
+    # A "tổng kết" (settlement/transfer) often prints only the total, not the
+    # merchant/lot/time. Inherit those (and their confidence) from the album's
+    # child receipts so the transaction is complete instead of flagged
+    # merchant_missing / transaction_time_missing.
+    def inherit_album_fields(document)
+      return document unless @bill_image.bill_album_id.present?
+      return document unless document["document_type"].in?(%w[settlement transfer])
+      return document if document["merchant_name"].present? && document["lot_number"].present? &&
+                        document["transaction_time"].present?
+
+      children = @bill_image.bill_album.bill_images.analyzable.flat_map(&:documents)
+                           .select { |doc| doc["document_type"] == "child_receipt" }
+      return document if children.empty?
+
+      merged = document.dup
+      confidence = (merged["confidence"] || {}).dup
+      inherit_field(merged, confidence, children, "merchant_name")
+      inherit_field(merged, confidence, children, "lot_number")
+      inherit_field(merged, confidence, children, "transaction_time", latest: true)
+
+      if merged["transaction_date"].present? && merged["transaction_time"].present? && merged["transaction_at"].blank?
+        date = Date.parse(merged["transaction_date"])
+        hour, minute, second = merged["transaction_time"].split(":").map(&:to_i)
+        merged["transaction_at"] = Time.zone.local(date.year, date.month, date.day, hour, minute, second).iso8601
+      end
+      merged["confidence"] = confidence
+      merged
+    end
+
+    def inherit_field(merged, confidence, children, field, latest: false)
+      return if merged[field].present?
+
+      source = if latest
+                 children.select { |doc| doc[field].present? }.max_by { |doc| doc[field].to_s }
+               else
+                 children.find { |doc| doc[field].present? }
+               end
+      return unless source
+
+      merged[field] = source[field]
+      confidence[field] = source.dig("confidence", field)
     end
 
     # Child receipts (bill con) and unreadable documents are evidence, never

@@ -274,6 +274,37 @@ RSpec.describe Transactions::Builder do
     expect(described_class.call(bill_image: bill_image)).to be_empty
   end
 
+  it "inherits merchant, lot and time from child receipts in the same album" do
+    album = create(:bill_album, telegram_chat: chat)
+
+    child = { "document_type" => "child_receipt", "total_amount_vnd" => 100_000_000,
+              "transaction_date" => "2026-10-04", "transaction_time" => "18:33:32",
+              "merchant_name" => "HỘ KINH DOANH THIÊN KIM GV", "lot_number" => "000078",
+              "confidence" => BillVision::Prompt::FIELDS.index_with { 0.97 } }
+    child_norm = BillVision::Normalizer.call({ "documents" => [ child ] }, provider: "openai", model: "gpt-test")
+    create(:bill_image, bill_album: album, telegram_message: create(:telegram_message, telegram_chat: chat),
+                        normalized_extraction: child_norm, ocr_status: "completed")
+
+    settlement = { "document_type" => "settlement", "total_amount_vnd" => 100_000_000,
+                   "transaction_date" => "2026-10-04", "transaction_time" => nil,
+                   "merchant_name" => nil, "lot_number" => nil,
+                   "confidence" => BillVision::Prompt::FIELDS.index_with { 0.97 }.merge(
+                     "merchant_name" => 0.0, "transaction_time" => 0.0, "lot_number" => 0.0
+                   ) }
+    settlement_norm = BillVision::Normalizer.call({ "documents" => [ settlement ] },
+                                                  provider: "openai", model: "gpt-test")
+    settlement_image = create(:bill_image, bill_album: album, telegram_message: create(:telegram_message, telegram_chat: chat),
+                                           normalized_extraction: settlement_norm, ocr_status: "needs_review")
+
+    transaction = described_class.call(bill_image: settlement_image).sole
+
+    expect(transaction).to be_needs_review
+    expect(transaction.lot_number).to eq("000078")
+    expect(transaction.transaction_at).to eq(Time.zone.local(2026, 10, 4, 18, 33, 32))
+    expect(transaction.review_reason_codes).to include("album_total_review")
+    expect(transaction.review_reason_codes).not_to include("transaction_time_missing", "transaction_time_unreadable")
+  end
+
   it "snapshots the applied rate: later rule changes do not alter the transaction" do
     transaction = described_class.call(bill_image: analyzed_bill).sole
     default_rule.update!(base_fee_rate: BigDecimal("0.02"))

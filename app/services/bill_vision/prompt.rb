@@ -34,12 +34,15 @@ module BillVision
       - transaction_date: the settlement date as YYYY-MM-DD. Receipts usually print DD/MM/YYYY or DD/MM/YY.
       - transaction_time: the settlement time as 24-hour HH:MM:SS.
       - merchant_name: the merchant / business name exactly as printed, keeping Vietnamese diacritics.
+        Read every visible character; never truncate with "..." or an ellipsis. If only part of the
+        name is visible, return that part verbatim (without adding "...").
       - terminal_or_merchant_id: the merchant ID (MID) if visible, otherwise the terminal ID (TID), as printed.
 
       For every field also return a confidence between 0 and 1: how certain you are that the value is
       exactly correct. A null value must have confidence 0.
 
       Do not calculate fees. Do not infer the dealer. Do not guess missing values.
+      Do not append "..." or other ellipsis markers to any field.
       If you are uncertain about a value, return null.
       Use "notes" only for short remarks about image quality or obstructions, otherwise null.
     PROMPT
