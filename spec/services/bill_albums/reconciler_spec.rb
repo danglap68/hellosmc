@@ -56,8 +56,9 @@ RSpec.describe BillAlbums::Reconciler do
     expect(album.transfer_amount_vnd).to eq(600_000_000)
     expect(album.match_difference_vnd).to be_nil
     expect(album.transfer_bill_image).to be_present
-    expect(album.transactions.count).to eq(3)
-    expect(album.transactions).to all(be_needs_review)
+    expect(album.transactions.count).to eq(1)
+    expect(album.transactions.sole).to be_needs_review
+    expect(album.transactions.sole.review_reason_codes).to include("album_total_review")
   end
 
   it "flags a mismatch and records the difference" do
@@ -71,8 +72,8 @@ RSpec.describe BillAlbums::Reconciler do
     expect(album.status).to eq("needs_review")
     expect(album.reconciliation_status).to eq("mismatched")
     expect(album.match_difference_vnd).to eq(-100_000_000)
-    expect(album.transactions).to all(be_needs_review)
-    expect(album.transactions.map(&:review_reason_codes).flatten).to include("album_total_mismatch")
+    expect(album.transactions.count).to eq(1)
+    expect(album.transactions.sole.review_reason_codes).to include("album_total_mismatch")
   end
 
   it "sums child bills across multiple images" do
@@ -149,7 +150,8 @@ RSpec.describe BillAlbums::Reconciler do
 
     expect(album.status).to eq("needs_review")
     expect(album.reconciliation_status).to eq("missing_bills")
-    expect(album.transactions).to be_empty
+    expect(album.transactions.count).to eq(1)
+    expect(album.transactions.sole.review_reason_codes).to include("album_missing_bills")
   end
 
   it "flags an unreadable child amount" do
@@ -160,7 +162,7 @@ RSpec.describe BillAlbums::Reconciler do
 
     expect(album.status).to eq("needs_review")
     expect(album.reconciliation_status).to eq("incomplete")
-    expect(album.transactions.map(&:review_reason_codes).flatten).to include("album_amount_unreadable")
+    expect(album.transactions.sole.review_reason_codes).to include("album_amount_unreadable")
   end
 
   it "flags an album with a failed image and still books healthy bills" do
@@ -189,7 +191,7 @@ RSpec.describe BillAlbums::Reconciler do
     expect(album.transfer_count).to eq(1)
     expect(album.transfer_amount_vnd).to eq(600_000_000)
     expect(album.reconciliation_status).to eq("matched")
-    expect(album.transactions.count).to eq(3)
+    expect(album.transactions.count).to eq(1)
   end
 
   it "treats both a settlement and a transfer as multiple totals" do
@@ -212,7 +214,7 @@ RSpec.describe BillAlbums::Reconciler do
     described_class.call(album)
     described_class.call(album)
 
-    expect(album.reload.transactions.count).to eq(3)
+    expect(album.reload.transactions.count).to eq(1)
     expect(AuditLog.where(action: "bill_album.reconciled", auditable: album).count).to eq(2)
   end
 end

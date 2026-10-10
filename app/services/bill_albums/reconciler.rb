@@ -1,8 +1,8 @@
 module BillAlbums
-  # After every image of an album is OCR'd: builds one transaction per child
-  # bill (child_receipt), then reconciles sum(child bills) against the "tổng
-  # kết" total. The total comes from a settlement (POS batch closing) or a
-  # transfer (bank transfer) — either one is accepted dynamically.
+  # After every image of an album is OCR'd: sums the child bills (child_receipt,
+  # evidence only), builds the single "tổng kết" transaction from a settlement
+  # (POS batch closing) or a transfer (bank transfer) — either one accepted
+  # dynamically — and reconciles sum(child bills) against that total.
   # Decision + persistence only; never changes transaction amounts.
   class Reconciler
     TOTAL_TYPES = %w[settlement transfer].freeze
@@ -17,7 +17,7 @@ module BillAlbums
 
     def call
       scan_documents
-      build_child_transactions
+      build_transactions
       apply_decision
       persist
       @album
@@ -58,9 +58,11 @@ module BillAlbums
       end
     end
 
-    def build_child_transactions
-      return unless @total_count >= 1 && @child_count >= 1
+    def build_transactions
+      return unless @total_count >= 1
 
+      # The Builder skips child receipts (evidence) and builds the "tổng kết"
+      # settlement/transfer as the single transaction (never auto-approved).
       @album.bill_images.analyzable.each do |image|
         Transactions::Builder.call(bill_image: image)
       end
@@ -83,7 +85,7 @@ module BillAlbums
       elsif @child_count.zero?
         @status = "needs_review"
         @reconciliation_status = "missing_bills"
-        @flag_reason = nil
+        @flag_reason = "album_missing_bills"
       elsif @amount_missing
         @status = "needs_review"
         @reconciliation_status = "incomplete"

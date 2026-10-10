@@ -18,9 +18,6 @@ module Transactions
     end
 
     def call
-      # Transfers are evidence for album reconciliation, never accounting rows.
-      raise ArgumentError, "transfer documents are not evaluated" if @doc["document_type"] == "transfer"
-
       @reasons << "too_many_documents" if @bill_image.normalized_extraction.to_h["documents_truncated"].to_i.positive?
       check_document_type
       amount = check_amount
@@ -58,7 +55,7 @@ module Transactions
 
     def check_document_type
       case @doc["document_type"]
-      when "settlement"
+      when "settlement", "transfer"
         flag_confidence("document_type", "document_type")
       when "child_receipt"
         @reasons << "document_type_uncertain"

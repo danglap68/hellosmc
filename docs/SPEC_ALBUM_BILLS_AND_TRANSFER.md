@@ -13,9 +13,9 @@ Ví dụ chốt (đúng yêu cầu):
 | Bill con 3 | child_receipt | 300.000.000 |
 | Hình tổng kết | settlement (hoặc transfer) | 600.000.000 |
 
-Kết quả kỳ vọng: 3 giao dịch con (100M / 200M / 300M) ở `needs_review` (không auto-approve), album `matched` vì `sum(bill con) == số tiền tổng kết (600M)`.
+Kết quả kỳ vọng: **1 giao dịch tổng kết 600M** ở `needs_review` (không auto-approve), album `matched` vì `sum(bill con) == số tiền tổng kết (600M)`.
 
-> **Thuật ngữ:** "bill con" (trong yêu cầu) **= document type `child_receipt`** (biên lai bán lẻ cho một giao dịch thẻ: SALE / THANH TOÁN / BÁN HÀNG). Mỗi bill con có số tiền và là một giao dịch trong album. "Hình tổng kết" = **`settlement`** (kết toán POS) **hoặc** **`transfer`** (chuyển khoản ngân hàng) — nguồn số tiền tổng để đối chiếu, không tạo giao dịch.
+> **Thuật ngữ:** "bill con" (trong yêu cầu) **= document type `child_receipt`** (biên lai bán lẻ cho một giao dịch thẻ: SALE / THANH TOÁN / BÁN HÀNG). Bill con chỉ là **bằng chứng** để cộng dồn đối chiếu — **không tạo giao dịch**. "Hình tổng kết" = **`settlement`** (kết toán POS) **hoặc** **`transfer`** (chuyển khoản ngân hàng) — nguồn số tiền tổng, **tạo đúng 1 giao dịch**.
 
 ## 1. Hiện trạng (root cause)
 
@@ -28,8 +28,8 @@ Kết quả kỳ vọng: 3 giao dịch con (100M / 200M / 300M) ở `needs_revie
 1. Khi người dùng gửi một album (các message cùng `media_group_id`), gom tất cả thành một **album** duy nhất.
 2. OCR **từng ảnh** trong album như hiện tại (mỗi ảnh vẫn là một `BillImage`).
 3. Nhận diện thêm loại tài liệu `transfer` (chuyển khoản ngân hàng) trong prompt/normalizer, bên cạnh `settlement` (kết toán POS) đã có.
-4. Ảnh tổng kết (`settlement` trong album hoặc `transfer`) **không** tạo giao dịch; nó là bằng chứng và là nguồn của phép đối chiếu.
-5. Đối chiếu: `tổng các bill con (child_receipt) trong album == số tiền tổng kết (settlement hoặc transfer)`. Khớp → album `reconciled`; lệch → đưa các giao dịch con về review với lý do rõ ràng.
+4. Bill con (`child_receipt`) **không** tạo giao dịch — chỉ là bằng chứng để cộng dồn; ảnh tổng kết (`settlement` trong album hoặc `transfer`) **tạo đúng 1 giao dịch**.
+5. Đối chiếu: `tổng các bill con (child_receipt) trong album == số tiền tổng kết (settlement hoặc transfer)`. Khớp → album `reconciled`; lệch → đưa giao dịch tổng kết về review với lý do rõ ràng.
 6. Album không có hình chuyển tiền tổng kết hợp lệ — thiếu hẳn (`no_transfer`) hoặc ảnh chuyển tiền bị duplicate (`transfer_duplicate`) — → **skip**: không tạo giao dịch con, album sang trạng thái `skipped` để admin theo dõi. Không chặn/lỗi luồng.
 7. Có trang admin để xem album, các bill con, ảnh chuyển tiền, và kết quả đối chiếu.
 

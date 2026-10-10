@@ -42,8 +42,6 @@ module Transactions
     # First analysis (or a retry of it): one row per document, keyed by position.
     def first_build
       @bill_image.documents.filter_map do |document|
-        next if total_document?(document)
-
         index = document.fetch("index")
         if skippable_child_receipt?(document)
           record_skipped(index)
@@ -56,7 +54,7 @@ module Transactions
 
     def rebuild(processing_rows)
       decided_rows = @bill_image.transactions.where.not(status: "processing").to_a
-      documents = @bill_image.documents.reject { |document| total_document?(document) || skippable_child_receipt?(document) }
+      documents = @bill_image.documents.reject { |document| skippable_child_receipt?(document) }
       # A settlement that already has a decided row is not booked twice.
       available = documents.reject { |document| decided_rows.any? { |row| same_settlement?(row, document) } }
       multi_settlement = @bill_image.documents.size > 1 || decided_rows.any? || processing_rows.size > 1
@@ -94,7 +92,7 @@ module Transactions
         lock_duplicate_scope(transaction)
         transaction.save!
 
-        reasons = evaluation.review_reasons + extra_reasons
+        reasons = evaluation.review_reasons + extra_reasons + album_total_reasons(document)
         duplicates = DuplicateDetector.call(transaction)
         reasons += [ "possible_duplicate" ] if duplicates.possible_duplicate?
         transaction.source_data = transaction.source_data.merge(
@@ -117,18 +115,23 @@ module Transactions
       )
     end
 
-    # A "tổng kết" document — a bank transfer, or a settlement inside an album —
-    # is reconciliation evidence, never an accounting row.
-    def total_document?(document)
-      document["document_type"] == "transfer" ||
-        (document["document_type"] == "settlement" && @bill_image.bill_album_id.present?)
+    # In an album the settlement/transfer is the single "tổng kết" transaction,
+    # which is never auto-approved: a human confirms it against the child bills.
+    def album_total_reasons(document)
+      return [] unless @bill_image.bill_album_id.present?
+      return [] unless document["document_type"].in?(%w[settlement transfer])
+
+      [ "album_total_review" ]
     end
 
-    # Child receipts are only skipped when the model is confident they are not
-    # settlements — and only outside an album. Inside an album a child receipt
-    # is a "bill con": built into a transaction (still reviewed, never auto-approved).
+    # Child receipts (bill con) are evidence only:
+    # * inside an album they are always skipped (only the "tổng kết" becomes a transaction);
+    # * outside an album (single image) they are skipped only when confident.
     def skippable_child_receipt?(document)
-      document["document_type"] == "child_receipt" && !document["requires_review"] && @bill_image.bill_album_id.nil?
+      return false unless document["document_type"] == "child_receipt"
+      return true if @bill_image.bill_album_id.present?
+
+      !document["requires_review"]
     end
 
     def same_settlement?(row, document)

@@ -788,6 +788,8 @@ vi:
     album_multiple_transfers: "Album có nhiều ảnh tổng kết – cần kiểm tra"
     album_ocr_failed: "Album có bill đọc lỗi – cần kiểm tra"
     album_amount_unreadable: "Album có bill con thiếu tổng tiền"
+    album_missing_bills: "Ảnh tổng kết không có bill con để đối chiếu"
+    album_total_review: "Giao dịch tổng kết của album – cần kiểm tra"
 
   bill_albums:
     index:

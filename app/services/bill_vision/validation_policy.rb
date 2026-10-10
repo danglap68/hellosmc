@@ -29,18 +29,12 @@ module BillVision
       documents.each do |doc|
         next if doc["document_type"] == "child_receipt" && !doc["requires_review"] && !in_album
 
-        if doc["document_type"] == "transfer"
-          visual << "transfer_amount_unreadable" if doc["total_amount_vnd"].nil?
-          visual << "transfer_date_unreadable" if doc["transaction_date"].nil?
-          next
-        end
-
         visual << "document_type_uncertain" if doc["document_type"] == "unknown"
-        visual << "amount_unreadable" if doc["document_type"] == "settlement" && doc["total_amount_vnd"].nil?
-        visual << "transaction_date_unreadable" if doc["document_type"] == "settlement" && doc["transaction_date"].nil?
-        visual << "transaction_time_unreadable" if doc["document_type"] == "settlement" && doc["transaction_time"].nil?
-        if doc["document_type"] == "settlement" && doc["merchant_name"].blank? && doc["terminal_or_merchant_id"].blank?
-          visual << "merchant_unreadable"
+        if doc["document_type"].in?(%w[settlement transfer])
+          visual << "amount_unreadable" if doc["total_amount_vnd"].nil?
+          visual << "transaction_date_unreadable" if doc["transaction_date"].nil?
+          visual << "transaction_time_unreadable" if doc["transaction_time"].nil?
+          visual << "merchant_unreadable" if doc["merchant_name"].blank? && doc["terminal_or_merchant_id"].blank?
         end
         # Confidence is a supporting signal, not calibrated probability.
         # A soft score such as .91 alone does not buy another model call.
