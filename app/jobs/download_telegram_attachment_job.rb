@@ -15,6 +15,7 @@ class DownloadTelegramAttachmentJob < ApplicationJob
     bill_image = Telegram::AttachmentDownloader.call(message)
     return message.update!(processing_status: "ignored") if bill_image.nil?
 
+    FinalizeBillAlbumJob.perform_later(bill_image.bill_album_id) if bill_image.bill_album_id
     AnalyzeBillImageJob.perform_later(bill_image.id) unless bill_image.ocr_duplicate?
     message.update!(processing_status: "processed") if bill_image.ocr_duplicate?
   end

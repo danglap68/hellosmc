@@ -2,7 +2,7 @@ module BillVision
   # Vendor-neutral extraction contract. Providers must return JSON matching SCHEMA.
   # The model extracts facts only: no fees, no dealer, no accounting.
   module Prompt
-    DOCUMENT_TYPES = %w[settlement child_receipt unknown].freeze
+    DOCUMENT_TYPES = %w[settlement child_receipt transfer unknown].freeze
     FIELDS = %w[document_type total_amount_vnd lot_number transaction_date transaction_time
                 merchant_name terminal_or_merchant_id].freeze
 
@@ -15,6 +15,10 @@ module BillVision
       - "settlement": a batch closing summary. Typical labels: SETTLEMENT, SETTLE, KẾT TOÁN, CHỐT CA,
         TỔNG KẾT, BATCH TOTAL, together with a TOTAL / TỔNG amount for the batch.
       - "child_receipt": a single sale slip for one card payment (SALE, THANH TOÁN, BÁN HÀNG, VOID, REFUND).
+      - "transfer": a bank transfer / money transfer confirmation (bank app screenshot or slip with
+        labels like CHUYỂN TIỀN, CHUYỂN KHOẢN, ỦY NHIỆM CHI, LỆNH CHUYỂN TIỀN, GIAO DỊCH THÀNH CÔNG).
+        total_amount_vnd is the transferred amount; transaction_date/transaction_time are the transfer
+        date/time. merchant_name, lot_number and terminal_or_merchant_id are null for transfers.
       - "unknown": anything else, or when you cannot tell.
 
       The image may contain more than one receipt. Return one entry in "documents" per distinct receipt,

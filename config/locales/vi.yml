@@ -25,6 +25,7 @@ vi:
     bill_uploads: "Tải bill lên"
     dealers: "Đại lý / Nhóm"
     telegram_chats: "Nhóm Telegram"
+    bill_albums: "Album bill"
     merchants: "Hộ kinh doanh"
     fee_rules: "Quy tắc phí"
     remitters: "Người đi tiền"
@@ -608,6 +609,7 @@ vi:
       duplicate_window_minutes: "Khoảng thời gian kiểm tra trùng"
       max_receipt_age_days: "Tuổi tối đa của bill"
       telegram_auto_activate_chats: "Tự động kích hoạt nhóm Telegram mới"
+      album_collect_window_seconds: "Thời gian chờ ảnh album"
       max_bill_image_mb: "Dung lượng ảnh tối đa"
       mailer_sender: "Email người gửi"
       hello_smc_spreadsheet_id: "Spreadsheet ID"
@@ -627,10 +629,13 @@ vi:
       duplicate_window_minutes: "Cùng hộ kinh doanh và cùng số tiền trong khoảng này được đánh dấu có thể trùng."
       max_receipt_age_days: "Bill cũ hơn số ngày này phải kiểm tra thủ công."
       telegram_auto_activate_chats: "Khi tắt, nhóm mới phải được quản trị viên gán đại lý và bật trước khi xử lý bill."
+      album_collect_window_seconds: "Chờ thêm ảnh của cùng một album trước khi chốt để đối chiếu tổng."
       max_bill_image_mb: "Telegram giới hạn tải file của bot ở 20 MB."
       mailer_sender: "Hiển thị ở trường “Từ” của email."
+      hello_smc_spreadsheet_id: "Để trống nếu chưa cấu hình ghi Google Sheet Hello SMC."
     units:
       vision_timeout_seconds: "giây"
+      album_collect_window_seconds: "giây"
       max_ocr_attempts: "lần"
       duplicate_window_minutes: "phút"
       max_receipt_age_days: "ngày"
@@ -779,6 +784,26 @@ vi:
     reprocessed_multi_settlement: "Ảnh có nhiều bill kết toán – kiểm tra kỹ bill này tương ứng với bill nào trước khi duyệt hoặc từ chối"
     too_many_documents: "Ảnh có quá nhiều bill, một số bill chưa được đọc – cần kiểm tra"
     caption_edited: "Tin nhắn Telegram (loại thẻ) đã bị sửa sau khi xử lý"
+    album_total_mismatch: "Tổng các bill con không khớp số tiền đã chuyển"
+    album_multiple_transfers: "Album có nhiều ảnh tổng kết – cần kiểm tra"
+    album_ocr_failed: "Album có bill đọc lỗi – cần kiểm tra"
+    album_amount_unreadable: "Album có bill con thiếu tổng tiền"
+
+  bill_albums:
+    index:
+      title: "Album bill"
+      empty: "Chưa có album nào."
+    show:
+      title: "Album #%{id}"
+      reconciliation: "Đối chiếu"
+      transfer_amount: "Số tiền chuyển"
+      child_total: "Tổng bill con"
+      difference: "Chênh lệch"
+      images: "Ảnh trong album"
+      transfer_image: "Hình chuyển tiền"
+      bill_con: "Bill con"
+      transactions: "Giao dịch"
+      skipped_note: "Album chưa được ghi sổ do thiếu hình chuyển tiền tổng kết."
 
   activemodel:
     models:
@@ -803,6 +828,7 @@ vi:
       fee_rule: "Quy tắc phí"
       telegram_message: "Tin nhắn Telegram"
       bill_image: "Ảnh bill"
+      bill_album: "Album bill"
       transaction: "Giao dịch"
       transaction_review: "Lượt kiểm tra"
       audit_log: "Nhật ký"
@@ -899,6 +925,17 @@ vi:
         source: "Nguồn"
         file_size: "Dung lượng"
         processing_error: "Lỗi xử lý"
+      bill_album:
+        telegram_chat: "Nhóm Telegram"
+        media_group_id: "Media group ID"
+        status: "Trạng thái"
+        reconciliation_status: "Kết quả đối chiếu"
+        transfer_amount_vnd: "Số tiền chuyển"
+        child_total_vnd: "Tổng bill con"
+        child_count: "Số bill con"
+        transfer_count: "Số hình chuyển tiền"
+        match_difference_vnd: "Chênh lệch"
+        created_at: "Thời điểm"
       transaction:
         dealer: "Đại lý"
         dealer_id: "Đại lý"
@@ -966,6 +1003,22 @@ vi:
         source:
           telegram: "Telegram"
           manual_upload: "Tải lên thủ công"
+      bill_album:
+        status:
+          collecting: "Đang nhận ảnh"
+          processing: "Đang xử lý"
+          reconciled: "Đã đối chiếu"
+          needs_review: "Cần kiểm tra"
+          skipped: "Đã bỏ qua"
+          failed: "Xử lý lỗi"
+        reconciliation_status:
+          matched: "Khớp"
+          mismatched: "Lệch"
+          multiple_transfers: "Nhiều ảnh tổng kết"
+          missing_bills: "Thiếu bill con"
+          no_transfer: "Không có ảnh tổng kết"
+          transfer_duplicate: "Ảnh tổng kết bị trùng"
+          incomplete: "Chưa đủ dữ liệu"
       user:
         role:
           admin: "Quản trị"
@@ -1006,4 +1059,5 @@ vi:
         document_type:
           settlement: "Bill kết toán"
           child_receipt: "Bill con"
+          transfer: "Hình chuyển tiền"
           unknown: "Không xác định"

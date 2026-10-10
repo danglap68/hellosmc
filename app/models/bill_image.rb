@@ -5,6 +5,7 @@ class BillImage < ApplicationRecord
   ALLOWED_MIME_TYPES = %w[image/jpeg image/png image/webp].freeze
 
   belongs_to :telegram_message, optional: true
+  belongs_to :bill_album, optional: true
   belongs_to :uploaded_by, class_name: "User", optional: true
   belongs_to :duplicate_of, class_name: "BillImage", optional: true
 

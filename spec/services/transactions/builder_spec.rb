@@ -225,6 +225,28 @@ RSpec.describe Transactions::Builder do
     expect(bill_image.reload.metadata["skipped_child_receipts"]).to eq([ 0 ])
   end
 
+  it "builds a child receipt into a reviewed transaction when it belongs to an album" do
+    bill_image = analyzed_bill(extraction: "child_receipt")
+    bill_image.update!(bill_album: create(:bill_album, telegram_chat: chat))
+
+    transaction = described_class.call(bill_image: bill_image).sole
+
+    expect(transaction).to be_needs_review
+    expect(transaction.review_reason_codes).to include("document_type_uncertain")
+    expect(transaction.transaction_amount_vnd).to eq(500_000)
+  end
+
+  it "never builds a transaction for a transfer document" do
+    bill_image = analyzed_bill(extraction: "transfer")
+    expect(described_class.call(bill_image: bill_image)).to be_empty
+  end
+
+  it "does not build a transaction for a settlement inside an album" do
+    bill_image = analyzed_bill(extraction: "normal_settlement")
+    bill_image.update!(bill_album: create(:bill_album, telegram_chat: chat))
+    expect(described_class.call(bill_image: bill_image)).to be_empty
+  end
+
   it "snapshots the applied rate: later rule changes do not alter the transaction" do
     transaction = described_class.call(bill_image: analyzed_bill).sole
     default_rule.update!(base_fee_rate: BigDecimal("0.02"))

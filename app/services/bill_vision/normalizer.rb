@@ -9,6 +9,13 @@ module BillVision
     MAX_DOCUMENTS = 20
     # The merchant counts as identified when either its name or its MID/TID is read confidently.
     CRITICAL_FIELDS = %w[document_type total_amount_vnd merchant_name transaction_date transaction_time].freeze
+    # A transfer only needs its amount and date to be verifiable; merchant/time are not required.
+    CRITICAL_FIELDS_BY_TYPE = {
+      "settlement" => CRITICAL_FIELDS,
+      "transfer" => %w[document_type total_amount_vnd transaction_date],
+      "child_receipt" => %w[document_type],
+      "unknown" => %w[document_type]
+    }.freeze
 
     def self.call(data, provider:, model:)
       new(data, provider: provider, model: model).call
@@ -70,15 +77,20 @@ module BillVision
         "transaction_at" => (date && time) ? Time.zone.local(date.year, date.month, date.day, *time).iso8601 : nil,
         "merchant_name_normalized" => VietnameseText.normalize(merchant_name).presence,
         "confidence" => confidence,
-        "critical_confidence" => CRITICAL_FIELDS.map { |field| critical_value(confidence, field) }.min,
+        "critical_confidence" => critical_fields(document_type).map { |field| critical_value(confidence, field) }.min,
         "low_confidence_fields" => low_fields,
         "requires_review" => requires_review?(document_type, low_fields)
       )
     end
 
+    def critical_fields(document_type)
+      CRITICAL_FIELDS_BY_TYPE.fetch(document_type, %w[document_type])
+    end
+
     def low_confidence_fields(document_type, confidence)
-      fields = document_type == "settlement" ? CRITICAL_FIELDS : [ "document_type" ]
-      fields.select { |field| BigDecimal(critical_value(confidence, field).to_s) < AppConfig.ocr_auto_approve_threshold }
+      critical_fields(document_type).select do |field|
+        BigDecimal(critical_value(confidence, field).to_s) < AppConfig.ocr_auto_approve_threshold
+      end
     end
 
     def critical_value(confidence, field)

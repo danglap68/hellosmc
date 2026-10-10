@@ -34,6 +34,9 @@ module AppConfig
   # messages are stored but not processed until an admin activates them.
   def telegram_auto_activate_chats? = AppSetting.get("telegram_auto_activate_chats")
 
+  # How long to wait for more photos of a Telegram album before finalizing it.
+  def album_collect_window_seconds = AppSetting.get("album_collect_window_seconds")
+
   def max_bill_image_bytes = AppSetting.get("max_bill_image_mb").megabytes
 
   # --- Secrets (ENV) -------------------------------------------------------

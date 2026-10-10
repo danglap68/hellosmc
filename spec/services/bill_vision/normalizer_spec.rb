@@ -66,6 +66,24 @@ RSpec.describe BillVision::Normalizer do
   it "does not require review for a confident child receipt" do
     expect(normalize(extraction_fixture("child_receipt"))["requires_review"]).to be(false)
   end
+
+  it "normalizes a transfer without requiring merchant or time" do
+    document = normalize(extraction_fixture("transfer"))["documents"].first
+
+    expect(document["document_type"]).to eq("transfer")
+    expect(document["total_amount_vnd"]).to eq(600_000_000)
+    expect(document["merchant_name"]).to be_nil
+    expect(document["requires_review"]).to be(false)
+    expect(document["low_confidence_fields"]).to be_empty
+  end
+
+  it "requires review for a transfer missing its amount" do
+    data = { "documents" => [ { "document_type" => "transfer", "total_amount_vnd" => nil,
+                                "transaction_date" => "2026-10-04" } ] }
+    document = normalize(data)["documents"].first
+    expect(document["requires_review"]).to be(true)
+    expect(document["low_confidence_fields"]).to include("total_amount_vnd")
+  end
 end
 
 RSpec.describe BillVision::Normalizer, "edge cases" do

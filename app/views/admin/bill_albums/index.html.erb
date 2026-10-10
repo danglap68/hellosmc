@@ -1,0 +1,43 @@
+<% content_for :title, t("bill_albums.index.title") %>
+
+<div class="card">
+  <% if @bill_albums.any? %>
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table table-sm">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th><%= BillAlbum.human_attribute_name(:telegram_chat) %></th>
+            <th><%= BillAlbum.human_attribute_name(:created_at) %></th>
+            <th><%= BillAlbum.human_attribute_name(:status) %></th>
+            <th><%= BillAlbum.human_attribute_name(:reconciliation_status) %></th>
+            <th class="text-end"><%= BillAlbum.human_attribute_name(:child_count) %></th>
+            <th class="text-end"><%= BillAlbum.human_attribute_name(:child_total_vnd) %></th>
+            <th class="text-end"><%= BillAlbum.human_attribute_name(:transfer_amount_vnd) %></th>
+            <th class="text-end"><%= BillAlbum.human_attribute_name(:match_difference_vnd) %></th>
+            <th class="w-1"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @bill_albums.each do |album| %>
+            <tr>
+              <td><%= link_to "##{album.id}", admin_bill_album_path(album) %></td>
+              <td><%= album.telegram_chat&.display_name || "—" %></td>
+              <td class="text-nowrap"><%= format_datetime(album.created_at) %></td>
+              <td><%= album_status_badge(album) %></td>
+              <td><%= reconciliation_status_badge(album) %></td>
+              <td class="text-end"><%= album.child_count %></td>
+              <td class="text-end money"><%= format_vnd(album.child_total_vnd) %></td>
+              <td class="text-end money"><%= format_vnd(album.transfer_amount_vnd) %></td>
+              <td class="text-end money"><%= format_vnd(album.match_difference_vnd) %></td>
+              <td><%= link_to t("actions.view"), admin_bill_album_path(album) %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+    <%= pagination(@pagy) %>
+  <% else %>
+    <div class="card-body"><%= empty_state t("bill_albums.index.empty") %></div>
+  <% end %>
+</div>

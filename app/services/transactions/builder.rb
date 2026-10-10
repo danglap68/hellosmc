@@ -42,6 +42,8 @@ module Transactions
     # First analysis (or a retry of it): one row per document, keyed by position.
     def first_build
       @bill_image.documents.filter_map do |document|
+        next if total_document?(document)
+
         index = document.fetch("index")
         if skippable_child_receipt?(document)
           record_skipped(index)
@@ -54,7 +56,7 @@ module Transactions
 
     def rebuild(processing_rows)
       decided_rows = @bill_image.transactions.where.not(status: "processing").to_a
-      documents = @bill_image.documents.reject { |document| skippable_child_receipt?(document) }
+      documents = @bill_image.documents.reject { |document| total_document?(document) || skippable_child_receipt?(document) }
       # A settlement that already has a decided row is not booked twice.
       available = documents.reject { |document| decided_rows.any? { |row| same_settlement?(row, document) } }
       multi_settlement = @bill_image.documents.size > 1 || decided_rows.any? || processing_rows.size > 1
@@ -115,9 +117,18 @@ module Transactions
       )
     end
 
-    # Child receipts are only skipped when the model is confident they are not settlements.
+    # A "tổng kết" document — a bank transfer, or a settlement inside an album —
+    # is reconciliation evidence, never an accounting row.
+    def total_document?(document)
+      document["document_type"] == "transfer" ||
+        (document["document_type"] == "settlement" && @bill_image.bill_album_id.present?)
+    end
+
+    # Child receipts are only skipped when the model is confident they are not
+    # settlements — and only outside an album. Inside an album a child receipt
+    # is a "bill con": built into a transaction (still reviewed, never auto-approved).
     def skippable_child_receipt?(document)
-      document["document_type"] == "child_receipt" && !document["requires_review"]
+      document["document_type"] == "child_receipt" && !document["requires_review"] && @bill_image.bill_album_id.nil?
     end
 
     def same_settlement?(row, document)

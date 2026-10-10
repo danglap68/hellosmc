@@ -23,10 +23,17 @@ module BillVision
     def call
       visual, business = [], []
       documents = @normalized.fetch("documents")
+      in_album = @bill_image&.bill_album_id.present?
       visual << "multiple_settlement_documents" if documents.count { |doc| doc["document_type"] == "settlement" } > 1
       visual << "too_many_documents" if @normalized["documents_truncated"].to_i.positive?
       documents.each do |doc|
-        next if doc["document_type"] == "child_receipt" && !doc["requires_review"]
+        next if doc["document_type"] == "child_receipt" && !doc["requires_review"] && !in_album
+
+        if doc["document_type"] == "transfer"
+          visual << "transfer_amount_unreadable" if doc["total_amount_vnd"].nil?
+          visual << "transfer_date_unreadable" if doc["transaction_date"].nil?
+          next
+        end
 
         visual << "document_type_uncertain" if doc["document_type"] == "unknown"
         visual << "amount_unreadable" if doc["document_type"] == "settlement" && doc["total_amount_vnd"].nil?
