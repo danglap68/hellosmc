@@ -126,11 +126,17 @@ module Transactions
 
     # Child receipts (bill con) and unreadable documents are evidence, never
     # accounting rows:
-    # * inside an album only the "tổng kết" (settlement/transfer) is built;
+    # * inside an album only a "tổng kết" (settlement/transfer) with a readable
+    #   amount is built; a nil-amount total (e.g. a confirm popup) is skipped;
     # * outside an album (single image) only confident child receipts are skipped.
     def skippable_document?(document)
       type = document["document_type"]
-      return type.in?(%w[child_receipt unknown]) if @bill_image.bill_album_id.present?
+      if @bill_image.bill_album_id.present?
+        return true if type.in?(%w[child_receipt unknown])
+        return true if type.in?(%w[settlement transfer]) && document["total_amount_vnd"].nil?
+
+        return false
+      end
 
       type == "child_receipt" && !document["requires_review"]
     end

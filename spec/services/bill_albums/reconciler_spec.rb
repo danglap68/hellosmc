@@ -205,6 +205,22 @@ RSpec.describe BillAlbums::Reconciler do
     expect(album.metadata["total_amounts"]).to eq([ 600_000_000, 600_000_000 ])
   end
 
+  it "ignores a settlement with an unreadable amount (confirm popup)" do
+    child_bill(100_000_000)
+    child_bill(200_000_000)
+    child_bill(300_000_000)
+    analyzed_image(raw_document("settlement", 600_000_000))
+    analyzed_image(raw_document("settlement", nil))
+
+    reconcile
+
+    expect(album.child_count).to eq(3)
+    expect(album.transfer_count).to eq(1)
+    expect(album.transfer_amount_vnd).to eq(600_000_000)
+    expect(album.reconciliation_status).to eq("matched")
+    expect(album.transactions.count).to eq(1)
+  end
+
   it "is idempotent" do
     child_bill(100_000_000)
     child_bill(200_000_000)

@@ -42,8 +42,11 @@ module BillAlbums
             @amount_missing = true if amount.nil?
             @child_total += amount.to_i
           when *TOTAL_TYPES
+            amount = doc["total_amount_vnd"]
+            next if amount.nil? # a confirm popup / unreadable total is not a "tổng kết"
+
             @total_count += 1
-            @total_amounts << doc["total_amount_vnd"]
+            @total_amounts << amount
             @total_image ||= image
           end
         end
