@@ -43,8 +43,8 @@ module Transactions
     def first_build
       @bill_image.documents.filter_map do |document|
         index = document.fetch("index")
-        if skippable_child_receipt?(document)
-          record_skipped(index)
+        if skippable_document?(document)
+          record_skipped(index) if document["document_type"] == "child_receipt"
           next
         end
 
@@ -54,7 +54,7 @@ module Transactions
 
     def rebuild(processing_rows)
       decided_rows = @bill_image.transactions.where.not(status: "processing").to_a
-      documents = @bill_image.documents.reject { |document| skippable_child_receipt?(document) }
+      documents = @bill_image.documents.reject { |document| skippable_document?(document) }
       # A settlement that already has a decided row is not booked twice.
       available = documents.reject { |document| decided_rows.any? { |row| same_settlement?(row, document) } }
       multi_settlement = @bill_image.documents.size > 1 || decided_rows.any? || processing_rows.size > 1
@@ -124,14 +124,15 @@ module Transactions
       [ "album_total_review" ]
     end
 
-    # Child receipts (bill con) are evidence only:
-    # * inside an album they are always skipped (only the "tổng kết" becomes a transaction);
-    # * outside an album (single image) they are skipped only when confident.
-    def skippable_child_receipt?(document)
-      return false unless document["document_type"] == "child_receipt"
-      return true if @bill_image.bill_album_id.present?
+    # Child receipts (bill con) and unreadable documents are evidence, never
+    # accounting rows:
+    # * inside an album only the "tổng kết" (settlement/transfer) is built;
+    # * outside an album (single image) only confident child receipts are skipped.
+    def skippable_document?(document)
+      type = document["document_type"]
+      return type.in?(%w[child_receipt unknown]) if @bill_image.bill_album_id.present?
 
-      !document["requires_review"]
+      type == "child_receipt" && !document["requires_review"]
     end
 
     def same_settlement?(row, document)

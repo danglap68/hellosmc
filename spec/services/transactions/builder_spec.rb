@@ -251,6 +251,15 @@ RSpec.describe Transactions::Builder do
     expect(transaction.review_reason_codes).to include("album_total_review")
   end
 
+  it "skips unreadable (unknown) documents in an album" do
+    normalized = BillVision::Normalizer.call({ "documents" => [] }, provider: "openai", model: "gpt-test")
+    bill_image = create(:bill_image, telegram_message: create(:telegram_message, telegram_chat: chat),
+                                     normalized_extraction: normalized, ocr_status: "needs_review",
+                                     bill_album: create(:bill_album, telegram_chat: chat))
+
+    expect(described_class.call(bill_image: bill_image)).to be_empty
+  end
+
   it "snapshots the applied rate: later rule changes do not alter the transaction" do
     transaction = described_class.call(bill_image: analyzed_bill).sole
     default_rule.update!(base_fee_rate: BigDecimal("0.02"))
