@@ -3,6 +3,8 @@ class Dealer < ApplicationRecord
 
   has_many :telegram_chats, dependent: :restrict_with_error
   has_many :merchants, dependent: :restrict_with_error
+  has_many :merchant_dealers, dependent: :destroy
+  has_many :assigned_merchants, through: :merchant_dealers, source: :merchant
   has_many :fee_rules, dependent: :restrict_with_error
   has_many :transactions, dependent: :restrict_with_error
 

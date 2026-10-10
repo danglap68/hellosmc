@@ -46,7 +46,8 @@ class AppSetting < ApplicationRecord
     define("max_receipt_age_days", :integer, "45", "matching", min: "1", max: "366"),
     define("telegram_auto_activate_chats", :boolean, "false", "telegram"),
     define("max_bill_image_mb", :integer, "20", "uploads", min: "1", max: "20"),
-    define("mailer_sender", :string, "no-reply@hellosmc.com", "email")
+    define("mailer_sender", :string, "no-reply@hellosmc.com", "email"),
+    define("hello_smc_spreadsheet_id", :string, "", "exports")
   ].index_by(&:key).freeze
 
   GROUPS = DEFINITIONS.values.map(&:group).uniq.freeze

@@ -176,6 +176,7 @@ module Transactions
 
       StructuredLog.info("transaction.built", transaction_id: transaction.id, bill_image_id: @bill_image.id,
                                               status: transaction.status, review_reasons: reasons)
+      enqueue_workbook(transaction)
       transaction
     end
 
@@ -239,6 +240,12 @@ module Transactions
       end
     rescue ActiveRecord::RecordNotUnique
       Transaction.find_by!(bill_image: @bill_image, source_index: index)
+    end
+
+    def enqueue_workbook(transaction)
+      return if transaction.failed? || transaction.transaction_amount_vnd.blank?
+
+      WriteHelloSmcWorkbookJob.perform_later(transaction.id)
     end
 
     def record_skipped(index)

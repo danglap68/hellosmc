@@ -1,5 +1,6 @@
 class TelegramChat < ApplicationRecord
   belongs_to :dealer, optional: true
+  belongs_to :merchant, optional: true
   has_many :telegram_messages, dependent: :restrict_with_error
 
   validates :telegram_chat_id, presence: true, uniqueness: true, numericality: { only_integer: true }

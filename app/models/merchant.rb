@@ -5,6 +5,9 @@ class Merchant < ApplicationRecord
   has_many :merchant_aliases, dependent: :destroy
   has_many :fee_rule_merchants, dependent: :restrict_with_error
   has_many :fee_rules, through: :fee_rule_merchants
+  has_many :merchant_dealers, dependent: :destroy
+  has_many :dealers, through: :merchant_dealers
+  has_many :telegram_chats, dependent: :restrict_with_error
   has_many :transactions, dependent: :restrict_with_error
 
   before_validation :normalize_fields
