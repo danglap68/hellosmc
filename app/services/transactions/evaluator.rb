@@ -94,16 +94,34 @@ module Transactions
       # is already reported as merchant_missing / merchant_not_found.
       return Dealers::Resolver::Result.new(dealer: nil, merchant_dealer: nil, source: nil, issue: nil) if merchant.nil?
 
-      result = Dealers::Resolver.call(merchant: merchant, merchant_name: @doc["merchant_name"])
+      result = Dealers::Resolver.call(merchant: merchant, tid_key: @tid_key)
       @reasons << result.issue if result.issue
       result
     end
 
     def check_merchant
+      raw_name = @doc["merchant_name"]
+      base_name = Workbook::TidParser.strip(raw_name)
+      @tid_key = Workbook::TidParser.call(raw_name)
+
       result = Merchants::Resolver.call(
-        merchant_name: Workbook::TidParser.strip(@doc["merchant_name"]),
+        merchant_name: base_name,
         merchant_identifier: @doc["terminal_or_merchant_id"]
       )
+
+      # A bare space-separated trailing number may be a terminal marker
+      # ("CHERRY COFEE 2" → tid2) or part of the name ("…CAFE 96"). Only treat
+      # it as a TID when stripping it yields an exact merchant match.
+      if !result.exact? && (match = base_name.match(/\s+(\d+)\s*\z/))
+        candidate = Merchants::Resolver.call(
+          merchant_name: base_name.sub(/\s+\d+\s*\z/, ""),
+          merchant_identifier: @doc["terminal_or_merchant_id"]
+        )
+        if candidate.exact?
+          result = candidate
+          @tid_key = "tid#{match[1].to_i}"
+        end
+      end
 
       if result.exact?
         source_field = result.method == :identifier ? "terminal_or_merchant_id" : "merchant_name"

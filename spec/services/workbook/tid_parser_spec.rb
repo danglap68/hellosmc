@@ -23,9 +23,30 @@ RSpec.describe Workbook::TidParser do
       expect(described_class.call("HỘ KINH DOANH THIÊN KIM GV")).to be_nil
     end
 
+    it "does not treat a bare space-separated number as a TID (the evaluator resolves it)" do
+      expect(described_class.call("CHERRY COFEE 2")).to be_nil
+    end
+
     it "returns nil for blank text" do
       expect(described_class.call(nil)).to be_nil
       expect(described_class.call("")).to be_nil
+    end
+  end
+
+  describe ".strip" do
+    it "removes a dash, tid, or terminal marker" do
+      expect(described_class.strip("HỘ KINH DOANH THIÊN KIM GV-1")).to eq("HỘ KINH DOANH THIÊN KIM GV")
+      expect(described_class.strip("Chị Huệ (TID 127)")).to eq("Chị Huệ")
+    end
+
+    it "keeps a bare space-separated number (it may be part of the name)" do
+      expect(described_class.strip("CHERRY COFEE 2")).to eq("CHERRY COFEE 2")
+      expect(described_class.strip("HKD AS CAFE-CAFE 96")).to eq("HKD AS CAFE-CAFE 96")
+    end
+
+    it "returns an empty string for blank text" do
+      expect(described_class.strip(nil)).to eq("")
+      expect(described_class.strip("")).to eq("")
     end
   end
 end

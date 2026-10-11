@@ -8,22 +8,20 @@ module Dealers
       end
     end
 
-    def self.call(merchant:, merchant_name:)
-      new(merchant:, merchant_name:).call
+    def self.call(merchant:, tid_key:)
+      new(merchant:, tid_key:).call
     end
 
-    def initialize(merchant:, merchant_name:)
+    def initialize(merchant:, tid_key:)
       @merchant = merchant
-      @merchant_name = merchant_name
+      @tid_key = tid_key
     end
 
     def call
       return unresolved(nil) if @merchant.nil?
+      return unresolved(nil) if @tid_key.blank?
 
-      tid_key = Workbook::TidParser.call(@merchant_name)
-      return unresolved(nil) if tid_key.blank?
-
-      link = MerchantDealer.active.find_by(merchant: @merchant, tid_key: tid_key)
+      link = MerchantDealer.active.find_by(merchant: @merchant, tid_key: @tid_key)
       return unresolved(nil) unless link
 
       dealer = link.dealer

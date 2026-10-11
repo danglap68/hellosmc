@@ -174,6 +174,28 @@ RSpec.describe Transactions::Builder do
     expect(transactions.second).to be_approved
   end
 
+  it "resolves the agent from a bare space-separated terminal number" do
+    cherry = create(:merchant, name: "CHERRY COFFE", code: "CHERRY")
+    cherry.merchant_aliases.create!(alias_type: "receipt_name", alias: "CHERRY COFEE")
+    cuong = create(:dealer, name: "Cường Duyên")
+    create(:merchant_dealer, merchant: cherry, dealer: cuong, tid_key: "tid2")
+
+    doc = { "document_type" => "settlement", "total_amount_vnd" => 52_023_000,
+            "transaction_date" => "2026-10-09", "transaction_time" => "19:20:07",
+            "merchant_name" => "CHERRY COFEE 2", "lot_number" => "000202",
+            "terminal_or_merchant_id" => "106-C-098513",
+            "confidence" => BillVision::Prompt::FIELDS.index_with { 0.97 } }
+    normalized = BillVision::Normalizer.call({ "documents" => [ doc ] }, provider: "openai", model: "gpt-test")
+    image = create(:bill_image, telegram_message: create(:telegram_message, telegram_chat: chat),
+                                normalized_extraction: normalized, ocr_status: "completed")
+
+    transaction = described_class.call(bill_image: image).sole
+
+    expect(transaction.merchant).to eq(cherry)
+    expect(transaction.dealer).to eq(cuong)
+    expect(transaction.review_reason_codes).not_to include("dealer_unmapped", "merchant_fuzzy_match")
+  end
+
   it "is idempotent" do
     bill_image = analyzed_bill
     first = described_class.call(bill_image: bill_image)

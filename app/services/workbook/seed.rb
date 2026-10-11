@@ -21,6 +21,12 @@ module Workbook
       { code: "ASCAFE001", name: "HKD AS CAFE", anchor: "HKD AS CAFE" }
     ].freeze
 
+    # Extra receipt-name aliases for common OCR misspellings, keyed by HKD code.
+    # "CHERRY COFEE" is how OCR often reads "Cherry Coffee".
+    RECEIPT_ALIASES = {
+      "CHERRY001" => [ "CHERRY COFEE" ]
+    }.freeze
+
     # [hkd_code, dealer_name, tid_key, tid_label, ds_header, rd_agent_label]
     AGENTS = [
       ["001", "Chương", "tid1", "tid1", "Chương (tid1)", "Chương"],
@@ -78,6 +84,9 @@ module Workbook
       merchant.assign_attributes(name: attrs[:name]) if merchant.new_record?
       merchant.save!
       merchant.merchant_aliases.find_or_create_by!(alias_type: "receipt_name", alias: attrs[:anchor])
+      RECEIPT_ALIASES.fetch(attrs[:code], []).each do |alias_name|
+        merchant.merchant_aliases.find_or_create_by!(alias_type: "receipt_name", alias: alias_name)
+      end
       merchant
     end
 

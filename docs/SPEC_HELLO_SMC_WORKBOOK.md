@@ -200,14 +200,21 @@ HKD:
   2. Nếu không ra: telegram_chat.merchant
   3. Vẫn không ra: unidentified
 
-Đại lý (chỉ khi đã có HKD):
+Đại lý (chỉ khi đã có HKD) — **đã implement** trong `Transactions::Evaluator#check_merchant` + `Dealers::Resolver`:
   1. TID / hậu tố trên tên merchant OCR: "... GV-1", "tid1", "TID 127"
-  2. Tra merchant_dealers của HKD đó theo tid_key
-  3. Không ra: unidentified (dù đã có HKD)
+  2. Số cuối cách dấu cách ("CHERRY COFEE 2"): chỉ coi là TID khi bỏ số đó ra
+     vẫn resolve được merchant **exact** (alias/tên); nếu không, số là một phần
+     tên HKD ("HKD AS CAFE-CAFE 96", "CƯỜNG DUYÊN 1")
+  3. Tra merchant_dealers của HKD đó theo tid_key
+  4. Không ra: unidentified (dù đã có HKD)
 
 TID của đại lý chỉ lấy từ **tên merchant trên OCR**, không lấy từ
 `terminal_or_merchant_id` (trường đó dùng để map HKD, có thể là MID, không
 phân biệt được agent).
+
+Alias chính tả OCR (vd `CHERRY COFEE` → `Cherry Coffee`) được thêm vào
+`merchant_aliases` (`alias_type: receipt_name`) qua seed (`Workbook::Seed`) hoặc
+admin; giúp merchant khớp **exact** thay vì `merchant_fuzzy_match`.
 
 Remitter:
   1. telegram_sender_id = remitters.telegram_user_id
@@ -311,7 +318,7 @@ Thiếu HKD hoặc tid: chỉ `Bill vô chủ`.
 3. **Quota.** Sheets API khoảng 60 ghi/phút/project. Mỗi giao dịch một `batchUpdate`. Hai job cùng ô: advisory lock trong app.
 4. **Cộng hai lần.** `workbook_entries.transaction_id` unique. Rebuild không ghi lại trừ khi xóa entry.
 5. **R&D không SUM từ DS MB.** Hai tab ghi độc lập. `batchUpdate` một lần cho cả giao dịch để khỏi lệch giữa chừng.
-6. **TID trên OCR.** Parser (`-1`, `tid1`, `TID 127`). Không đoán khi tên không có hậu tố.
+6. **TID trên OCR.** Parser (`-1`, `tid1`, `TID 127`, và số cuối cách dấu cách khi strip vẫn khớp merchant exact). Không đoán khi tên không có hậu tố.
 7. **Nhãn R&D ≠ header DS MB** (`Hải` vs `NamHai`). Seed phải có `rd_agent_label`.
 8. **Tháng mới.** `DuplicateSheet`; sai header thì T11 hỏng. Test tạo T11 từ T10 (stub API).
 9. **Chị Huệ ba TID** (127/128/129) cùng người, ba cột. Không gộp.

@@ -27,6 +27,8 @@ module Workbook
 
     # Returns the merchant name without the trailing TID marker, so the HKD can
     # be matched while the TID is read separately. "… GV-1" → "… GV".
+    # A bare space-separated number is NOT stripped here (it may be part of the
+    # merchant name, e.g. "CƯỜNG DUYÊN 1"); the evaluator resolves that case.
     def strip(text)
       raw = text.to_s
       return raw if raw.blank?
