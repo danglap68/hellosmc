@@ -25,29 +25,12 @@
   <div class="col-lg-8">
     <div class="card mb-3">
       <div class="card-header">
-        <h3 class="card-title"><%= icon("brand-telegram") %> <%= t("dealers.telegram_groups") %></h3>
-        <% if can?(:manage, :telegram_chats) %><div class="card-actions"><%= link_to t("dealers.show.map_group"), admin_telegram_chats_path(filter: "unmapped") %></div><% end %>
-      </div>
-      <% if @telegram_chats.any? %>
-        <table class="table card-table">
-          <% @telegram_chats.each do |chat| %>
-            <tr><td><%= link_to chat.display_name, admin_telegram_chat_path(chat) %></td><td><code><%= chat.telegram_chat_id %></code></td><td><%= active_badge(chat.active?) %></td></tr>
-          <% end %>
-        </table>
-      <% else %>
-        <div class="card-body text-secondary"><%= t("dealers.show.no_groups") %></div>
-      <% end %>
-    </div>
-
-    <div class="card mb-3">
-      <div class="card-header">
         <h3 class="card-title"><%= icon("building-store") %> <%= t("dealers.merchants") %></h3>
-        <% if can?(:manage, :merchants) %><div class="card-actions"><%= link_to t("merchants.index.new"), new_admin_merchant_path(dealer_id: @dealer.id) %></div><% end %>
       </div>
       <% if @merchants.any? %>
         <table class="table card-table">
           <% @merchants.each do |merchant| %>
-            <tr><td><%= link_to merchant.name, admin_merchant_path(merchant) %></td><td><code><%= merchant.code %></code></td><td><%= active_badge(merchant.active?) %></td></tr>
+            <tr><td><%= link_to merchant.name, admin_merchant_path(merchant) %></td><td><code><%= merchant.code %></code></td><td><%= safe_join(Array(@tids_by_merchant[merchant.id]).map { |link| content_tag(:span, link.tid_label, class: "badge bg-blue-lt me-1") }) %></td><td><%= active_badge(merchant.active?) %></td></tr>
           <% end %>
         </table>
       <% else %>

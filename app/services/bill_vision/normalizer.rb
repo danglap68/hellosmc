@@ -9,6 +9,13 @@ module BillVision
     MAX_DOCUMENTS = 20
     # The merchant counts as identified when either its name or its MID/TID is read confidently.
     CRITICAL_FIELDS = %w[document_type total_amount_vnd merchant_name transaction_date transaction_time].freeze
+    # A transfer only needs its amount and date to be verifiable; merchant/time are not required.
+    CRITICAL_FIELDS_BY_TYPE = {
+      "settlement" => CRITICAL_FIELDS,
+      "transfer" => %w[document_type total_amount_vnd transaction_date],
+      "child_receipt" => %w[document_type],
+      "unknown" => %w[document_type]
+    }.freeze
 
     def self.call(data, provider:, model:)
       new(data, provider: provider, model: model).call
@@ -45,6 +52,7 @@ module BillVision
 
     def normalize_document(doc, index)
       document_type = Prompt::DOCUMENT_TYPES.include?(doc["document_type"]) ? doc["document_type"] : "unknown"
+      document_type = "child_receipt" if transfer_misread?(document_type, doc)
       amount = parse_amount(doc["total_amount_vnd"])
       date = parse_date(doc["transaction_date"])
       time = parse_time(doc["transaction_time"])
@@ -58,6 +66,7 @@ module BillVision
         "merchant_name" => merchant_name,
         "terminal_or_merchant_id" => clean_string(doc["terminal_or_merchant_id"])
       }
+      recipient_name = document_type == "transfer" ? clean_string(doc[Prompt::RECIPIENT_FIELD]) : nil
 
       confidence = Prompt::FIELDS.index_with do |field|
         # A missing value cannot be trusted, whatever the model claimed.
@@ -67,18 +76,33 @@ module BillVision
       low_fields = low_confidence_fields(document_type, confidence)
       values.merge(
         "index" => index,
+        "recipient_name" => recipient_name,
         "transaction_at" => (date && time) ? Time.zone.local(date.year, date.month, date.day, *time).iso8601 : nil,
         "merchant_name_normalized" => VietnameseText.normalize(merchant_name).presence,
         "confidence" => confidence,
-        "critical_confidence" => CRITICAL_FIELDS.map { |field| critical_value(confidence, field) }.min,
+        "critical_confidence" => critical_fields(document_type).map { |field| critical_value(confidence, field) }.min,
         "low_confidence_fields" => low_fields,
         "requires_review" => requires_review?(document_type, low_fields)
       )
     end
 
+    # A bank transfer never prints a POS batch/lot or terminal number. When the
+    # model labels a document "transfer" but still read those fields, it actually
+    # read a card-sale slip (child_receipt) — e.g. a SALE screen with the generic
+    # "GIAO DỊCH THÀNH CÔNG" banner.
+    def transfer_misread?(document_type, doc)
+      document_type == "transfer" &&
+        (clean_string(doc["lot_number"]).present? || clean_string(doc["terminal_or_merchant_id"]).present?)
+    end
+
+    def critical_fields(document_type)
+      CRITICAL_FIELDS_BY_TYPE.fetch(document_type, %w[document_type])
+    end
+
     def low_confidence_fields(document_type, confidence)
-      fields = document_type == "settlement" ? CRITICAL_FIELDS : [ "document_type" ]
-      fields.select { |field| BigDecimal(critical_value(confidence, field).to_s) < AppConfig.ocr_auto_approve_threshold }
+      critical_fields(document_type).select do |field|
+        BigDecimal(critical_value(confidence, field).to_s) < AppConfig.ocr_auto_approve_threshold
+      end
     end
 
     def critical_value(confidence, field)

@@ -7,14 +7,13 @@ module Transactions
 
     Evaluation = Data.define(:attributes, :review_reasons, :source_data)
 
-    def self.call(document:, bill_image:, dealer_result: nil)
-      new(document:, bill_image:, dealer_result:).call
+    def self.call(document:, bill_image:)
+      new(document:, bill_image:).call
     end
 
-    def initialize(document:, bill_image:, dealer_result: nil)
+    def initialize(document:, bill_image:)
       @doc = document
       @bill_image = bill_image
-      @dealer_result = dealer_result || Dealers::Resolver.call(bill_image: bill_image)
       @reasons = Array(@doc["vision_review_reasons"]).dup
     end
 
@@ -23,11 +22,14 @@ module Transactions
       check_document_type
       amount = check_amount
       transaction_at = check_transaction_time
-      dealer = check_dealer
-      merchant, merchant_result = check_merchant(dealer)
+      merchant, merchant_result = check_merchant
+      @dealer_result = check_dealer(merchant)
+      dealer = @dealer_result.dealer
       card_type_result = check_card_type(merchant, dealer)
       fee_result = check_fee_rule(merchant, dealer, card_type_result.card_type, transaction_at)
-      calculation = calculate(amount, fee_result.fee_rule)
+      base_fee = base_fee_for(fee_result.fee_rule, merchant, dealer, card_type_result.card_type, transaction_at)
+      @reasons << base_fee.review_reason if base_fee.review_reason
+      calculation = calculate(amount, fee_result.fee_rule, base_fee)
 
       attributes = {
         dealer: dealer,
@@ -38,7 +40,8 @@ module Transactions
         transaction_at: transaction_at,
         transaction_amount_vnd: amount,
         confidence_score: @doc["critical_confidence"],
-        **calculation_attributes(calculation, fee_result.fee_rule)
+        **calculation_attributes(calculation, fee_result.fee_rule, base_fee,
+                                 FeeRules::Resolver.household_base_fee_rate(merchant: merchant, at: transaction_at))
       }
 
       Evaluation.new(
@@ -86,17 +89,22 @@ module Transactions
       transaction_at
     end
 
-    def check_dealer
-      @reasons << @dealer_result.issue if @dealer_result.issue
-      @dealer_result.dealer
+    def check_dealer(merchant)
+      # The agent is only meaningful once the HKD is known; a missing merchant
+      # is already reported as merchant_missing / merchant_not_found.
+      return Dealers::Resolver::Result.new(dealer: nil, merchant_dealer: nil, source: nil, issue: nil) if merchant.nil?
+
+      result = Dealers::Resolver.call(merchant: merchant, merchant_name: @doc["merchant_name"],
+                                      chat: @bill_image.telegram_chat, recipient_name: @doc["recipient_name"])
+      @reasons << result.issue if result.issue
+      # A name match alone never approves a bill: a person confirms the agent.
+      @reasons << "dealer_from_recipient" if result.source == "recipient" && result.issue.nil?
+      result
     end
 
-    def check_merchant(dealer)
-      result = Merchants::Resolver.call(
-        merchant_name: @doc["merchant_name"],
-        merchant_identifier: @doc["terminal_or_merchant_id"],
-        dealer: dealer
-      )
+    def check_merchant
+      result = resolve_merchant
+      check_merchant_in_chat(result.merchant)
 
       if result.exact?
         source_field = result.method == :identifier ? "terminal_or_merchant_id" : "merchant_name"
@@ -111,11 +119,31 @@ module Transactions
         @reasons << "merchant_not_found"
       end
 
-      merchant = result.merchant
-      if merchant && dealer && merchant.dealer_id.present? && merchant.dealer_id != dealer.id
-        @reasons << "merchant_dealer_mismatch"
+      [ result.merchant, result ]
+    end
+
+    # A group lists the HKDs it serves; a bill for any other HKD is suspicious.
+    # Groups with no HKD configured are not restricted.
+    def check_merchant_in_chat(merchant)
+      chat = @bill_image.telegram_chat
+      return if merchant.nil? || chat.nil?
+
+      ids = chat.merchant_ids
+      @reasons << "merchant_not_in_chat" if ids.any? && !ids.include?(merchant.id)
+    end
+
+    # Dash/tid suffix stripped first; if that is not an exact hit, also try the
+    # name without a bare trailing number ("CHERRY COFFE 2" → "CHERRY COFFE").
+    # Prefer the strongest match across attempts: exact → fuzzy → ambiguous →
+    # the first attempt (none). This keeps a fuzzy hit from the stripped name
+    # ("GẮT TẠM ĐÂY COFFEE 2" → "Gat Tan Day Coffe") instead of discarding it.
+    def resolve_merchant
+      name = @doc["merchant_name"]
+      names = [ Workbook::TidParser.strip(name), Workbook::TidParser.strip_bare_number(name) ].uniq
+      results = names.map do |candidate|
+        Merchants::Resolver.call(merchant_name: candidate, merchant_identifier: @doc["terminal_or_merchant_id"])
       end
-      [ merchant, result ]
+      results.find(&:exact?) || results.find(&:fuzzy?) || results.find(&:ambiguous?) || results.first
     end
 
     def check_card_type(merchant, dealer)
@@ -136,24 +164,33 @@ module Transactions
       result
     end
 
-    def calculate(amount, fee_rule)
-      return nil unless amount && fee_rule
+    def calculate(amount, fee_rule, base_fee)
+      return nil unless amount && fee_rule && base_fee.rate
 
-      Calculator.call(transaction_amount_vnd: amount, base_fee_rate: fee_rule.base_fee_rate,
-                      dealer_rate: fee_rule.dealer_rate)
+      Calculator.call(transaction_amount_vnd: amount, base_fee_rate: base_fee.rate, dealer_rate: base_fee.dealer_rate)
     end
 
-    def calculation_attributes(calculation, fee_rule)
+    def base_fee_for(fee_rule, merchant, dealer, card_type, transaction_at)
+      FeeRules::Resolver.amount_base_fee(rule: fee_rule, merchant:, dealer:, card_type:, at: transaction_at)
+    end
+
+    def calculation_attributes(calculation, fee_rule, base_fee, household_base_fee_rate)
       return Recalculator.blank_calculation if calculation.nil?
 
+      base_fee_rule = base_fee.rule
+      card_base_fee_rate = base_fee.card_rate
       {
         applied_base_fee_rate: fee_rule.base_fee_rate,
+        applied_card_base_fee_rate: card_base_fee_rate,
         amount_after_base_fee_vnd: calculation.amount_after_base_fee_vnd,
-        applied_dealer_rate: fee_rule.dealer_rate,
+        applied_dealer_rate: base_fee.dealer_rate,
         dealer_amount_vnd: calculation.dealer_amount_vnd,
         profit_amount_vnd: calculation.profit_amount_vnd,
         calculation_data: calculation.calculation_data.merge(
           "fee_rule" => AuditLogger.serialize(fee_rule.snapshot_attributes),
+          "base_fee_rule" => (AuditLogger.serialize(base_fee_rule.snapshot_attributes) if base_fee_rule),
+          "card_base_fee_rate" => card_base_fee_rate&.to_s("F"),
+          "household_base_fee_rate" => household_base_fee_rate&.to_s("F"),
           "calculated_at" => Time.current.utc.iso8601
         )
       }

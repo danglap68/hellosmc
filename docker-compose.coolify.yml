@@ -10,7 +10,9 @@
 #
 # Required: SECRET_KEY_BASE (`bin/rails secret`; signs sessions and cookies),
 # DATABASE_URL, REDIS_URL (the databases' internal URLs), APP_HOST,
-# R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET, R2_ENDPOINT. The image
+# R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET, R2_ENDPOINT. For the Hello SMC
+# sheet auto-fill also HELLO_SMC_SPREADSHEET_ID and GOOGLE_SHEETS_CREDENTIALS_JSON
+# (the whole service-account key on one line). The image
 # build needs none of them, so make them runtime-only (untick "Available at
 # Buildtime"): build-time variables are passed to `docker build` as build args
 # and end up in the image history.
@@ -41,6 +43,8 @@ services:
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USERNAME: ${SMTP_USERNAME:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      HELLO_SMC_SPREADSHEET_ID: ${HELLO_SMC_SPREADSHEET_ID:-}
+      GOOGLE_SHEETS_CREDENTIALS_JSON: ${GOOGLE_SHEETS_CREDENTIALS_JSON:-}
       SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
     # Liveness only (the app booted). Coolify's proxy stops routing to an
@@ -73,4 +77,6 @@ services:
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USERNAME: ${SMTP_USERNAME:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      HELLO_SMC_SPREADSHEET_ID: ${HELLO_SMC_SPREADSHEET_ID:-}
+      GOOGLE_SHEETS_CREDENTIALS_JSON: ${GOOGLE_SHEETS_CREDENTIALS_JSON:-}
     restart: unless-stopped

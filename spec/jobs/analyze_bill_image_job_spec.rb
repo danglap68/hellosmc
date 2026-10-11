@@ -60,6 +60,40 @@ RSpec.describe AnalyzeBillImageJob do
     described_class.perform_now(duplicate.id)
     expect(BillVision::Extractor).not_to have_received(:call)
   end
+
+  it "routes album images to the album finalizer instead of the builder" do
+    album = create(:bill_album)
+    bill_image.update!(bill_album: album)
+    stub_vision(extraction_fixture("normal_settlement"))
+
+    described_class.perform_now(bill_image.id)
+
+    expect(FinalizeBillAlbumJob).to have_been_enqueued.with(album.id)
+    expect(BuildTransactionJob).not_to have_been_enqueued
+  end
+
+  it "re-opens a finished album on a forced re-run so it re-reconciles" do
+    album = create(:bill_album, status: "reconciled", reconciliation_status: "matched")
+    bill_image.update!(bill_album: album)
+    stub_vision(extraction_fixture("normal_settlement"))
+
+    described_class.perform_now(bill_image.id, force: true)
+
+    expect(album.reload.status).to eq("processing")
+    expect(album.reconciliation_status).to be_nil
+    expect(FinalizeBillAlbumJob).to have_been_enqueued.with(album.id)
+  end
+
+  it "re-opens the album even when a forced re-run fails" do
+    album = create(:bill_album, status: "reconciled", reconciliation_status: "matched")
+    bill_image.update!(bill_album: album)
+    allow(BillVision::Extractor).to receive(:call).and_raise(BillVision::PermanentError, "invalid key")
+
+    described_class.perform_now(bill_image.id, force: true)
+
+    expect(album.reload.status).to eq("processing")
+    expect(album.reconciliation_status).to be_nil
+  end
 end
 
 RSpec.describe BillImages::Analyzer do

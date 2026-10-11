@@ -44,7 +44,7 @@
               <div class="card card-sm bg-green-lt mb-0">
                 <div class="card-body">
                   <div class="row">
-                    <div class="col"><div class="text-secondary small"><%= Transaction.human_attribute_name(:applied_base_fee_rate) %></div><strong><%= format_rate(@transaction.applied_base_fee_rate) %></strong></div>
+                    <div class="col"><div class="text-secondary small"><%= Transaction.human_attribute_name(:applied_base_fee_rate) %></div><strong><%= format_rate(@transaction.base_fee_rate_used) %></strong></div>
                     <div class="col"><div class="text-secondary small"><%= Transaction.human_attribute_name(:amount_after_base_fee_vnd) %></div><strong class="money"><%= format_vnd(@transaction.amount_after_base_fee_vnd) %></strong></div>
                   </div>
                   <div class="small text-secondary mt-1"><%= t("reviews.show.calculation_preview_hint") %></div>

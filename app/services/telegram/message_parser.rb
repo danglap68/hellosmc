@@ -7,7 +7,7 @@ module Telegram
 
     Parsed = Data.define(
       :update_id, :edited, :chat_id, :chat_title, :chat_type, :message_id, :sender_id,
-      :sender_name, :text, :sent_at, :media_group_id, :attachment, :raw_message
+      :sender_name, :sender_username, :text, :sent_at, :media_group_id, :attachment, :raw_message
     ) do
       def image?
         attachment.present?
@@ -64,6 +64,7 @@ module Telegram
         message_id: Integer(message["message_id"]),
         sender_id: message.dig("from", "id"),
         sender_name: sender_name(message["from"]),
+        sender_username: message.dig("from", "username"),
         text: (message["text"].presence || message["caption"].presence)&.strip,
         sent_at: message["date"] ? Time.zone.at(message["date"].to_i) : nil,
         media_group_id: message["media_group_id"],

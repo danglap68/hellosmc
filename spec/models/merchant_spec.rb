@@ -2,7 +2,8 @@ require "rails_helper"
 
 RSpec.describe Merchant do
   it { is_expected.to validate_presence_of(:name) }
-  it { is_expected.to belong_to(:dealer).optional }
+  it { is_expected.to have_many(:merchant_dealers) }
+  it { is_expected.to have_many(:dealers) }
 
   it "stores a diacritic-free normalized name" do
     merchant = create(:merchant, name: "001_ HỘ KINH DOANH THIÊN KIM GV")

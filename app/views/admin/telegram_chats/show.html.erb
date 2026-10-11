@@ -20,6 +20,10 @@
   </div>
 <% end %>
 
+<% if @telegram_chat.merchant_ids_differ_from_name? %>
+  <div class="alert alert-warning"><%= icon("alert-triangle") %> <%= t("telegram_chats.show.name_differs", names: @telegram_chat.name_merchants.map(&:name).to_sentence) %></div>
+<% end %>
+
 <div class="row row-cards">
   <div class="col-lg-4">
     <div class="card">
@@ -27,8 +31,16 @@
         <dl class="row mb-0">
           <dt class="col-5"><%= TelegramChat.human_attribute_name(:telegram_chat_id) %></dt><dd class="col-7"><code><%= @telegram_chat.telegram_chat_id %></code></dd>
           <dt class="col-5"><%= TelegramChat.human_attribute_name(:chat_type) %></dt><dd class="col-7"><%= @telegram_chat.chat_type || "—" %></dd>
-          <dt class="col-5"><%= TelegramChat.human_attribute_name(:dealer) %></dt>
-          <dd class="col-7"><%= @telegram_chat.dealer ? link_to(@telegram_chat.dealer.name, admin_dealer_path(@telegram_chat.dealer)) : content_tag(:span, t("telegram_chats.unmapped"), class: "badge bg-orange-lt") %></dd>
+          <dt class="col-5"><%= t("telegram_chats.agent") %></dt>
+          <dd class="col-7"><%= @telegram_chat.group_dealer ? link_to(@telegram_chat.group_dealer.name, admin_dealer_path(@telegram_chat.group_dealer)) : content_tag(:span, t("telegram_chats.agent_not_detected"), class: "badge bg-secondary-lt") %></dd>
+          <dt class="col-5"><%= TelegramChat.human_attribute_name(:merchants) %></dt>
+          <dd class="col-7">
+            <% if @telegram_chat.merchants.any? %>
+              <% @telegram_chat.merchants.each do |merchant| %><div><%= link_to merchant.name, admin_merchant_path(merchant) %></div><% end %>
+            <% else %>
+              <%= content_tag(:span, t("telegram_chats.unmapped_hkd"), class: "badge bg-orange-lt") %>
+            <% end %>
+          </dd>
           <dt class="col-5"><%= TelegramChat.human_attribute_name(:active) %></dt><dd class="col-7"><%= active_badge(@telegram_chat.active?) %></dd>
         </dl>
       </div>

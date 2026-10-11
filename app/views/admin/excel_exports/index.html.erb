@@ -13,6 +13,7 @@
           <tr>
             <th>ID</th>
             <th><%= t("excel_exports.date_range") %></th>
+            <th><%= ExcelExport.human_attribute_name(:layout) %></th>
             <th><%= ExcelExport.human_attribute_name(:status) %></th>
             <th><%= ExcelExport.human_attribute_name(:transaction_count) %></th>
             <th><%= ExcelExport.human_attribute_name(:generated_by) %></th>
@@ -25,6 +26,7 @@
             <tr>
               <td><%= link_to "##{export.id}", admin_excel_export_path(export) %></td>
               <td><%= format_date(export.export_date) %><%= " → #{l(export.end_date)}" if export.end_date != export.export_date %></td>
+              <td><%= t("activerecord.enums.excel_export.layout.#{export.layout}") %></td>
               <td><%= export_status_badge(export.status) %></td>
               <td><%= export.transaction_count %></td>
               <td><%= export.generated_by&.display_name || t("audit_logs.system") %></td>

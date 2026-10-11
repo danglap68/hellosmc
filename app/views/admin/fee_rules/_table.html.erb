@@ -21,10 +21,10 @@
             <td>
               <span class="badge bg-blue-lt"><%= t("fee_rules.levels.#{rule.specificity_level}") %></span>
               <div class="small">
-                <%= [rule.merchant&.name, rule.dealer&.name].compact.join(" · ").presence || t("fee_rules.everyone") %>
+                <%= [rule.merchant_label, rule.dealer&.name].compact.join(" · ").presence || t("fee_rules.everyone") %>
               </div>
             </td>
-            <td><%= rule.card_type&.name || t("fee_rules.any_card_type") %></td>
+            <td><%= rule.card_type_label || t("fee_rules.any_card_type") %></td>
             <td class="text-end fw-bold"><%= format_rate(rule.base_fee_rate) %></td>
             <td class="text-end"><%= format_rate(rule.dealer_rate) %></td>
             <td class="text-nowrap small">

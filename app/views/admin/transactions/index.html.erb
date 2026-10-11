@@ -95,7 +95,7 @@
               <td><%= transaction.card_type&.name || "—" %></td>
               <td><%= transaction.lot_number || "—" %></td>
               <td class="text-end money"><%= format_vnd(transaction.transaction_amount_vnd) %></td>
-              <td class="text-end text-nowrap"><%= format_rate(transaction.applied_base_fee_rate) %></td>
+              <td class="text-end text-nowrap"><%= format_rate(transaction.base_fee_rate_used) %></td>
               <td class="text-end money"><%= format_vnd(transaction.amount_after_base_fee_vnd) %></td>
               <td class="text-nowrap"><%= status_badge(transaction.status) %></td>
               <td class="text-center"><%= confidence_badge(transaction.confidence_score) %></td>

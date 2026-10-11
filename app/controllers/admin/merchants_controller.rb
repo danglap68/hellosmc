@@ -5,8 +5,7 @@ module Admin
     before_action :set_merchant, only: %i[show edit update destroy]
 
     def index
-      scope = Merchant.includes(:dealer, :default_card_type).ordered
-      scope = scope.where(dealer_id: params[:dealer_id]) if params[:dealer_id].present?
+      scope = Merchant.includes(:default_card_type).ordered
       if params[:q].present?
         like = "%#{Merchant.sanitize_sql_like(params[:q])}%"
         normalized = "%#{VietnameseText.normalize(params[:q])}%"
@@ -20,11 +19,11 @@ module Admin
     def show
       @merchant_aliases = @merchant.merchant_aliases.order(:alias_type, :alias)
       @merchant_alias = @merchant.merchant_aliases.build(alias_type: "receipt_name")
-      @fee_rules = @merchant.fee_rules.includes(:card_type, :dealer).ordered
+      @fee_rules = @merchant.fee_rules.includes(:fee_rule_merchants, :fee_rule_card_types, :card_types, :dealer).ordered
     end
 
     def new
-      @merchant = Merchant.new(active: true, dealer_id: params[:dealer_id])
+      @merchant = Merchant.new(active: true)
     end
 
     def create
@@ -37,7 +36,9 @@ module Admin
       end
     end
 
-    def edit; end
+    def edit
+      @merchant.merchant_dealers.build
+    end
 
     def update
       before = Audit::Snapshot.of(@merchant)
@@ -66,7 +67,8 @@ module Admin
     end
 
     def merchant_params
-      params.require(:merchant).permit(:name, :code, :dealer_id, :default_card_type_id, :active)
+      params.require(:merchant).permit(:name, :code, :default_card_type_id, :active,
+        merchant_dealers_attributes: [ :id, :dealer_id, :tid_key, :tid_label, :ds_sheet_anchor, :ds_header, :rd_agent_label, :active, :_destroy ])
     end
   end
 end

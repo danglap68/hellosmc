@@ -65,6 +65,23 @@ module ApplicationHelper
     content_tag(:span, t("activerecord.enums.bill_image.ocr_status.#{status}"), class: "badge bg-#{color}-lt")
   end
 
+  ALBUM_STATUS_COLORS = {
+    "collecting" => "secondary", "processing" => "blue", "reconciled" => "green",
+    "needs_review" => "yellow", "skipped" => "orange", "failed" => "red"
+  }.freeze
+
+  def album_status_badge(album)
+    color = ALBUM_STATUS_COLORS.fetch(album.status.to_s, "secondary")
+    content_tag(:span, enum_label(:bill_album, :status, album.status), class: "badge bg-#{color}-lt")
+  end
+
+  def reconciliation_status_badge(album)
+    return content_tag(:span, "—", class: "badge bg-secondary-lt") if album.reconciliation_status.blank?
+
+    color = album.reconciliation_status == "matched" ? "green" : "yellow"
+    content_tag(:span, enum_label(:bill_album, :reconciliation_status, album.reconciliation_status), class: "badge bg-#{color}-lt")
+  end
+
   def export_status_badge(status)
     color = EXPORT_STATUS_COLORS.fetch(status.to_s, "secondary")
     content_tag(:span, t("activerecord.enums.excel_export.status.#{status}"), class: "badge bg-#{color}-lt")
@@ -156,16 +173,29 @@ module ApplicationHelper
     end
   end
 
-  def dealer_options
-    Dealer.ordered.map { |dealer| [ dealer.active? ? dealer.name : "#{dealer.name} (#{t('common.inactive')})", dealer.id ] }
+  def dealer_options(transaction = nil)
+    # Once the HKD is known, only its agents are offered; otherwise every dealer.
+    scope = transaction&.merchant ? transaction.merchant.dealers.distinct : Dealer.all
+    scope.ordered.map { |dealer| [ dealer.active? ? dealer.name : "#{dealer.name} (#{t('common.inactive')})", dealer.id ] }
   end
 
   def merchant_options(scope = Merchant.all)
     scope.ordered.map { |merchant| [ "#{merchant.name} [#{merchant.code}]", merchant.id ] }
   end
 
+  def export_layout_options
+    ExcelExport::LAYOUTS.map { |layout| [ t("activerecord.enums.excel_export.layout.#{layout}"), layout ] }
+  end
+
   def card_type_options(value: :id)
     CardType.ordered.map { |card_type| [ card_type.name, card_type.public_send(value) ] }
+  end
+
+  # Phí gốc luôn gợi ý mức sheet. Phí gốc theo thẻ và phí đại lý chỉ đổi khi mọi loại thẻ đang chọn là MB hoặc Napas.
+  def fee_rate_placeholders(card_types)
+    keys = Array(card_types).compact.map { |card_type| card_type.respond_to?(:key) ? card_type.key : card_type.to_s }
+    special = keys.present? && keys.all? { |key| key.in?(%w[mb napas]) }
+    { base: "1,21", card: (special ? "0,88" : "1,21"), dealer: (special ? "1,2" : "1,4") }
   end
 
   def fee_rule_label(fee_rule)

@@ -9,6 +9,7 @@ RSpec.describe "Admin pages" do
   let!(:review) { Transactions::Builder.call(bill_image: analyzed_bill(extraction: "blurry_settlement")).sole }
   let!(:merchant_alias) { create(:merchant_alias, merchant: merchant, alias: "THIEN KIM") }
   let!(:export) { create(:excel_export, generated_by: admin) }
+  let!(:bill_album) { create(:bill_album, telegram_chat: chat) }
 
   before { sign_in admin }
 
@@ -22,6 +23,7 @@ RSpec.describe "Admin pages" do
       admin_dealers_path, admin_dealer_path(dealer), new_admin_dealer_path, edit_admin_dealer_path(dealer),
       admin_telegram_chats_path, admin_telegram_chats_path(filter: "unmapped"), admin_telegram_chat_path(chat),
       new_admin_telegram_chat_path, edit_admin_telegram_chat_path(chat),
+      admin_bill_albums_path, admin_bill_album_path(bill_album),
       admin_merchants_path, admin_merchant_path(merchant), new_admin_merchant_path, edit_admin_merchant_path(merchant),
       edit_admin_merchant_merchant_alias_path(merchant, merchant_alias),
       admin_fee_rules_path, admin_fee_rules_path(state: "current"), admin_fee_rule_path(default_rule),

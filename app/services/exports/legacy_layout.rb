@@ -18,7 +18,7 @@ module Exports
       Column.new(header: "Tên Đại lý", type: :string, value: ->(t) { t.merchant&.name }),
       Column.new(header: "Số tiền sau khi trừ phí gốc", type: :integer, value: ->(t) { t.amount_after_base_fee_vnd }),
       Column.new(header: "Số tiền giao dịch", type: :integer, value: ->(t) { t.transaction_amount_vnd }),
-      Column.new(header: "Phí gốc", type: :rate, value: ->(t) { t.applied_base_fee_rate }),
+      Column.new(header: "Phí gốc", type: :rate, value: ->(t) { t.base_fee_rate_used }),
       Column.new(header: "Ngày giao dịch", type: :datetime, value: ->(t) { t.transaction_at&.in_time_zone }),
       Column.new(header: "Trạng thái", type: :string, value: ->(t) { STATUS_LABELS[t.status] }),
       Column.new(header: "", type: :string, value: ->(t) { t.dealer&.name })

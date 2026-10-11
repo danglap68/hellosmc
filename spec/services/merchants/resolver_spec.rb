@@ -2,7 +2,7 @@ require "rails_helper"
 
 RSpec.describe Merchants::Resolver do
   let(:dealer) { create(:dealer, name: "Anh Trân") }
-  let!(:thien_kim) { create(:merchant, name: "001_ HỘ KINH DOANH THIÊN KIM GV", code: "001", dealer: dealer) }
+  let!(:thien_kim) { create(:merchant, name: "001_ HỘ KINH DOANH THIÊN KIM GV", code: "001") }
 
   it "resolves by an exact identifier alias first" do
     create(:merchant_alias, merchant: thien_kim, alias_type: "merchant_id", alias: "000000123456")
@@ -46,19 +46,12 @@ RSpec.describe Merchants::Resolver do
   end
 
   describe "ambiguity" do
-    let(:other_dealer) { create(:dealer) }
-
-    before { create(:merchant, name: "HKD THIÊN KIM GV", code: "999", dealer: other_dealer) }
+    before { create(:merchant, name: "HKD THIÊN KIM GV", code: "999") }
 
     it "is ambiguous when two merchants share the same core name" do
       result = described_class.call(merchant_name: "HỘ KINH DOANH THIÊN KIM GV")
       expect(result).to be_ambiguous
       expect(result.candidates.size).to eq(2)
-    end
-
-    it "is resolved when the configured dealer narrows it to one" do
-      result = described_class.call(merchant_name: "HỘ KINH DOANH THIÊN KIM GV", dealer: dealer)
-      expect(result.merchant).to eq(thien_kim)
     end
   end
 end

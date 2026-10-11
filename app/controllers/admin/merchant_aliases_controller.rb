@@ -12,7 +12,7 @@ module Admin
         redirect_to admin_merchant_path(@merchant), notice: t("flash.created", model: MerchantAlias.model_name.human)
       else
         @merchant_aliases = @merchant.merchant_aliases.where.not(id: nil).order(:alias_type, :alias)
-        @fee_rules = @merchant.fee_rules.includes(:card_type, :dealer).ordered
+        @fee_rules = @merchant.fee_rules.includes(:fee_rule_merchants, :fee_rule_card_types, :card_types, :dealer).ordered
         render "admin/merchants/show", status: :unprocessable_content
       end
     end

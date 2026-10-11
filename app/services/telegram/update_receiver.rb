@@ -28,6 +28,8 @@ module Telegram
         return result(:duplicate, message)
       end
 
+      BillAlbums::Collector.call(message) if created && parsed.image? && parsed.media_group_id.present?
+
       if !chat.active?
         message.update!(processing_status: "ignored")
         log("telegram.chat_inactive", chat, parsed)
@@ -74,6 +76,7 @@ module Telegram
         telegram_update_id: parsed.update_id,
         telegram_sender_id: parsed.sender_id,
         sender_name: parsed.sender_name,
+        telegram_username: parsed.sender_username.to_s.delete_prefix("@").downcase.presence,
         media_group_id: parsed.media_group_id,
         message_text: parsed.text,
         sent_at: parsed.sent_at,

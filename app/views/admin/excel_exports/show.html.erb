@@ -23,6 +23,8 @@
         <dl class="row mb-0">
           <dt class="col-6"><%= t("excel_exports.date_range") %></dt>
           <dd class="col-6"><%= format_date(@excel_export.export_date) %> → <%= format_date(@excel_export.end_date) %></dd>
+          <dt class="col-6"><%= ExcelExport.human_attribute_name(:layout) %></dt>
+          <dd class="col-6"><%= t("activerecord.enums.excel_export.layout.#{@excel_export.layout}") %></dd>
           <dt class="col-6"><%= ExcelExport.human_attribute_name(:status) %></dt><dd class="col-6"><%= export_status_badge(@excel_export.status) %></dd>
           <dt class="col-6"><%= ExcelExport.human_attribute_name(:transaction_count) %></dt><dd class="col-6"><%= @excel_export.transaction_count %></dd>
           <dt class="col-6"><%= ExcelExport.human_attribute_name(:generated_by) %></dt><dd class="col-6"><%= @excel_export.generated_by&.display_name || t("audit_logs.system") %></dd>
@@ -35,6 +37,29 @@
     </div>
   </div>
   <div class="col-lg-7">
+    <% if @excel_export.ket_toan_phi_goc? %>
+      <% skipped = Array(@excel_export.metadata["skipped"]) %>
+      <div class="card">
+        <div class="card-header"><h3 class="card-title"><%= t("excel_exports.show.skipped") %></h3></div>
+        <% if skipped.any? %>
+          <div class="table-responsive">
+            <table class="table card-table">
+              <thead><tr><th><%= t("excel_exports.show.transaction") %></th><th><%= t("excel_exports.show.skip_reason") %></th></tr></thead>
+              <tbody>
+                <% skipped.each do |row| %>
+                  <tr>
+                    <td><%= link_to "##{row["transaction_id"]}", admin_transaction_path(row["transaction_id"]) %></td>
+                    <td><%= t("excel_exports.show.skip_reasons.#{row["reason"]}", default: row["reason"]) %></td>
+                  </tr>
+                <% end %>
+              </tbody>
+            </table>
+          </div>
+        <% else %>
+          <div class="card-body text-secondary"><%= t("excel_exports.show.skipped_none") %></div>
+        <% end %>
+      </div>
+    <% else %>
     <div class="card">
       <div class="card-header"><h3 class="card-title"><%= t("excel_exports.show.totals") %></h3></div>
       <% by_dealer = @excel_export.metadata.dig("totals", "by_dealer") || {} %>
@@ -59,5 +84,6 @@
         <div class="card-body text-secondary"><%= t("common.no_data") %></div>
       <% end %>
     </div>
+    <% end %>
   </div>
 </div>

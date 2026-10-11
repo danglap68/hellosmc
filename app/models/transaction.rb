@@ -31,12 +31,14 @@ class Transaction < ApplicationRecord
 
   has_many :reviews, class_name: "TransactionReview", foreign_key: :transaction_id,
     inverse_of: :reviewed_transaction, dependent: :destroy
+  has_one :workbook_entry, inverse_of: :recorded_transaction, dependent: :destroy
   has_many :audit_logs, as: :auditable, dependent: :restrict_with_error
 
   enum :status, STATUSES.index_by(&:itself), validate: true
 
   validates :transaction_amount_vnd, numericality: { only_integer: true, greater_than: 0 }, allow_nil: true
   validates :applied_base_fee_rate, numericality: { greater_than_or_equal_to: 0, less_than: 1 }, allow_nil: true
+  validates :applied_card_base_fee_rate, numericality: { greater_than_or_equal_to: 0, less_than: 1 }, allow_nil: true
   validates :applied_dealer_rate, numericality: { greater_than_or_equal_to: 0, less_than: 1 }, allow_nil: true
   validates :source_index, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
   with_options if: :finalized? do
@@ -100,6 +102,12 @@ class Transaction < ApplicationRecord
 
   def review_reason_codes
     Array(source_data["review_reasons"])
+  end
+
+  # The base fee the amount was priced with: the card base fee when one applied, else the base fee.
+  # applied_base_fee_rate stays the household tier that picks the export sheet.
+  def base_fee_rate_used
+    applied_card_base_fee_rate || applied_base_fee_rate
   end
 
   # Snapshot used in audit logs: only business-relevant columns.

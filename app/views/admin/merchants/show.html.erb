@@ -16,7 +16,6 @@
       <div class="card-body">
         <dl class="row mb-0">
           <dt class="col-5"><%= Merchant.human_attribute_name(:code) %></dt><dd class="col-7"><code><%= @merchant.code %></code></dd>
-          <dt class="col-5"><%= Merchant.human_attribute_name(:dealer) %></dt><dd class="col-7"><%= @merchant.dealer ? link_to(@merchant.dealer.name, admin_dealer_path(@merchant.dealer)) : "—" %></dd>
           <dt class="col-5"><%= Merchant.human_attribute_name(:default_card_type) %></dt><dd class="col-7"><%= @merchant.default_card_type&.name || "—" %></dd>
           <dt class="col-5"><%= Merchant.human_attribute_name(:normalized_name) %></dt><dd class="col-7"><code><%= @merchant.normalized_name %></code></dd>
           <dt class="col-5"><%= Merchant.human_attribute_name(:active) %></dt><dd class="col-7"><%= active_badge(@merchant.active?) %></dd>
@@ -70,7 +69,7 @@
     <div class="card">
       <div class="card-header">
         <h3 class="card-title"><%= icon("percentage") %> <%= t("navigation.fee_rules") %></h3>
-        <% if can?(:manage, :fee_rules) %><div class="card-actions"><%= link_to t("fee_rules.index.new"), new_admin_fee_rule_path(merchant_id: @merchant.id, dealer_id: @merchant.dealer_id) %></div><% end %>
+        <% if can?(:manage, :fee_rules) %><div class="card-actions"><%= link_to t("fee_rules.index.new"), new_admin_fee_rule_path(merchant_id: @merchant.id) %></div><% end %>
       </div>
       <%= render "admin/fee_rules/table", fee_rules: @fee_rules %>
     </div>

@@ -1,5 +1,6 @@
 class ExcelExport < ApplicationRecord
   STATUSES = %w[pending processing completed failed].freeze
+  LAYOUTS = %w[legacy ket_toan_phi_goc].freeze
   MAX_RANGE_DAYS = 93
 
   belongs_to :generated_by, class_name: "User", optional: true
@@ -7,6 +8,7 @@ class ExcelExport < ApplicationRecord
   has_one_attached :file
 
   enum :status, STATUSES.index_by(&:itself), validate: true
+  enum :layout, LAYOUTS.index_by(&:itself), validate: true, default: "legacy"
 
   validates :export_date, :end_date, presence: true
   validate :date_range_valid
@@ -18,11 +20,11 @@ class ExcelExport < ApplicationRecord
   end
 
   def filename
-    if export_date == end_date
-      "smc-#{export_date.strftime('%Y%m%d')}.xlsx"
-    else
-      "smc-#{export_date.strftime('%Y%m%d')}-#{end_date.strftime('%Y%m%d')}.xlsx"
-    end
+    dates = export_date == end_date ? export_date.strftime("%Y%m%d") : "#{export_date.strftime('%Y%m%d')}-#{end_date.strftime('%Y%m%d')}"
+    return "smc-#{dates}.xlsx" unless ket_toan_phi_goc?
+
+    stamp = (generated_at || Time.current).in_time_zone("Asia/Ho_Chi_Minh").strftime("%H%M%S")
+    "smc-ket-toan-phi-goc-#{dates}-#{stamp}.xlsx"
   end
 
   private
