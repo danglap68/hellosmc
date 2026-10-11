@@ -52,6 +52,7 @@ module BillVision
 
     def normalize_document(doc, index)
       document_type = Prompt::DOCUMENT_TYPES.include?(doc["document_type"]) ? doc["document_type"] : "unknown"
+      document_type = "child_receipt" if transfer_misread?(document_type, doc)
       amount = parse_amount(doc["total_amount_vnd"])
       date = parse_date(doc["transaction_date"])
       time = parse_time(doc["transaction_time"])
@@ -81,6 +82,15 @@ module BillVision
         "low_confidence_fields" => low_fields,
         "requires_review" => requires_review?(document_type, low_fields)
       )
+    end
+
+    # A bank transfer never prints a POS batch/lot or terminal number. When the
+    # model labels a document "transfer" but still read those fields, it actually
+    # read a card-sale slip (child_receipt) — e.g. a SALE screen with the generic
+    # "GIAO DỊCH THÀNH CÔNG" banner.
+    def transfer_misread?(document_type, doc)
+      document_type == "transfer" &&
+        (clean_string(doc["lot_number"]).present? || clean_string(doc["terminal_or_merchant_id"]).present?)
     end
 
     def critical_fields(document_type)

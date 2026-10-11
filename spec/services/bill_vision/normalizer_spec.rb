@@ -84,6 +84,15 @@ RSpec.describe BillVision::Normalizer do
     expect(document["requires_review"]).to be(true)
     expect(document["low_confidence_fields"]).to include("total_amount_vnd")
   end
+
+  it "reclassifies a transfer carrying POS batch/terminal fields as a child receipt" do
+    data = { "documents" => [ { "document_type" => "transfer", "total_amount_vnd" => 20_001_000,
+                                "lot_number" => "000078", "terminal_or_merchant_id" => "**** 0957",
+                                "merchant_name" => "001_ HỘ KINH DOANH THIÊN KIM",
+                                "transaction_date" => "2026-10-05", "transaction_time" => "18:33:32" } ] }
+    document = normalize(data)["documents"].first
+    expect(document["document_type"]).to eq("child_receipt")
+  end
 end
 
 RSpec.describe BillVision::Normalizer, "edge cases" do

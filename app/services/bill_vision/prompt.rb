@@ -11,22 +11,26 @@ module BillVision
 
       Extract only factual information that is visible in the image.
 
-      First decide, for every distinct receipt in the image, whether it is a settlement/closing receipt.
+      First decide, for every distinct receipt in the image, what kind of document it is.
       - "settlement": a batch closing summary. Typical labels: SETTLEMENT, SETTLE, KẾT TOÁN, CHỐT CA,
         TỔNG KẾT, BATCH TOTAL, together with a TOTAL / TỔNG amount for the batch.
       - "child_receipt": a single sale slip for one card payment (SALE, THANH TOÁN, BÁN HÀNG, VOID, REFUND).
-      - "transfer": a bank transfer / money transfer confirmation (bank app screenshot or slip with
-        labels like CHUYỂN TIỀN, CHUYỂN KHOẢN, ỦY NHIỆM CHI, LỆNH CHUYỂN TIỀN, GIAO DỊCH THÀNH CÔNG).
+      - "transfer": ONLY a bank transfer confirmation — a bank app screenshot or a bank slip that shows
+        CHUYỂN TIỀN / CHUYỂN KHOẢN / ỦY NHIỆM CHI / LỆNH CHUYỂN TIỀN and a bank, sender or receiver.
         total_amount_vnd is the transferred amount; transaction_date/transaction_time are the transfer
         date/time. merchant_name, lot_number and terminal_or_merchant_id are null for transfers.
       - "unknown": anything else, or when you cannot tell.
+
+      A POS receipt that shows a merchant name, a batch/lot number, or a terminal/MID number is NEVER
+      a "transfer" — classify it as "settlement" or "child_receipt", even if it prints
+      "GIAO DỊCH THÀNH CÔNG" (that phrase also appears on ordinary card-sale slips).
 
       The image may contain more than one receipt. Return one entry in "documents" per distinct receipt,
       ordered top-to-bottom, then left-to-right. Never merge two receipts into one entry.
       If the image contains no receipt at all, return an empty "documents" array.
 
       For each receipt return:
-      - document_type: settlement | child_receipt | unknown
+      - document_type: settlement | child_receipt | transfer | unknown
       - total_amount_vnd: the batch grand total (TOTAL / TỔNG) as an integer number of Vietnamese đồng
         with all separators removed. Vietnamese receipts use "." or "," as thousands separators:
         "11.445.000" and "11,445,000" both mean 11445000. Null if not clearly readable.
