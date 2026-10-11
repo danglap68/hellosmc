@@ -71,6 +71,18 @@ RSpec.describe AnalyzeBillImageJob do
     expect(FinalizeBillAlbumJob).to have_been_enqueued.with(album.id)
     expect(BuildTransactionJob).not_to have_been_enqueued
   end
+
+  it "re-opens a finished album on a forced re-run so it re-reconciles" do
+    album = create(:bill_album, status: "reconciled", reconciliation_status: "matched")
+    bill_image.update!(bill_album: album)
+    stub_vision(extraction_fixture("normal_settlement"))
+
+    described_class.perform_now(bill_image.id, force: true)
+
+    expect(album.reload.status).to eq("processing")
+    expect(album.reconciliation_status).to be_nil
+    expect(FinalizeBillAlbumJob).to have_been_enqueued.with(album.id)
+  end
 end
 
 RSpec.describe BillImages::Analyzer do

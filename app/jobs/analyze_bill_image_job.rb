@@ -13,13 +13,16 @@ class AnalyzeBillImageJob < ApplicationJob
   def perform(bill_image_id, force: false)
     bill_image = BillImage.find(bill_image_id)
     result = BillImages::Analyzer.call(bill_image, force: force, job_id: job_id)
-    build_or_finalize(bill_image) if result.status.in?(%i[analyzed failed])
+    build_or_finalize(bill_image, force: force) if result.status.in?(%i[analyzed failed])
   end
 
   # Album images are built by the album finalizer (after every image is OCR'd),
   # not immediately, so the whole album is reconciled in one place.
-  def build_or_finalize(bill_image)
+  def build_or_finalize(bill_image, force: false)
     if bill_image.bill_album_id
+      # A forced re-run must re-open a finished (terminal) album, otherwise the
+      # finalizer returns early and the reprocessed row stays stuck in processing.
+      bill_image.bill_album.update!(status: "processing", reconciliation_status: nil) if force
       FinalizeBillAlbumJob.perform_later(bill_image.bill_album_id)
     else
       BuildTransactionJob.perform_later(bill_image.id)
