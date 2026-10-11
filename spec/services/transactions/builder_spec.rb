@@ -353,6 +353,10 @@ RSpec.describe Transactions::Builder do
     expect(transaction.transaction_at).to eq(Time.zone.local(2026, 10, 4, 18, 33, 32))
     expect(transaction.review_reason_codes).to include("album_total_review")
     expect(transaction.review_reason_codes).not_to include("transaction_time_missing", "transaction_time_unreadable")
+
+    extraction = transaction.source_data["extraction"]
+    expect(extraction["critical_confidence"]).to be > 0.9
+    expect(extraction["low_confidence_fields"]).not_to include("transaction_time")
   end
 
   it "snapshots the applied rate: later rule changes do not alter the transaction" do

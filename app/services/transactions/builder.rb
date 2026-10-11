@@ -152,7 +152,31 @@ module Transactions
         merged["transaction_at"] = Time.zone.local(date.year, date.month, date.day, hour, minute, second).iso8601
       end
       merged["confidence"] = confidence
+      refresh_critical_fields(merged, confidence)
       merged
+    end
+
+    # The stored critical_confidence / low_confidence_fields were computed from
+    # the un-inherited document; recompute them so the summary matches the
+    # inherited per-field confidence.
+    def refresh_critical_fields(document, confidence)
+      type = document["document_type"]
+      critical_fields = BillVision::Normalizer::CRITICAL_FIELDS_BY_TYPE.fetch(type, %w[document_type])
+      values = critical_fields.to_h { |field| [ field, critical_confidence_value(confidence, field) ] }
+
+      document["critical_confidence"] = values.values.min
+      document["low_confidence_fields"] = critical_fields.select do |field|
+        BigDecimal(values[field].to_s) < AppConfig.ocr_auto_approve_threshold
+      end
+      document["requires_review"] = type == "unknown" || document["low_confidence_fields"].any?
+    end
+
+    def critical_confidence_value(confidence, field)
+      if field == "merchant_name"
+        [ confidence["merchant_name"], confidence["terminal_or_merchant_id"] ].compact.max.to_f
+      else
+        confidence[field].to_f
+      end
     end
 
     def inherit_field(merged, confidence, children, field, latest: false, best: false)
