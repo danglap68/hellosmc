@@ -115,4 +115,19 @@ RSpec.describe FeeRule do
       expect(build(:fee_rule, card_type: card_type).specificity_level).to eq("card_type")
     end
   end
+
+  describe "card-only rule (only a card type selected)" do
+    let(:card_type) { create(:mb_card_type) }
+
+    it "makes base_fee_rate optional" do
+      rule = build(:fee_rule, card_type: card_type, base_fee_rate: nil, card_base_fee_rate: BigDecimal("0.0088"))
+      expect(rule.card_only?).to be true
+      expect(rule).to be_valid
+    end
+
+    it "still requires base_fee_rate when not card-only" do
+      expect(build(:fee_rule, base_fee_rate: nil)).not_to be_valid
+      expect(build(:fee_rule, card_type: card_type, merchant: create(:merchant), base_fee_rate: nil)).not_to be_valid
+    end
+  end
 end

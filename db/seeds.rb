@@ -47,10 +47,8 @@ if Rails.env.development?
   Merchant.find_or_create_by!(code: "CD1") { |merchant| merchant.name = "Cường Duyên 1" }
   Merchant.find_or_create_by!(code: "CD2") { |merchant| merchant.name = "Cường Duyên 2" }
 
-  TelegramChat.find_or_create_by!(telegram_chat_id: -1001000000001) do |chat|
-    chat.name = "Anh Trân - Bill (demo)"
-    chat.active = true
-  end
+  # Groups named "TenDaiLy-HKD1[-HKD2]" with their HKDs (development demo ids).
+  Workbook::Seed.seed_telegram_chats
 
   start = Time.zone.local(2026, 1, 1)
   unless FeeRule.exists?

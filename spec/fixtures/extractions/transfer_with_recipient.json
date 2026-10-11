@@ -1,0 +1,24 @@
+{
+  "documents": [
+    {
+      "document_type": "transfer",
+      "total_amount_vnd": 69029000,
+      "lot_number": null,
+      "transaction_date": "2026-10-10",
+      "transaction_time": "20:54:00",
+      "merchant_name": null,
+      "terminal_or_merchant_id": null,
+      "recipient_name": "TRAN NGUYEN KHANH SON",
+      "confidence": {
+        "document_type": 0.98,
+        "total_amount_vnd": 0.97,
+        "lot_number": 0,
+        "transaction_date": 0.97,
+        "transaction_time": 0.96,
+        "merchant_name": 0,
+        "terminal_or_merchant_id": 0
+      }
+    }
+  ],
+  "notes": null
+}

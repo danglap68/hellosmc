@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_11_000000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_11_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -97,8 +97,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_000000) do
     t.index ["telegram_chat_id", "media_group_id"], name: "index_bill_albums_on_chat_and_media_group", unique: true
     t.index ["telegram_chat_id"], name: "index_bill_albums_on_telegram_chat_id"
     t.index ["transfer_bill_image_id"], name: "index_bill_albums_on_transfer_bill_image_id"
-    t.check_constraint "reconciliation_status IS NULL OR (reconciliation_status::text = ANY (ARRAY['matched'::character varying, 'mismatched'::character varying, 'multiple_transfers'::character varying, 'missing_bills'::character varying, 'no_transfer'::character varying, 'transfer_duplicate'::character varying, 'incomplete'::character varying]::text[]))", name: "bill_albums_reconciliation_status_check"
-    t.check_constraint "status::text = ANY (ARRAY['collecting'::character varying, 'processing'::character varying, 'reconciled'::character varying, 'needs_review'::character varying, 'skipped'::character varying, 'failed'::character varying]::text[])", name: "bill_albums_status_check"
+    t.check_constraint "reconciliation_status IS NULL OR (reconciliation_status::text = ANY (ARRAY['matched'::character varying::text, 'mismatched'::character varying::text, 'multiple_transfers'::character varying::text, 'missing_bills'::character varying::text, 'no_transfer'::character varying::text, 'transfer_duplicate'::character varying::text, 'incomplete'::character varying::text]))", name: "bill_albums_reconciliation_status_check"
+    t.check_constraint "status::text = ANY (ARRAY['collecting'::character varying::text, 'processing'::character varying::text, 'reconciled'::character varying::text, 'needs_review'::character varying::text, 'skipped'::character varying::text, 'failed'::character varying::text])", name: "bill_albums_status_check"
   end
 
   create_table "bill_images", force: :cascade do |t|
@@ -176,7 +176,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_000000) do
     t.index ["export_date"], name: "index_excel_exports_on_export_date"
     t.index ["generated_by_id"], name: "index_excel_exports_on_generated_by_id"
     t.check_constraint "end_date >= export_date", name: "excel_exports_date_range"
-    t.check_constraint "layout::text = ANY (ARRAY['legacy'::character varying, 'ket_toan_phi_goc'::character varying]::text[])", name: "excel_exports_layout_check"
+    t.check_constraint "layout::text = ANY (ARRAY['legacy'::character varying::text, 'ket_toan_phi_goc'::character varying::text])", name: "excel_exports_layout_check"
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'processing'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text])", name: "excel_exports_status_check"
   end
 
@@ -275,6 +275,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_000000) do
     t.index ["telegram_username"], name: "index_remitters_on_telegram_username", unique: true, where: "(telegram_username IS NOT NULL)"
   end
 
+  create_table "telegram_chat_merchants", force: :cascade do |t|
+    t.bigint "telegram_chat_id", null: false
+    t.bigint "merchant_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["merchant_id"], name: "index_telegram_chat_merchants_on_merchant_id"
+    t.index ["telegram_chat_id", "merchant_id"], name: "index_telegram_chat_merchants_on_chat_and_merchant", unique: true
+    t.index ["telegram_chat_id"], name: "index_telegram_chat_merchants_on_telegram_chat_id"
+  end
+
   create_table "telegram_chats", force: :cascade do |t|
     t.bigint "telegram_chat_id", null: false
     t.string "name"
@@ -283,8 +293,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_000000) do
     t.jsonb "metadata", default: {}, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.bigint "merchant_id"
-    t.index ["merchant_id"], name: "index_telegram_chats_on_merchant_id"
     t.index ["telegram_chat_id"], name: "index_telegram_chats_on_telegram_chat_id", unique: true
   end
 
@@ -436,7 +444,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_000000) do
   add_foreign_key "merchant_dealers", "dealers"
   add_foreign_key "merchant_dealers", "merchants"
   add_foreign_key "merchants", "card_types", column: "default_card_type_id"
-  add_foreign_key "telegram_chats", "merchants"
+  add_foreign_key "telegram_chat_merchants", "merchants"
+  add_foreign_key "telegram_chat_merchants", "telegram_chats"
   add_foreign_key "telegram_messages", "telegram_chats"
   add_foreign_key "transaction_reviews", "transactions"
   add_foreign_key "transaction_reviews", "users", column: "reviewed_by_id"

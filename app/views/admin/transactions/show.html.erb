@@ -197,7 +197,7 @@
             <% if entry.rd_cell %>
               <div class="datagrid-item">
                 <div class="datagrid-title"><%= t("transactions.show.workbook_rd_cell") %></div>
-                <div class="datagrid-content"><code>R&D Report!<%= entry.rd_cell %></code></div>
+                <div class="datagrid-content"><code><%= entry.payload["rd_sheet"] || "R&D Report" %>!<%= entry.rd_cell %></code></div>
               </div>
             <% end %>
             <% if entry.mb_row %>

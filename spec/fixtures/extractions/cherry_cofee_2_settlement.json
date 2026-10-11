@@ -1,0 +1,23 @@
+{
+  "documents": [
+    {
+      "document_type": "settlement",
+      "total_amount_vnd": 21995000,
+      "lot_number": "000203",
+      "transaction_date": "2026-10-10",
+      "transaction_time": "08:43:24",
+      "merchant_name": "CHERRY COFEE 2",
+      "terminal_or_merchant_id": "106-C-098513",
+      "confidence": {
+        "document_type": 0.98,
+        "total_amount_vnd": 0.97,
+        "lot_number": 0.96,
+        "transaction_date": 0.97,
+        "transaction_time": 0.96,
+        "merchant_name": 0.95,
+        "terminal_or_merchant_id": 0.92
+      }
+    }
+  ],
+  "notes": null
+}

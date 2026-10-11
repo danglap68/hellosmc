@@ -15,10 +15,12 @@ module Workbook
     HKD = [
       { code: "001", name: "001_ HỘ KINH DOANH THIÊN KIM GV", anchor: "Thiên Kim GV" },
       { code: "GTD001", name: "Gat Tan Day Coffe", anchor: "Gat Tan Day Coffe" },
-      { code: "CHERRY001", name: "Cherry Coffee", anchor: "Cherry Coffee", match_code: "002 CHERRY COFFE 2" },
+      { code: "CHERRY001", name: "Cherry Coffee", anchor: "Cherry Coffee", match_code: "002 CHERRY COFFE" },
       { code: "MILO001", name: "HKD AS CAFE-CAFE MILO", anchor: "HKD AS CAFE-CAFE MILO" },
       { code: "AS96001", name: "HKD AS CAFE-CAFE 96", anchor: "HKD AS CAFE-CAFE 96", match_code: "099" },
-      { code: "ASCAFE001", name: "HKD AS CAFE", anchor: "HKD AS CAFE" }
+      { code: "ASCAFE001", name: "HKD AS CAFE", anchor: "HKD AS CAFE" },
+      { code: "NCT001", name: "HKD NCT", anchor: "HKD NCT" },
+      { code: "NCTMBV001", name: "HKD NCT MBV", anchor: "HKD NCT MBV" }
     ].freeze
 
     # Extra receipt-name aliases for common OCR misspellings/truncations, keyed
@@ -29,6 +31,14 @@ module Workbook
     }.freeze
 
     # [hkd_code, dealer_name, tid_key, tid_label, ds_header, rd_agent_label]
+    #
+    # rd_agent_label must match the agent's label in the daily "thu chi" tab
+    # (name only; the channel such as "(MB+SP)" is ignored). Verified against
+    # the 10/10/2026 tab: Chương, Sơn, NamHai, CườngDuyen, Trân, Thọ, Nghĩa,
+    # Chị Huệ, PCuong, HiêuSG, Hùng, Hồng, Mến, Nghiệp.
+    # TODO(confirm): "Anh Hải" and "Tuân" have no obvious block in the tab
+    # (candidates: HảiHN / Tuấn). They are kept as-is, so those agents report
+    # rd_agent_missing instead of risking money in the wrong block.
     AGENTS = [
       ["001", "Chương", "tid1", "tid1", "Chương (tid1)", "Chương"],
       ["001", "Sơn", "tid2", "tid2", "Sơn(tid2)", "Sơn"],
@@ -46,7 +56,13 @@ module Workbook
       ["AS96001", "Anh Hiếu", "tid2", "TID 2", "Anh Hiếu (TID 2)", "HiêuSG"],
       ["ASCAFE001", "Anh Hải", "tid1", "tid 1", "Anh Hải (tid 1)", "Anh Hải"],
       ["ASCAFE001", "Anh Hùng", "tid2", "tid 2", "Anh Hùng (tid 2)", "Hùng"],
-      ["ASCAFE001", "Chị Hồng", "tid3", "tid 3", "Chị Hồng (tid 3)", "Hồng"]
+      ["ASCAFE001", "Chị Hồng", "tid3", "tid 3", "Chị Hồng (tid 3)", "Hồng"],
+      ["NCT001", "Chị Mến", "tid1", "tid1", "CHỊ MẾN (tid 1)", "Mến"],
+      ["NCT001", "Anh Hải", "tid2", "tid2", "Anh Hải ( tid 2)", "Anh Hải"],
+      ["NCT001", "Nghiệp", "tid3", "tid3", "NGHIỆP (tid 3)", "Nghiệp"],
+      ["NCTMBV001", "Sơn", "tid1", "tid1", "SƠN (tid 1)", "Sơn"],
+      ["NCTMBV001", "Anh Thọ", "tid2", "tid2", "Anh Thọ (tid 2)", "Thọ"],
+      ["NCTMBV001", "Tuân", "tid3", "tid3", "Tuân (tid3)", "Tuân"]
     ].freeze
 
     module_function
@@ -54,6 +70,24 @@ module Workbook
     def call
       seed_remitters
       seed_merchant_dealers
+    end
+
+    # Development only: one Telegram group per agent, named by the template
+    # "TenDaiLy-HKD1[-HKD2]" and serving that agent's HKDs. Chat ids are demo
+    # values; in production groups register themselves and are configured in
+    # the admin.
+    def seed_telegram_chats
+      grouped = AGENTS.group_by { |(_code, dealer_name, *_rest)| dealer_name }
+      grouped.each_with_index do |(dealer_name, rows), index|
+        codes = rows.map(&:first).uniq
+        merchants = codes.filter_map { |code| Merchant.find_by(code: code) || Merchant.find_by(code: HKD.find { |h| h[:code] == code }[:match_code]) }
+        chat = TelegramChat.find_or_initialize_by(telegram_chat_id: -1_002_000_000_000 - index)
+        chat.name = ([ dealer_name ] + codes.first(2).map { |code| merchant_anchor(code) }).join("-")
+        chat.chat_type ||= "supergroup"
+        chat.active = true if chat.new_record?
+        chat.merchants = merchants
+        chat.save!
+      end
     end
 
     def seed_remitters
@@ -70,13 +104,13 @@ module Workbook
       AGENTS.each do |(code, dealer_name, tid_key, tid_label, ds_header, rd_label)|
         merchant = merchants.fetch(code)
         dealer = find_or_create_dealer(dealer_name)
-        merchant.merchant_dealers.find_or_create_by!(dealer: dealer, tid_key: tid_key) do |link|
-          link.tid_label = tid_label
-          link.ds_sheet_anchor = merchant_anchor(code)
-          link.ds_header = ds_header
-          link.rd_agent_label = rd_label
-          link.active = true
-        end
+        # Upsert: the seed is the source of truth for these mapping fields, so a
+        # re-run corrects labels that drifted from the sheets (e.g. rd labels).
+        link = merchant.merchant_dealers.find_or_initialize_by(dealer: dealer, tid_key: tid_key)
+        link.assign_attributes(tid_label: tid_label, ds_sheet_anchor: merchant_anchor(code),
+                               ds_header: ds_header, rd_agent_label: rd_label)
+        link.active = true if link.new_record?
+        link.save!
       end
     end
 

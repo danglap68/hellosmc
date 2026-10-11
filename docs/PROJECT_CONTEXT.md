@@ -17,8 +17,10 @@ into accounting Excel files. SMC automates that, keeps the original evidence, an
    (`transactions.source_index`). Daily totals aggregate later (Excel *Tổng hợp* sheet).
 3. **Dealer ≠ merchant.** Dealers/groups (Anh Trân, Cường Duyên, Cherry, BMW) own several merchants/HKDs
    (001_ HỘ KINH DOANH THIÊN KIM GV, Cường Duyên 1, Cường Duyên 2, Trân 3).
-4. **Dealer comes from configuration only**: Telegram chat → dealer mapping (or the dealer chosen on a manual
-   upload). Never inferred from OCR. Unmapped chat → review.
+4. **Dealer comes from configuration only**: the agent (dealer) is resolved through `merchant_dealers`
+   (HKD + agent + TID) using the TID in the OCR merchant name and the agent named in the Telegram group title
+   (`TenDaiLy-HKD1-HKD2`); when both are present they must agree, otherwise review. A group can serve several
+   HKDs. Never guessed from OCR alone. See docs/SPEC_HELLO_SMC_WORKBOOK.md §17.
 5. **Merchants are never created from OCR.** Resolution order: MID/TID alias → exact receipt-name alias →
    normalized name (diacritics, numeric code prefix and legal form like "HỘ KINH DOANH" removed) → fuzzy
    *suggestion* (always reviewed). A merchant that belongs to a different dealer than the chat → review.

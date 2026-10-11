@@ -54,7 +54,8 @@ RSpec.describe "Transaction review actions" do
   describe Transactions::Approver do
     it "recalculates and approves a complete transaction" do
       Transactions::Corrector.call(transaction: transaction, actor: operator, params: { merchant_id: merchant.id })
-      expect(described_class.call(transaction: transaction, actor: operator, note: "ok")).to be(true)
+      expect { described_class.call(transaction: transaction, actor: operator, note: "ok") }
+        .to have_enqueued_job(WriteHelloSmcWorkbookJob).with(transaction.id)
 
       transaction.reload
       expect(transaction).to be_approved

@@ -71,4 +71,10 @@ RSpec.describe Workbook::MemorySheet do
       expect(sheet.titles).to eq([ "c" ])
     end
   end
+
+  it "inserts a column for the block rows only" do
+    sheet = described_class.new("T" => [ [ 1, 2, 3 ], [ 4, 5, 6 ], [ 7, 8, 9 ] ])
+    sheet.insert_columns("T", col: 1, end_row: 2)
+    expect(sheet.sheets["T"]).to eq([ [ 1, nil, 2, 3 ], [ 4, nil, 5, 6 ], [ 7, 8, 9 ] ])
+  end
 end

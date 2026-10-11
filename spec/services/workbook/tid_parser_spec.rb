@@ -19,12 +19,23 @@ RSpec.describe Workbook::TidParser do
       expect(described_class.call("terminal:128")).to eq("tid128")
     end
 
-    it "returns nil without a suffix" do
-      expect(described_class.call("HỘ KINH DOANH THIÊN KIM GV")).to be_nil
+    it "uses the number after the dash when present" do
+      expect(described_class.call("HKD AS CAFE-2")).to eq("tid2")
+      expect(described_class.call("HKD AS CAFE - 12")).to eq("tid12")
     end
 
-    it "does not treat a bare space-separated number as a TID (the evaluator resolves it)" do
-      expect(described_class.call("CHERRY COFEE 2")).to be_nil
+    it "falls back to the trailing number of the name" do
+      expect(described_class.call("CHERRY COFFE 2")).to eq("tid2")
+      expect(described_class.call("CHERRY COFFEE (2)")).to eq("tid2")
+      expect(described_class.call("HKD AS CAFE 2")).to eq("tid2")
+    end
+
+    it "does not read digits glued to a word" do
+      expect(described_class.call("CAFE24")).to be_nil
+    end
+
+    it "returns nil without a suffix" do
+      expect(described_class.call("HỘ KINH DOANH THIÊN KIM GV")).to be_nil
     end
 
     it "returns nil for blank text" do
@@ -33,20 +44,14 @@ RSpec.describe Workbook::TidParser do
     end
   end
 
-  describe ".strip" do
-    it "removes a dash, tid, or terminal marker" do
-      expect(described_class.strip("HỘ KINH DOANH THIÊN KIM GV-1")).to eq("HỘ KINH DOANH THIÊN KIM GV")
-      expect(described_class.strip("Chị Huệ (TID 127)")).to eq("Chị Huệ")
+  describe ".strip_bare_number" do
+    it "removes a bare trailing number" do
+      expect(described_class.strip_bare_number("CHERRY COFFE 2")).to eq("CHERRY COFFE")
+      expect(described_class.strip_bare_number("CHERRY COFFEE (2)")).to eq("CHERRY COFFEE")
     end
 
-    it "keeps a bare space-separated number (it may be part of the name)" do
-      expect(described_class.strip("CHERRY COFEE 2")).to eq("CHERRY COFEE 2")
-      expect(described_class.strip("HKD AS CAFE-CAFE 96")).to eq("HKD AS CAFE-CAFE 96")
-    end
-
-    it "returns an empty string for blank text" do
-      expect(described_class.strip(nil)).to eq("")
-      expect(described_class.strip("")).to eq("")
+    it "also strips a dash suffix" do
+      expect(described_class.strip_bare_number("THIÊN KIM GV-1")).to eq("THIÊN KIM GV")
     end
   end
 end

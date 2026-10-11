@@ -1,7 +1,7 @@
 require "rails_helper"
 
 RSpec.describe WriteHelloSmcWorkbookJob do
-  let(:transaction) { create(:transaction) }
+  let(:transaction) { create(:transaction, :approved) }
 
   it "calls the workbook writer with the transaction" do
     expect(Workbook::HelloSmcWriter).to receive(:call).with(transaction:).and_return(:identified)

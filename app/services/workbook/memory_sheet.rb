@@ -85,6 +85,17 @@ module Workbook
       @row_limits[title] = min_rows + 200 if limit && limit < min_rows
     end
 
+    # Same observable behaviour as GoogleSheetClient#insert_columns: only rows
+    # 0...end_row shift right.
+    def insert_columns(title, col:, end_row:, min_cols: nil)
+      grid = @sheets.fetch(title)
+      (0...[ end_row, grid.length ].min).each do |r|
+        row = grid[r] ||= []
+        row.fill(nil, row.length...col) if row.length < col
+        row.insert(col, nil)
+      end
+    end
+
     # Raw stored value (formulas as text, dates as Date).
     def cell(sheet, a1)
       @sheets.fetch(sheet).dig(row_index(a1), col_index(a1))

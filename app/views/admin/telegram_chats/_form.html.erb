@@ -3,8 +3,21 @@
     <div class="card-body">
       <%= form.error_summary %>
       <%= form.field :telegram_chat_id, required: true, hint: t("telegram_chats.form.chat_id_hint") %>
-      <%= form.field :name %>
-      <%= form.select_field :merchant_id, merchant_options, { include_blank: t("telegram_chats.unmapped_hkd") }, hint: t("telegram_chats.form.merchant_hint") %>
+      <%= form.field :name, hint: t("telegram_chats.form.name_hint") %>
+      <%= render "admin/fee_rules/choice_dropdown",
+            param_prefix: "telegram_chat",
+            field: "merchant_ids",
+            label: TelegramChat.human_attribute_name(:merchants),
+            hint: t("telegram_chats.form.merchant_hint"),
+            empty: t("telegram_chats.unmapped_hkd"),
+            selected_ids: telegram_chat.merchant_ids.map(&:to_i),
+            errors: telegram_chat.errors[:merchants],
+            choices: Merchant.ordered.map { |merchant| { id: merchant.id, label: "#{merchant.name} [#{merchant.code}]" } } %>
+      <% if telegram_chat.name_merchants.any? %>
+        <div class="alert alert-info py-2">
+          <%= icon("bulb") %> <%= t("telegram_chats.form.name_suggestion", names: telegram_chat.name_merchants.map(&:name).to_sentence) %>
+        </div>
+      <% end %>
       <%= form.switch_field :active, hint: t("telegram_chats.form.active_hint") %>
     </div>
     <div class="card-footer d-flex gap-2">

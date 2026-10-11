@@ -66,6 +66,7 @@ module BillVision
         "merchant_name" => merchant_name,
         "terminal_or_merchant_id" => clean_string(doc["terminal_or_merchant_id"])
       }
+      recipient_name = document_type == "transfer" ? clean_string(doc[Prompt::RECIPIENT_FIELD]) : nil
 
       confidence = Prompt::FIELDS.index_with do |field|
         # A missing value cannot be trusted, whatever the model claimed.
@@ -75,6 +76,7 @@ module BillVision
       low_fields = low_confidence_fields(document_type, confidence)
       values.merge(
         "index" => index,
+        "recipient_name" => recipient_name,
         "transaction_at" => (date && time) ? Time.zone.local(date.year, date.month, date.day, *time).iso8601 : nil,
         "merchant_name_normalized" => VietnameseText.normalize(merchant_name).presence,
         "confidence" => confidence,

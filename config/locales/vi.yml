@@ -199,7 +199,7 @@ vi:
       workbook: "Ghi Google Sheet Hello SMC"
       workbook_branch: "Nhánh"
       workbook_ds_cell: "Ô DS MB"
-      workbook_rd_cell: "Ô R&D Report"
+      workbook_rd_cell: "Ô báo cáo người đi tiền (thu chi)"
       workbook_mb_row: "Hàng MB"
       workbook_unidentified_row: "Hàng Bill vô chủ"
       workbook_tid: "TID"
@@ -334,6 +334,8 @@ vi:
     messages: "Tin nhắn"
     unmapped: "Chưa gán đại lý"
     unmapped_hkd: "Chưa gán hộ kinh doanh"
+    agent: "Đại lý (theo tên nhóm)"
+    agent_not_detected: "Chưa nhận diện"
     index:
       title: "Nhóm Telegram"
       new: "Thêm nhóm"
@@ -347,19 +349,22 @@ vi:
     form:
       chat_id_hint: "ID số của nhóm, ví dụ -1001234567890"
       dealer_hint: "Bill từ nhóm này được tính cho đại lý đã chọn."
-      merchant_hint: "HKD dùng làm fallback khi OCR không nhận ra hộ kinh doanh trên bill."
+      name_hint: "Đặt tên nhóm theo mẫu TenĐạiLý-HKD1-HKD2 (HKD2 có thể bỏ), ví dụ: Anh Trân-Thiên Kim GV-Cherry Cofee. Hệ thống đọc tên đại lý từ phần đầu."
+      name_suggestion: "Tên nhóm đang nhắc tới: %{names}. Hãy tick các HKD này trong danh sách trên nếu đúng."
+      merchant_hint: "Các HKD nhóm này phụ trách (tick nhiều HKD). Bill của HKD ngoài danh sách sẽ chuyển sang duyệt tay; để trống nếu không giới hạn."
       active_hint: "Chỉ nhóm đang hoạt động mới được xử lý bill."
     new:
       title: "Thêm nhóm Telegram"
     edit:
       title: "Sửa nhóm %{name}"
     show:
+      name_differs: "Danh sách HKD của nhóm khác với HKD trong tên nhóm (%{names}). Kiểm tra lại cấu hình hoặc tên nhóm."
       recent_messages: "Tin nhắn gần đây"
       stored_images: "Có %{count} ảnh được gửi khi nhóm chưa hoạt động và chưa được xử lý."
       process_stored: "Xử lý các ảnh này"
       process_stored_confirm: "Xử lý %{count} ảnh đã lưu của nhóm này?"
     flash:
-      activate_first: "Hãy gán đại lý và bật hoạt động cho nhóm trước."
+      activate_first: "Hãy gán ít nhất một hộ kinh doanh và bật hoạt động cho nhóm trước."
       processing_stored: "Đang xử lý %{count} ảnh đã lưu."
 
   merchants:
@@ -419,7 +424,7 @@ vi:
       card_types_hint: "Mở danh sách và tick từng loại thẻ. Để trống nếu áp dụng cho mọi loại thẻ."
       card_base_fee_hint: "Hiện khi đã chọn loại thẻ. Phí gốc chọn sheet. Số này đưa vào công thức cột C và E."
       rates: "Mức phí"
-      percent_hint: "Nhập theo phần trăm, ví dụ 0,88 cho 0,88%."
+      percent_hint: "Nhập theo phần trăm, ví dụ 0,88 cho 0,88%. Không bắt buộc khi qui tắc chỉ chọn loại thẻ (chỉ dành cho thẻ)."
       dealer_rate_hint: "Không bắt buộc. Dùng để tính tiền đại lý và lợi nhuận."
       validity: "Thời gian hiệu lực"
       until_hint: "Để trống nếu chưa có ngày kết thúc."
@@ -761,7 +766,10 @@ vi:
     transaction_time_low_confidence: "Độ tin cậy giờ giao dịch thấp"
     transaction_time_unreadable: "Giờ giao dịch không rõ"
     transaction_date_out_of_range: "Ngày giao dịch bất thường (tương lai hoặc quá cũ)"
-    dealer_unmapped: "Nhóm Telegram chưa gán đại lý"
+    dealer_unmapped: "Chưa xác định được đại lý (TID hoặc tên nhóm chưa có mapping)"
+    dealer_group_mismatch: "Đại lý theo TID khác đại lý theo tên nhóm Telegram"
+    dealer_recipient_mismatch: "Người nhận chuyển khoản khác đại lý theo TID/tên nhóm Telegram"
+    merchant_not_in_chat: "Hộ kinh doanh không thuộc danh sách của nhóm Telegram"
     dealer_inactive: "Đại lý đang ngừng hoạt động"
     merchant_missing: "Không đọc được tên hộ kinh doanh"
     merchant_not_found: "Không tìm thấy hộ kinh doanh phù hợp"
@@ -855,8 +863,8 @@ vi:
         name: "Tên nhóm"
         telegram_chat_id: "Telegram chat ID"
         chat_type: "Loại chat"
-        merchant: "Hộ kinh doanh"
-        merchant_id: "Hộ kinh doanh"
+        merchants: "Hộ kinh doanh"
+        merchant_ids: "Hộ kinh doanh"
         active: "Hoạt động"
       merchant:
         name: "Tên hộ kinh doanh"
@@ -885,7 +893,7 @@ vi:
         tid_label: "Nhãn TID"
         ds_sheet_anchor: "Tên HKD trong DS MB"
         ds_header: "Cột trong DS MB"
-        rd_agent_label: "Nhãn R&D Report"
+        rd_agent_label: "Nhãn đại lý ở tab thu chi"
         active: "Hoạt động"
       card_type:
         key: "Mã"

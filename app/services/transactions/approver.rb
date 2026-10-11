@@ -41,6 +41,7 @@ module Transactions
       end
       return false unless approved
 
+      WriteHelloSmcWorkbookJob.perform_later(@transaction.id)
       StructuredLog.info("transaction.review_decision", transaction_id: @transaction.id, decision: "approved",
                                                         user_id: @actor&.id)
       true

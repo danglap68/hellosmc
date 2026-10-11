@@ -8,7 +8,8 @@ module BillVision
       end
     end
 
-    CONFIGURATION_REASONS = %w[dealer_unmapped dealer_inactive fee_rule_not_found fee_rule_ambiguous
+    CONFIGURATION_REASONS = %w[dealer_unmapped dealer_inactive dealer_group_mismatch dealer_recipient_mismatch merchant_not_in_chat
+                               fee_rule_not_found fee_rule_ambiguous
                                card_fee_rule_ambiguous card_fee_rule_not_applied merchant_not_found card_type_conflict
                                card_type_unknown].freeze
 

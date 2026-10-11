@@ -22,6 +22,20 @@ RSpec.describe BillVision::Normalizer do
     )
   end
 
+  it "keeps the receiving account holder of a bank transfer" do
+    document = normalize(extraction_fixture("transfer_with_recipient"))["documents"].first
+    expect(document["document_type"]).to eq("transfer")
+    expect(document["recipient_name"]).to eq("TRAN NGUYEN KHANH SON")
+    expect(document["requires_review"]).to be(false)
+  end
+
+  it "drops a recipient read from anything but a transfer and tolerates runs without the field" do
+    data = extraction_fixture("normal_settlement")
+    data["documents"].first["recipient_name"] = "TRAN NGUYEN KHANH SON"
+    expect(normalize(data)["documents"].first["recipient_name"]).to be_nil
+    expect(normalize(extraction_fixture("transfer"))["documents"].first["recipient_name"]).to be_nil
+  end
+
   it "flags low-confidence critical fields" do
     document = normalize(extraction_fixture("blurry_settlement"))["documents"].first
     expect(document["requires_review"]).to be(true)

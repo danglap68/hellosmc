@@ -1,3 +1,4 @@
+<% prefix = local_assigns[:param_prefix] || "fee_rule" %>
 <% selected = choices.select { |choice| selected_ids.include?(choice[:id]) } %>
 <% dropdown_data = {
      controller: "choice-dropdown",
@@ -7,7 +8,7 @@
 <% dropdown_data[:fee_rule_placeholders_target] = "cardType" if local_assigns[:placeholders] %>
 <% dropdown_data[:fee_rule_placeholders_target] = exclusive_target if local_assigns[:exclusive_target] %>
 <div class="mb-3">
-  <%= hidden_field_tag "fee_rule[#{field}][]", "" %>
+  <%= hidden_field_tag "#{prefix}[#{field}][]", "" %>
   <div class="form-label"><%= label %></div>
   <%= tag.div(class: "dropdown choice-dropdown", data: dropdown_data) do %>
     <button type="button" class="form-select choice-dropdown-toggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
@@ -16,9 +17,9 @@
     <div class="dropdown-menu">
       <% choices.each do |choice| %>
         <label class="choice-dropdown-option">
-          <%= check_box_tag "fee_rule[#{field}][]", choice[:id], selected_ids.include?(choice[:id]),
+          <%= check_box_tag "#{prefix}[#{field}][]", choice[:id], selected_ids.include?(choice[:id]),
                 class: "form-check-input",
-                id: "fee_rule_#{field}_#{choice[:id]}",
+                id: "#{prefix}_#{field}_#{choice[:id]}",
                 data: local_assigns[:placeholders] ? { key: choice[:key], action: "change->fee-rule-placeholders#apply" } : {} %>
           <span><%= choice[:label] %></span>
         </label>

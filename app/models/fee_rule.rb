@@ -11,8 +11,8 @@ class FeeRule < ApplicationRecord
   has_many :card_types, through: :fee_rule_card_types
   has_many :transactions, dependent: :restrict_with_error
 
-  validates :base_fee_rate, presence: true,
-    numericality: { greater_than_or_equal_to: 0, less_than: 1 }
+  validates :base_fee_rate, presence: true, unless: :card_only?
+  validates :base_fee_rate, numericality: { greater_than_or_equal_to: 0, less_than: 1 }, allow_nil: true
   validates :dealer_rate, numericality: { greater_than_or_equal_to: 0, less_than: 1 }, allow_nil: true
   validates :card_base_fee_rate, numericality: { greater_than_or_equal_to: 0, less_than: 1 }, allow_nil: true
   validates :effective_from, presence: true
@@ -64,6 +64,12 @@ class FeeRule < ApplicationRecord
 
   def system_default?
     !targets_merchants? && dealer_id.nil? && !targets_card_types?
+  end
+
+  # A rule that targets only a card type (no merchant, no dealer): its base fee
+  # is optional because the card base fee is the one that applies.
+  def card_only?
+    specificity_level == "card_type"
   end
 
   def merchant_label

@@ -21,7 +21,7 @@ flowchart TD
 
     subgraph BUILD["3 · Tạo transaction"]
         F --> G["BuildTransactionJob<br/>→ Transactions::Builder"]
-        G --> G1["Dealers::Resolver (chat→dealer)<br/>→ transaction.dealer_id<br/><i>PHA 1: chỉ cho fee rule</i>"]
+        G --> G1["Dealers::Resolver (TID + tên nhóm)<br/>→ transaction.dealer_id"]
         G --> G2["Evaluator: merchant + card_type + fee_rule<br/>→ approved / needs_review / failed"]
         G2 --> G3{"có amount<br/>và không failed?"}
         G3 -- "không" --> X["❌ Không enqueue workbook"]
@@ -57,7 +57,7 @@ flowchart TD
 flowchart TD
     R0["transaction"] --> R1{"transaction.merchant?"}
     R1 -- "có" --> R2["merchant = HKD"]
-    R1 -- "không" --> R1a{"telegram_chat.merchant?"}
+    R1 -- "không" --> R1a{"telegram_chat có đúng 1 HKD?"}
     R1a -- "có" --> R2
     R1a -- "không" --> RF["unidentified<br/>(merchant_missing)"]
     R2 --> R3{"TidParser(tên merchant OCR)<br/>'-1' / 'tid1' / 'TID 127'"}
@@ -79,7 +79,7 @@ flowchart LR
     AG --> WB["Workbook<br/>(cột I sheet MB)"]
 ```
 
-> `Dealers::Resolver` tra theo TID trên tên merchant OCR; không còn chat → dealer. Merchant chưa cấu hình `merchant_dealers` thì `dealer_unmapped` và vào `needs_review`.
+> `Dealers::Resolver` tra theo TID trên tên merchant OCR; chat không còn gán thẳng dealer; tên nhóm `TenDaiLy-HKD1-HKD2` chỉ dùng để đối chiếu với TID (xem SPEC §17). Merchant chưa cấu hình `merchant_dealers` thì `dealer_unmapped` và vào `needs_review`.
 
 ## 4. Sequence diagram
 
@@ -112,7 +112,7 @@ sequenceDiagram
     OC->>BB: enqueue BuildTransactionJob
 
     BB->>DR: resolve dealer
-    DR-->>BB: dealer = chat.dealer (PHA 1)
+    DR-->>BB: dealer = merchant_dealers (TID + tên nhóm)
     BB->>EV: build từng document
     EV->>DB: đọc merchant / card_type / fee_rule
     EV-->>BB: approved / needs_review / failed

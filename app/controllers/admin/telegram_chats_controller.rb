@@ -5,7 +5,7 @@ module Admin
     before_action :set_chat, only: %i[show edit update destroy process_stored]
 
     def index
-      scope = TelegramChat.includes(:merchant).ordered
+      scope = TelegramChat.includes(:merchants).ordered
       scope = scope.unmapped if params[:filter] == "unmapped"
       scope = scope.where(active: false) if params[:filter] == "inactive"
       @pagy, @telegram_chats = pagy(scope)
@@ -19,7 +19,7 @@ module Admin
 
     # Processes images that arrived while the chat was inactive (once it is mapped and active).
     def process_stored
-      unless @telegram_chat.active? && @telegram_chat.merchant
+      unless @telegram_chat.active? && @telegram_chat.merchants.any?
         return redirect_to(admin_telegram_chat_path(@telegram_chat), alert: t("telegram_chats.flash.activate_first"))
       end
 
@@ -75,7 +75,7 @@ module Admin
     end
 
     def chat_params
-      params.require(:telegram_chat).permit(:telegram_chat_id, :name, :merchant_id, :active)
+      params.require(:telegram_chat).permit(:telegram_chat_id, :name, :active, merchant_ids: [])
     end
   end
 end

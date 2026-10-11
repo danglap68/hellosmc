@@ -13,7 +13,9 @@ module BillVision
     end
 
     def valid_document?(doc)
-      return false unless doc.is_a?(Hash) && doc.keys.sort == (Prompt::FIELDS + [ "confidence" ]).sort
+      return false unless doc.is_a?(Hash)
+      return false unless (doc.keys - [ Prompt::RECIPIENT_FIELD ]).sort == (Prompt::FIELDS + [ "confidence" ]).sort
+      return false unless doc[Prompt::RECIPIENT_FIELD].nil? || doc[Prompt::RECIPIENT_FIELD].is_a?(String)
       return false unless Prompt::DOCUMENT_TYPES.include?(doc["document_type"])
       return false unless doc["total_amount_vnd"].nil? || doc["total_amount_vnd"].is_a?(Integer)
       return false unless (Prompt::FIELDS - %w[document_type total_amount_vnd]).all? { |field| doc[field].nil? || doc[field].is_a?(String) }

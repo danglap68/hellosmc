@@ -5,6 +5,10 @@ module BillVision
     DOCUMENT_TYPES = %w[settlement child_receipt transfer unknown].freeze
     FIELDS = %w[document_type total_amount_vnd lot_number transaction_date transaction_time
                 merchant_name terminal_or_merchant_id].freeze
+    # Extra fact read only from bank transfers: the account holder who receives
+    # the money. Not a critical field and has no confidence of its own; it only
+    # hints at the agent (Dealers::Resolver) and never decides alone.
+    RECIPIENT_FIELD = "recipient_name".freeze
 
     SYSTEM = <<~PROMPT.freeze
       You are reading a photo of Vietnamese card-payment terminal (POS) receipts.
@@ -42,6 +46,9 @@ module BillVision
         name is visible, return that part verbatim (without adding "...").
       - terminal_or_merchant_id: the merchant ID (MID) if visible, otherwise the terminal ID (TID), as printed.
 
+      - recipient_name: only for "transfer": the receiving account holder name (ĐẾN TÀI KHOẢN / NGƯỜI NHẬN /
+        TÊN NGƯỜI THỤ HƯỞNG) exactly as printed. Null for every other document type or when not visible.
+
       For every field also return a confidence between 0 and 1: how certain you are that the value is
       exactly correct. A null value must have confidence 0.
 
@@ -63,7 +70,7 @@ module BillVision
           items: {
             type: "object",
             additionalProperties: false,
-            required: FIELDS + [ "confidence" ],
+            required: FIELDS + [ RECIPIENT_FIELD, "confidence" ],
             properties: {
               document_type: { type: "string", enum: DOCUMENT_TYPES },
               total_amount_vnd: { type: %w[integer null] },
@@ -72,6 +79,7 @@ module BillVision
               transaction_time: { type: %w[string null], description: "HH:MM:SS" },
               merchant_name: { type: %w[string null] },
               terminal_or_merchant_id: { type: %w[string null] },
+              recipient_name: { type: %w[string null] },
               confidence: {
                 type: "object",
                 additionalProperties: false,

@@ -94,4 +94,42 @@ RSpec.describe Workbook::GoogleSheetClient do
       client.ensure_rows("MB", 1001)
     end
   end
+
+  describe "#insert_columns" do
+    let(:properties) do
+      Google::Apis::SheetsV4::SheetProperties.new(
+        sheet_id: 77, title: "thu chi 1010",
+        grid_properties: Google::Apis::SheetsV4::GridProperties.new(row_count: 100, column_count: 18)
+      )
+    end
+
+    before do
+      allow(service).to receive(:get_spreadsheet)
+        .and_return(Google::Apis::SheetsV4::Spreadsheet.new(sheets: [ Google::Apis::SheetsV4::Sheet.new(properties: properties) ]))
+    end
+
+    it "shifts only the block rows to the right and copies the left column's format" do
+      requests = []
+      allow(service).to receive(:batch_update_spreadsheet) { |_id, request| requests.concat(request.requests) }
+
+      client.insert_columns("thu chi 1010", col: 6, end_row: 52)
+
+      insert = requests.first.insert_range
+      expect(insert.shift_dimension).to eq("COLUMNS")
+      expect(insert.range).to have_attributes(sheet_id: 77, start_row_index: 0, end_row_index: 52,
+                                              start_column_index: 6, end_column_index: 7)
+      copy = requests.last.copy_paste
+      expect(copy.paste_type).to eq("PASTE_FORMAT")
+      expect(copy.source.start_column_index).to eq(5)
+    end
+
+    it "adds columns first when the grid is too narrow" do
+      requests = []
+      allow(service).to receive(:batch_update_spreadsheet) { |_id, request| requests.concat(request.requests) }
+
+      client.insert_columns("thu chi 1010", col: 6, end_row: 52, min_cols: 21)
+
+      expect(requests.first.append_dimension).to have_attributes(dimension: "COLUMNS", length: 3)
+    end
+  end
 end

@@ -36,7 +36,7 @@
       <div class="row">
         <div class="col-md-4">
           <div class="mb-3">
-            <%= form.label :base_fee_percent, FeeRule.human_attribute_name(:base_fee_rate), class: "form-label required" %>
+            <%= form.label :base_fee_percent, FeeRule.human_attribute_name(:base_fee_rate), class: "form-label #{'required' unless fee_rule.card_only?}" %>
             <div class="input-group">
               <%= form.text_field :base_fee_percent, class: "form-control #{'is-invalid' if fee_rule.errors[:base_fee_rate].any?}", inputmode: "decimal", placeholder: placeholders[:base], data: { fee_rule_placeholders_target: "baseFee" } %>
               <span class="input-group-text">%</span>

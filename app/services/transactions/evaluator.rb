@@ -55,7 +55,7 @@ module Transactions
 
     def check_document_type
       case @doc["document_type"]
-      when "settlement", "transfer"
+      when "settlement"
         flag_confidence("document_type", "document_type")
       when "child_receipt"
         @reasons << "document_type_uncertain"
@@ -94,34 +94,15 @@ module Transactions
       # is already reported as merchant_missing / merchant_not_found.
       return Dealers::Resolver::Result.new(dealer: nil, merchant_dealer: nil, source: nil, issue: nil) if merchant.nil?
 
-      result = Dealers::Resolver.call(merchant: merchant, tid_key: @tid_key)
+      result = Dealers::Resolver.call(merchant: merchant, merchant_name: @doc["merchant_name"],
+                                      chat: @bill_image.telegram_chat, recipient_name: @doc["recipient_name"])
       @reasons << result.issue if result.issue
       result
     end
 
     def check_merchant
-      raw_name = @doc["merchant_name"]
-      base_name = Workbook::TidParser.strip(raw_name)
-      @tid_key = Workbook::TidParser.call(raw_name)
-
-      result = Merchants::Resolver.call(
-        merchant_name: base_name,
-        merchant_identifier: @doc["terminal_or_merchant_id"]
-      )
-
-      # A bare space-separated trailing number may be a terminal marker
-      # ("CHERRY COFEE 2" → tid2) or part of the name ("…CAFE 96"). Only treat
-      # it as a TID when stripping it yields an exact merchant match.
-      if !result.exact? && (match = base_name.match(/\s+(\d+)\s*\z/))
-        candidate = Merchants::Resolver.call(
-          merchant_name: base_name.sub(/\s+\d+\s*\z/, ""),
-          merchant_identifier: @doc["terminal_or_merchant_id"]
-        )
-        if candidate.exact?
-          result = candidate
-          @tid_key = "tid#{match[1].to_i}"
-        end
-      end
+      result = resolve_merchant
+      check_merchant_in_chat(result.merchant)
 
       if result.exact?
         source_field = result.method == :identifier ? "terminal_or_merchant_id" : "merchant_name"
@@ -137,6 +118,28 @@ module Transactions
       end
 
       [ result.merchant, result ]
+    end
+
+    # A group lists the HKDs it serves; a bill for any other HKD is suspicious.
+    # Groups with no HKD configured are not restricted.
+    def check_merchant_in_chat(merchant)
+      chat = @bill_image.telegram_chat
+      return if merchant.nil? || chat.nil?
+
+      ids = chat.merchant_ids
+      @reasons << "merchant_not_in_chat" if ids.any? && !ids.include?(merchant.id)
+    end
+
+    # Dash/tid suffix stripped first; if that is not an exact hit, also try the
+    # name without a bare trailing number ("CHERRY COFFE 2" → "CHERRY COFFE").
+    # First exact result wins, otherwise the first attempt is kept.
+    def resolve_merchant
+      name = @doc["merchant_name"]
+      names = [ Workbook::TidParser.strip(name), Workbook::TidParser.strip_bare_number(name) ].uniq
+      results = names.map do |candidate|
+        Merchants::Resolver.call(merchant_name: candidate, merchant_identifier: @doc["terminal_or_merchant_id"])
+      end
+      results.find(&:exact?) || results.first
     end
 
     def check_card_type(merchant, dealer)
