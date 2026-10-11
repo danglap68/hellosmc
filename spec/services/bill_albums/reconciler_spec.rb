@@ -221,7 +221,7 @@ RSpec.describe BillAlbums::Reconciler do
     expect(album.transactions.count).to eq(1)
   end
 
-  it "is idempotent" do
+  it "does not re-reconcile an already-terminal album" do
     child_bill(100_000_000)
     child_bill(200_000_000)
     child_bill(300_000_000)
@@ -231,6 +231,7 @@ RSpec.describe BillAlbums::Reconciler do
     described_class.call(album)
 
     expect(album.reload.transactions.count).to eq(1)
-    expect(AuditLog.where(action: "bill_album.reconciled", auditable: album).count).to eq(2)
+    expect(album.reload.status).to eq("reconciled")
+    expect(AuditLog.where(action: "bill_album.reconciled", auditable: album).count).to eq(1)
   end
 end

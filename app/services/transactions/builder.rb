@@ -132,8 +132,8 @@ module Transactions
     def inherit_album_fields(document)
       return document unless @bill_image.bill_album_id.present?
       return document unless document["document_type"].in?(%w[settlement transfer])
-      return document if document["merchant_name"].present? && document["lot_number"].present? &&
-                        document["transaction_time"].present?
+      return document if document["merchant_name"].present? && document["terminal_or_merchant_id"].present? &&
+                        document["lot_number"].present? && document["transaction_time"].present?
 
       children = @bill_image.bill_album.bill_images.analyzable.flat_map(&:documents)
                            .select { |doc| doc["document_type"] == "child_receipt" }

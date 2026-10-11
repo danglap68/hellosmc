@@ -83,6 +83,17 @@ RSpec.describe AnalyzeBillImageJob do
     expect(album.reconciliation_status).to be_nil
     expect(FinalizeBillAlbumJob).to have_been_enqueued.with(album.id)
   end
+
+  it "re-opens the album even when a forced re-run fails" do
+    album = create(:bill_album, status: "reconciled", reconciliation_status: "matched")
+    bill_image.update!(bill_album: album)
+    allow(BillVision::Extractor).to receive(:call).and_raise(BillVision::PermanentError, "invalid key")
+
+    described_class.perform_now(bill_image.id, force: true)
+
+    expect(album.reload.status).to eq("processing")
+    expect(album.reconciliation_status).to be_nil
+  end
 end
 
 RSpec.describe BillImages::Analyzer do

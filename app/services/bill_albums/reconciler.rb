@@ -16,10 +16,16 @@ module BillAlbums
     end
 
     def call
-      scan_documents
-      build_transactions
-      apply_decision
-      persist
+      # Several FinalizeBillAlbumJob runs can race once the last image finishes;
+      # a row lock + terminal guard makes reconciliation run exactly once.
+      @album.with_lock do
+        return @album if @album.terminal?
+
+        scan_documents
+        build_transactions
+        apply_decision
+        persist
+      end
       @album
     end
 
