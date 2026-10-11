@@ -29,6 +29,7 @@ vi:
     merchants: "Hộ kinh doanh"
     fee_rules: "Quy tắc phí"
     remitters: "Người đi tiền"
+    remitter_transfers: "Chuyển tiền"
     excel_exports: "Xuất Excel"
     audit_logs: "Nhật ký thay đổi"
     users: "Người dùng"
@@ -331,7 +332,7 @@ vi:
       new: "Thêm người đi tiền"
       empty: "Chưa có người đi tiền"
     form:
-      excel_key_hint: "Khớp hàng 2 của sheet R&D Report. Ví dụ: LẬP, KIM."
+      excel_key_hint: "Khớp hàng 2 của tab thu chi. Ví dụ: LẬP, KIM."
       telegram_username_hint: "Không cần ký tự @, không phân biệt hoa thường."
     new:
       title: "Thêm người đi tiền"
@@ -395,6 +396,8 @@ vi:
     edit:
       title: "Sửa %{name}"
     show:
+      transfer_codes: "Mã chuyển tiền"
+      transfer_codes_help: "Người đi tiền ghi mã này trong tin nhắn Telegram gửi kèm ảnh chuyển tiền. Bảng mã nằm trong config/remitter_transfer_codes.json."
       aliases_help: "Thêm đúng tên in trên bill và MID/TID để hệ thống nhận diện chính xác. Hệ thống không bao giờ tự tạo hộ kinh doanh từ kết quả OCR."
 
   merchant_aliases:
@@ -551,6 +554,10 @@ vi:
       settings_updated: "Thay đổi cài đặt"
       telegram_token_updated: "Cập nhật token bot Telegram"
       telegram_webhook_registered: "Kết nối webhook Telegram"
+      remitter_transfer_evaluated: "Đọc lệnh chuyển tiền"
+      remitter_transfer_approved: "Duyệt lệnh chuyển tiền"
+      remitter_transfer_rejected: "Từ chối lệnh chuyển tiền"
+      remitter_transfer_written: "Ghi lệnh chuyển tiền vào tab thu chi"
 
   users:
     you: "Bạn"
@@ -643,7 +650,7 @@ vi:
       duplicate_window_minutes: "Cùng hộ kinh doanh và cùng số tiền trong khoảng này được đánh dấu có thể trùng."
       max_receipt_age_days: "Bill cũ hơn số ngày này phải kiểm tra thủ công."
       telegram_auto_activate_chats: "Khi tắt, nhóm mới phải được quản trị viên gán đại lý và bật trước khi xử lý bill."
-      remitter_features_enabled: "Khi tắt, ảnh do người chuyển tiền gửi bị bỏ qua (không OCR), chỉ bill kết toán tạo giao dịch và không ghi báo cáo thu chi."
+      remitter_features_enabled: "Khi bật, ảnh chuyển tiền (người gửi là người đi tiền, tin nhắn có mã như TK01, hoặc OCR nhận ra biên lai chuyển khoản) được đọc số tiền và thêm một dòng vào tab thu chi. Khi tắt, các ảnh này bị bỏ qua. Ảnh chuyển tiền không bao giờ tạo giao dịch."
       album_collect_window_seconds: "Chờ thêm ảnh của cùng một album trước khi chốt để đối chiếu tổng."
       max_bill_image_mb: "Telegram giới hạn tải file của bot ở 20 MB."
       mailer_sender: "Hiển thị ở trường “Từ” của email."
@@ -810,6 +817,59 @@ vi:
     album_missing_bills: "Ảnh tổng kết không có bill con để đối chiếu"
     album_total_review: "Giao dịch tổng kết của album – cần kiểm tra"
 
+  remitter_transfers:
+    index:
+      title: "Chuyển tiền"
+      empty: "Không có lệnh chuyển tiền nào."
+    queues:
+      needs_review: "Cần kiểm tra"
+      not_written: "Đã duyệt, chưa ghi sheet"
+      written: "Đã ghi sheet"
+      processing: "Đang xử lý"
+      rejected: "Từ chối / lỗi"
+    show:
+      title: "Chuyển tiền #%{id}"
+      photo: "Ảnh chuyển tiền"
+      caption: "Tin nhắn"
+      reasons: "Cần kiểm tra"
+      review: "Kiểm tra lệnh chuyển tiền"
+      write_again: "Ghi lại vào sheet"
+      written_note: "Đã ghi ở %{cell}. Muốn sửa thì sửa tay trên Google Sheet."
+      caption_edited_after_write: "Tin nhắn đã bị sửa sau khi ghi sheet. Kiểm tra lại mã chuyển tiền trên sheet."
+    unknown_remitter: "Chưa xác định người đi tiền"
+    reasons:
+      code_missing: "Tin nhắn không có mã chuyển tiền (ví dụ TK01)"
+      code_ambiguous: "Tin nhắn có nhiều mã chuyển tiền khác nhau"
+      code_dealer_inactive: "Mã chuyển tiền trỏ tới đại lý đã tắt hoặc không tìm thấy"
+      amount_missing: "Không đọc được số tiền"
+      amount_ambiguous: "Ảnh có nhiều số tiền khác nhau"
+      amount_low_confidence: "Độ tin cậy số tiền dưới 92%"
+      remitter_unknown: "Người gửi chưa được khai là người đi tiền"
+      remitter_inactive: "Người đi tiền đang tắt"
+      possible_duplicate: "Có thể trùng lệnh chuyển tiền khác"
+      image_missing: "Không tải được ảnh"
+      ocr_failed: "OCR xử lý lỗi"
+      settlement_photo: "Ảnh là bill kết toán (mã trong tin nhắn bị hiểu nhầm), đã chuyển sang luồng giao dịch"
+    write_issues:
+      rd_sheet_missing: "Chưa có tab thu chi của ngày này. Tạo tab rồi bấm Ghi lại."
+      rd_agent_missing: "Tab %{sheet} không có khối của đại lý này (kiểm tra nhãn thu chi của đại lý)."
+      rd_remitter_missing: "Tab %{sheet} không có cột của người đi tiền này."
+      rd_total_missing: "Khối đại lý trong tab %{sheet} không có dòng TOTAL."
+    errors:
+      stale: "Lệnh chuyển tiền vừa được người khác thay đổi, tải lại trang"
+      already_written: "Đã ghi sheet, không sửa được nữa"
+      code_invalid: "Mã chuyển tiền không hợp lệ"
+      amount_invalid: "Số tiền không hợp lệ"
+      remitter_missing: "Chưa chọn người đi tiền"
+      not_writable: "Lệnh chưa duyệt hoặc đã ghi sheet"
+    flash:
+      approved: "Đã duyệt, đang ghi vào tab thu chi."
+      rejected: "Đã từ chối lệnh chuyển tiền."
+      write_queued: "Đang ghi lại vào sheet."
+    confirm:
+      approve: "Duyệt và ghi vào tab thu chi?"
+      reject: "Từ chối lệnh chuyển tiền này?"
+
   bill_albums:
     index:
       title: "Album bill"
@@ -844,6 +904,7 @@ vi:
       merchant: "Hộ kinh doanh"
       merchant_alias: "Alias"
       remitter: "Người đi tiền"
+      remitter_transfer: "Lệnh chuyển tiền"
       merchant_dealer: "Đại lý theo TID"
       card_type: "Loại thẻ"
       fee_rule: "Quy tắc phí"
@@ -891,6 +952,17 @@ vi:
         alias_type: "Loại alias"
         normalized_alias: "Dạng chuẩn hoá"
         active: "Hoạt động"
+      remitter_transfer:
+        remitter: "Người đi tiền"
+        remitter_id: "Người đi tiền"
+        transfer_code: "Mã chuyển tiền"
+        merchant: "Hộ kinh doanh"
+        dealer: "Đại lý"
+        amount_vnd: "Số tiền"
+        transferred_at: "Gửi lúc"
+        status: "Trạng thái"
+        rd_cell: "Ô trên tab thu chi"
+        reviewed_by: "Người duyệt"
       remitter:
         name: "Tên"
         excel_key: "Mã Excel"
@@ -1003,6 +1075,13 @@ vi:
         error_message: "Lỗi"
         layout: "Loại file"
     enums:
+      remitter_transfer:
+        status:
+          processing: "Đang xử lý"
+          needs_review: "Cần kiểm tra"
+          approved: "Đã duyệt"
+          rejected: "Đã từ chối"
+          failed: "Lỗi"
       transaction:
         status:
           pending: "Đang chờ"

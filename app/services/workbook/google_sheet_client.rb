@@ -116,6 +116,51 @@ module Workbook
       structural_updates(requests)
     end
 
+    # Inserts one whole sheet row at row (0-based), formatted like the row above,
+    # and writes value + note into (row, col) in the same request: Sheets applies
+    # the requests of one batchUpdate in order and all-or-nothing. References to
+    # the rows below move with them, so a SUM over a range that contains the new
+    # row grows by one.
+    def insert_row_with_value(title, row:, col:, value:, note:)
+      id = sheet_properties(title).sheet_id
+      requests = [
+        Google::Apis::SheetsV4::Request.new(
+          insert_dimension: Google::Apis::SheetsV4::InsertDimensionRequest.new(
+            range: Google::Apis::SheetsV4::DimensionRange.new(
+              sheet_id: id, dimension: "ROWS", start_index: row, end_index: row + 1
+            ),
+            inherit_from_before: row.positive?
+          )
+        ),
+        Google::Apis::SheetsV4::Request.new(
+          update_cells: Google::Apis::SheetsV4::UpdateCellsRequest.new(
+            start: Google::Apis::SheetsV4::GridCoordinate.new(sheet_id: id, row_index: row, column_index: col),
+            rows: [
+              Google::Apis::SheetsV4::RowData.new(values: [
+                Google::Apis::SheetsV4::CellData.new(
+                  user_entered_value: Google::Apis::SheetsV4::ExtendedValue.new(number_value: value.to_f),
+                  note: note
+                )
+              ])
+            ],
+            fields: "userEnteredValue,note"
+          )
+        )
+      ]
+      structural_updates(requests)
+    end
+
+    # Cell notes of a range as a 2-D array (nil where a cell has none), the same
+    # shape as #values.
+    def notes(title, range)
+      spreadsheet = @service.get_spreadsheet(
+        @spreadsheet_id, ranges: [ "'#{title}'!#{range}" ], include_grid_data: true,
+        fields: "sheets.data.rowData.values.note"
+      )
+      rows = spreadsheet.sheets&.first&.data&.first&.row_data
+      Array(rows).map { |row_data| Array(row_data&.values).map(&:note) }
+    end
+
     private
 
     # One metadata call serves every lookup of a write (grow rows, insert

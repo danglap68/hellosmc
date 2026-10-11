@@ -16,13 +16,13 @@ RSpec.describe Workbook::Resolver do
                                             "terminal_or_merchant_id" => terminal } })
   end
 
-  it "resolves HKD + agent (tid1) + remitter from the OCR name suffix" do
-    lap = create(:remitter, name: "Lập", excel_key: "LẬP", telegram_user_id: 12_345)
+  it "resolves HKD + agent (tid1) from the OCR name suffix, without any remitter" do
+    create(:remitter, name: "Lập", excel_key: "LẬP", telegram_user_id: 12_345)
     result = described_class.call(transaction: build_transaction(merchant_name: "HỘ KINH DOANH THIÊN KIM GV-1"))
     expect(result).to be_identified
     expect(result.merchant).to eq(hkd)
     expect(result.merchant_dealer).to eq(link)
-    expect(result.remitter).to eq(lap)
+    expect(result).not_to respond_to(:remitter)
   end
 
   it "returns agent_tid_missing when the OCR name has no TID" do

@@ -560,6 +560,8 @@ Làm riêng, chỉ sau khi pha 1 chạy ổn và có spec test cho fee rule. Khi
 
 ## 18. Báo cáo người đi tiền: tab `thu chi {ngày}{tháng}` (thay `R&D Report`, 11/10/2026)
 
+> **Đã thay bằng `SPEC_REMITTER_TRANSFER_CODE.md`:** transaction không còn ghi tab `thu chi` và cột K tab MB; tab `thu chi` được ghi từ lệnh chuyển tiền (mỗi lệnh chèn một hàng). DS MB nay cộng dồn dạng công thức `=a+b`. Phần dưới chỉ còn đúng cho cách tìm khối/cột.
+
 File chuẩn không còn sheet `R&D Report`; mỗi ngày một tab `thu chi 1010` (không đệm số 0: `thu chi 910`).
 - Tab theo ngày của `transaction_at` (múi giờ VN). Hàng 2 lặp tên người đi tiền theo từng khối; nhãn đại lý nằm ở cột trống ngay trước tên người đi tiền (động, không cố định cột A/G/M, không giới hạn 5 người).
 - Nhãn đại lý so khớp theo tên: bỏ phần kênh trong ngoặc hoặc `MB/SP/QR` ở cuối, không phân biệt hoa/dấu/khoảng trắng; chỉ tìm từ hàng 3 đến trước vùng sổ quỹ thủ công (`SP in`, `TOTAL AMOUNT`) để tên như `Lập`, `An` không khớp nhầm tiêu đề `LẬP`, `AN`.

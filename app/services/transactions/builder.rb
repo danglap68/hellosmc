@@ -12,6 +12,10 @@ module Transactions
   # auto-approve, and on multi-settlement images every rebuilt row is reviewed.
   class Builder
     MATCH_SCORES = { amount: 2, time: 2, lot: 1, merchant: 1 }.freeze
+    # OCR itself went wrong (not "the photo is not a settlement"): the photo
+    # must still reach a person even when it reads as unknown.
+    OCR_PROBLEM_REASONS = %w[malformed_primary_extraction primary_output_truncated primary_refused
+                             validation_budget_exhausted validator_failed].freeze
 
     def self.call(bill_image:)
       new(bill_image).call
@@ -208,15 +212,18 @@ module Transactions
     # accounting rows:
     # * inside an album only a "tổng kết" (settlement/transfer) with a readable
     #   amount is built; a nil-amount total (e.g. a confirm popup) is skipped;
-    # * outside an album (single image) only confident child receipts are skipped.
+    # * outside an album (single image) only settlements are built.
     def skippable_document?(document)
       type = document["document_type"]
-      # Remitter feature off: a single image only becomes a row when it is a
-      # settlement; transfers, unreadable and unknown documents are skipped
-      # instead of cluttering review. Albums keep their normal handling below
-      # (child receipts + the settlement/transfer total).
-      if @bill_image.bill_album_id.blank? && type != "settlement" && !AppConfig.remitter_features_enabled?
-        return true
+      # A single photo only becomes a row when it is a settlement: transfers go
+      # to RemitterTransfer, unknown photos and child receipts are skipped
+      # instead of cluttering review. An OCR problem (failed run, malformed,
+      # truncated or refused output, exhausted budget, failed validator) still
+      # reaches a person. Albums keep their handling below.
+      # A photo uploaded by hand in the admin was chosen by a person: it is
+      # always built so they see the result.
+      if @bill_image.telegram? && @bill_image.bill_album_id.blank? && type != "settlement"
+        return (Array(document["vision_review_reasons"]) & OCR_PROBLEM_REASONS).empty?
       end
 
       if @bill_image.bill_album_id.present?

@@ -20,10 +20,29 @@ class AnalyzeBillImageJob < ApplicationJob
     build_or_finalize(bill_image) if result.status.in?(%i[analyzed failed])
   end
 
+  # A remitter's transfer photo feeds a RemitterTransfer, never a transaction.
   # Album images are built by the album finalizer (after every image is OCR'd),
   # not immediately, so the whole album is reconciled in one place.
   def build_or_finalize(bill_image)
-    if bill_image.bill_album_id
+    transfer = bill_image.telegram_message&.remitter_transfer
+    if transfer&.processing? && RemitterTransfers::Classifier.settlement_image?(bill_image)
+      # Routed to the transfer flow on receipt (remitter sender or a code in
+      # the caption), but OCR reads a settlement bill and no transfer: it is a
+      # transaction after all. The transfer is kept, rejected, for the audit trail.
+      transfer.update!(status: "rejected", review_reasons: [ "settlement_photo" ])
+      transfer = nil
+    end
+    if transfer.nil? && RemitterTransfers::Classifier.transfer_image?(bill_image)
+      # OCR shows a bank transfer that was not recognised on receipt (sender not
+      # registered as a remitter, no code in the caption): still never a transaction.
+      return bill_image.telegram_message.update!(processing_status: "ignored") unless AppConfig.remitter_features_enabled?
+
+      transfer = RemitterTransfers::Classifier.adopt!(bill_image)
+    end
+
+    if transfer
+      BuildRemitterTransferJob.perform_later(transfer.id)
+    elsif bill_image.bill_album_id
       FinalizeBillAlbumJob.perform_later(bill_image.bill_album_id)
     else
       BuildTransactionJob.perform_later(bill_image.id)

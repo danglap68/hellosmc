@@ -35,9 +35,10 @@ RSpec.configure do |config|
 
   # Files attached during the suite land on the Disk service (tmp/storage) and
   # are not rolled back with the database; clear them so tmp/ does not grow.
+  # Only the blob folders go; the directory and its tracked .keep stay.
   config.after(:suite) do
     service = ActiveStorage::Blob.service
-    FileUtils.rm_rf(service.root) if service.respond_to?(:root)
+    FileUtils.rm_rf(Dir.glob(File.join(service.root, "*"))) if service.respond_to?(:root)
   end
 
   config.before(:each, type: :system) do

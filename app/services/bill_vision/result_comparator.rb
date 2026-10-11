@@ -36,7 +36,12 @@ module BillVision
       left_id = VietnameseText.normalize_identifier(left["terminal_or_merchant_id"])
       right_id = VietnameseText.normalize_identifier(right["terminal_or_merchant_id"])
       merchant_agrees =
-        if left_id.present? && right_id.present?
+        if [ left_id, right_id, left["merchant_name"], right["merchant_name"] ].all?(&:blank?)
+          # Neither model found a merchant (e.g. an album total that prints only
+          # the amount): not a contradiction. merchant_unreadable/merchant_missing
+          # already send it to review, and nothing is confirmed by this.
+          true
+        elsif left_id.present? && right_id.present?
           left_id == right_id
         else
           left_name = VietnameseText.normalize(left["merchant_name"])

@@ -13,6 +13,11 @@ class DownloadTelegramAttachmentJob < ApplicationJob
   def perform(telegram_message_id)
     message = TelegramMessage.find(telegram_message_id)
     bill_image = Telegram::AttachmentDownloader.call(message)
+    transfer = message.remitter_transfer
+    if transfer && (bill_image.nil? || bill_image.ocr_duplicate?)
+      # Nothing to OCR (no photo, or the same photo was sent before): decide now.
+      return BuildRemitterTransferJob.perform_later(transfer.id)
+    end
     return message.update!(processing_status: "ignored") if bill_image.nil?
 
     FinalizeBillAlbumJob.perform_later(bill_image.bill_album_id) if bill_image.bill_album_id
@@ -24,6 +29,8 @@ class DownloadTelegramAttachmentJob < ApplicationJob
     message = TelegramMessage.find_by(id: arguments.first)
     message&.update!(processing_status: "failed",
                      raw_payload: message.raw_payload.merge("download_error" => error.message.truncate(500)))
+    # A transfer whose photo cannot be downloaded must not wait forever.
+    BuildRemitterTransferJob.perform_later(message.remitter_transfer.id) if message&.remitter_transfer
     StructuredLog.error("telegram.download_failed", job_id: job_id, telegram_message_record_id: arguments.first,
                                                     error_class: error.class.name, error: error.message.truncate(300))
   end

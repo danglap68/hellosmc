@@ -35,6 +35,31 @@ RSpec.describe RetryWorkbookWritesJob do
     expect(fresh.reload.updated_at).to be > 15.minutes.ago
   end
 
+  describe "remitter transfers" do
+    let(:link) { create(:merchant_dealer) }
+
+    def approved_transfer(**attrs)
+      transfer = create(:remitter_transfer, status: "approved", amount_vnd: 1_000_000, transfer_code: "TK01",
+                                            merchant_dealer: link, merchant: link.merchant, **attrs)
+      transfer.update_columns(updated_at: 1.hour.ago)
+      transfer
+    end
+
+    it "re-enqueues an approved transfer whose write job was lost" do
+      lost = approved_transfer
+
+      expect { described_class.perform_now }.to have_enqueued_job(WriteRemitterReportJob).with(lost.id)
+    end
+
+    it "leaves transfers that are written, unplaceable (waiting for Ghi lại) or not approved" do
+      approved_transfer(written_at: Time.current)
+      approved_transfer(metadata: { "write_issue" => "rd_sheet_missing" })
+      approved_transfer(status: "needs_review")
+
+      expect { described_class.perform_now }.not_to have_enqueued_job(WriteRemitterReportJob)
+    end
+  end
+
   it "does nothing when the spreadsheet is not configured" do
     stale(finalized)
     allow(AppConfig).to receive(:hello_smc_spreadsheet_id).and_return(nil)

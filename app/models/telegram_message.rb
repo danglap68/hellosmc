@@ -4,6 +4,7 @@ class TelegramMessage < ApplicationRecord
   belongs_to :telegram_chat
   has_many :bill_images, dependent: :restrict_with_error
   has_many :transactions, dependent: :restrict_with_error
+  has_one :remitter_transfer, dependent: :restrict_with_error
 
   enum :processing_status, PROCESSING_STATUSES.index_by(&:itself), prefix: :processing, validate: true
 

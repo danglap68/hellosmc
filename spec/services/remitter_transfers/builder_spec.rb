@@ -1,0 +1,108 @@
+require "rails_helper"
+
+RSpec.describe RemitterTransfers::Builder do
+  let(:chat) { create(:telegram_chat, active: true) }
+  # Workbook::Seed already creates Lập (excel_key LẬP, unique): reuse it.
+  let(:lap) { Remitter.find_by!(excel_key: "LẬP").tap { |remitter| remitter.update!(telegram_user_id: 777) } }
+
+  before { Workbook::Seed.call }
+
+  # A transfer photo: only the amount matters.
+  def transfer_with(caption: "Lap chuyen tien TK01", amount: 29_274_000, confidence: 0.96, document_type: "transfer",
+                    sent_at: Time.current)
+    data = extraction_fixture("transfer")
+    data["documents"][0].merge!("total_amount_vnd" => amount, "document_type" => document_type,
+                                "transaction_date" => nil, "transaction_time" => nil)
+    data["documents"][0]["confidence"]["total_amount_vnd"] = confidence
+    normalized = BillVision::Normalizer.call(data, provider: "openai", model: "gpt-test")
+    message = create(:telegram_message, telegram_chat: chat, message_text: caption, telegram_sender_id: 777, sent_at: sent_at)
+    create(:bill_image, telegram_message: message, normalized_extraction: normalized, ocr_status: "completed")
+    create(:remitter_transfer, telegram_message: message, remitter: lap, transferred_at: sent_at)
+  end
+
+  it "approves Lập's 29.274.000 transfer with TK01 and queues the sheet write" do
+    transfer = described_class.call(remitter_transfer: transfer_with)
+
+    expect(transfer).to be_approved
+    expect(transfer.review_reasons).to be_empty
+    expect(transfer.amount_vnd).to eq(29_274_000)
+    expect(transfer.transfer_code).to eq("TK01")
+    expect(transfer.code_source).to eq("caption")
+    expect(transfer.merchant.code).to eq("001")
+    expect(transfer.dealer.name).to eq("Chương")
+    expect(transfer.merchant_dealer.tid_key).to eq("tid1")
+    expect(transfer.bill_image).to be_present
+    expect(WriteRemitterReportJob).to have_been_enqueued.with(transfer.id)
+    expect(Transaction.count).to eq(0)
+  end
+
+  it "needs a person below 92% amount confidence" do
+    transfer = described_class.call(remitter_transfer: transfer_with(confidence: 0.9))
+
+    expect(transfer).to be_needs_review
+    expect(transfer.review_reasons).to eq([ "amount_low_confidence" ])
+    expect(WriteRemitterReportJob).not_to have_been_enqueued
+  end
+
+  it "does not care about the receipt's date, recipient or document type" do
+    transfer = described_class.call(remitter_transfer: transfer_with(document_type: "unknown"))
+
+    expect(transfer).to be_approved
+  end
+
+  it "reports a missing, ambiguous or unmapped code" do
+    expect(described_class.call(remitter_transfer: transfer_with(caption: "chuyen tien")).review_reasons)
+      .to eq([ "code_missing" ])
+    expect(described_class.call(remitter_transfer: transfer_with(caption: "TK01 GT02")).review_reasons)
+      .to eq([ "code_ambiguous" ])
+
+    MerchantDealer.find_by!(tid_key: "tid2", merchant: Merchant.find_by!(code: "GTD001")).update!(active: false)
+    expect(described_class.call(remitter_transfer: transfer_with(caption: "GT02")).review_reasons)
+      .to eq([ "code_dealer_inactive" ])
+  end
+
+  it "needs a person to pick the remitter when the sender is unknown" do
+    transfer = transfer_with
+    transfer.update!(remitter: nil)
+
+    expect(described_class.call(remitter_transfer: transfer).review_reasons).to eq([ "remitter_unknown" ])
+  end
+
+  it "reports an unreadable amount" do
+    transfer = described_class.call(remitter_transfer: transfer_with(amount: nil))
+
+    expect(transfer.review_reasons).to include("amount_missing")
+  end
+
+  it "flags the same remitter, code and amount twice within the duplicate window" do
+    first = described_class.call(remitter_transfer: transfer_with)
+    second = described_class.call(remitter_transfer: transfer_with(sent_at: first.transferred_at + 2.minutes))
+
+    expect(second).to be_needs_review
+    expect(second.review_reasons).to eq([ "possible_duplicate" ])
+  end
+
+  it "fails when the photo could not be read" do
+    transfer = transfer_with
+    transfer.bill_image_id = nil
+    transfer.telegram_message.bill_images.first.update!(ocr_status: "failed")
+
+    expect(described_class.call(remitter_transfer: transfer)).to be_failed
+  end
+
+  it "waits while the photo is still being read" do
+    transfer = transfer_with
+    transfer.telegram_message.bill_images.first.update!(ocr_status: "processing")
+
+    expect(described_class.call(remitter_transfer: transfer.reload)).to be_processing
+  end
+
+  it "leaves a transfer that is written or decided by a person alone" do
+    transfer = transfer_with
+    transfer.update!(status: "approved", written_at: Time.current, transfer_code: "TK01")
+
+    described_class.call(remitter_transfer: transfer)
+    expect(transfer.reload.review_reasons).to eq([])
+    expect(WriteRemitterReportJob).not_to have_been_enqueued
+  end
+end

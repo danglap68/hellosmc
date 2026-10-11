@@ -1,0 +1,117 @@
+{
+  "TK01": {
+    "hkd": "001",
+    "tid": "tid1",
+    "agent": "Chương"
+  },
+  "TK02": {
+    "hkd": "001",
+    "tid": "tid2",
+    "agent": "Sơn"
+  },
+  "TK03": {
+    "hkd": "001",
+    "tid": "tid3",
+    "agent": "Hải"
+  },
+  "GT01": {
+    "hkd": "GTD001",
+    "tid": "tid1",
+    "agent": "Cường Duyên"
+  },
+  "GT02": {
+    "hkd": "GTD001",
+    "tid": "tid2",
+    "agent": "Trân"
+  },
+  "GT03": {
+    "hkd": "GTD001",
+    "tid": "tid3",
+    "agent": "Thọ"
+  },
+  "CH01": {
+    "hkd": "CHERRY001",
+    "tid": "tid1",
+    "agent": "Nghĩa Nghiệp"
+  },
+  "CH02": {
+    "hkd": "CHERRY001",
+    "tid": "tid2",
+    "agent": "Cường Duyên"
+  },
+  "CH03": {
+    "hkd": "CHERRY001",
+    "tid": "tid3",
+    "agent": "Trân"
+  },
+  "ML127": {
+    "hkd": "MILO001",
+    "tid": "tid127",
+    "agent": "Chị Huệ"
+  },
+  "ML128": {
+    "hkd": "MILO001",
+    "tid": "tid128",
+    "agent": "Chị Huệ"
+  },
+  "ML129": {
+    "hkd": "MILO001",
+    "tid": "tid129",
+    "agent": "Chị Huệ"
+  },
+  "CF01": {
+    "hkd": "AS96001",
+    "tid": "tid1",
+    "agent": "PHÙNG CUỜNG"
+  },
+  "CF02": {
+    "hkd": "AS96001",
+    "tid": "tid2",
+    "agent": "Anh Hiếu"
+  },
+  "AS01": {
+    "hkd": "ASCAFE001",
+    "tid": "tid1",
+    "agent": "Anh Hải"
+  },
+  "AS02": {
+    "hkd": "ASCAFE001",
+    "tid": "tid2",
+    "agent": "Anh Hùng"
+  },
+  "AS03": {
+    "hkd": "ASCAFE001",
+    "tid": "tid3",
+    "agent": "Chị Hồng"
+  },
+  "NC01": {
+    "hkd": "NCT001",
+    "tid": "tid1",
+    "agent": "Chị Mến"
+  },
+  "NC02": {
+    "hkd": "NCT001",
+    "tid": "tid2",
+    "agent": "Anh Hải"
+  },
+  "NC03": {
+    "hkd": "NCT001",
+    "tid": "tid3",
+    "agent": "Nghiệp"
+  },
+  "NM01": {
+    "hkd": "NCTMBV001",
+    "tid": "tid1",
+    "agent": "Sơn"
+  },
+  "NM02": {
+    "hkd": "NCTMBV001",
+    "tid": "tid2",
+    "agent": "Anh Thọ"
+  },
+  "NM03": {
+    "hkd": "NCTMBV001",
+    "tid": "tid3",
+    "agent": "Tuân"
+  }
+}

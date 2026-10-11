@@ -91,7 +91,7 @@ end
 namespace :hellosmc do
   # Wipes everything a bill produced, keeps configuration.
   #
-  # Deleted: transactions, reviews, workbook entries, bill images (and their
+  # Deleted: transactions, reviews, workbook entries, remitter transfers, bill images (and their
   # files on R2), albums, Telegram messages, Excel exports, the audit log of
   # those records, and every queued/retrying/scheduled Sidekiq job.
   # Kept: users, settings, secrets (bot token, webhook), card types, dealers,
@@ -101,9 +101,9 @@ namespace :hellosmc do
   # The Google Sheet is NOT touched: rows already written stay there.
   #
   #   CONFIRM=yes bin/rails hellosmc:purge_transaction_data
-  PURGE_DATA_TABLES = %w[workbook_entries transaction_reviews transactions bill_images bill_albums
+  PURGE_DATA_TABLES = %w[workbook_entries transaction_reviews transactions remitter_transfers bill_images bill_albums
                    telegram_messages excel_exports].freeze
-  PURGE_RECORD_TYPES = %w[Transaction TransactionReview WorkbookEntry BillImage BillAlbum
+  PURGE_RECORD_TYPES = %w[Transaction TransactionReview WorkbookEntry RemitterTransfer BillImage BillAlbum
                          TelegramMessage ExcelExport].freeze
 
   desc "Delete all transaction data (bills, transactions, messages, exports) but keep configuration. CONFIRM=yes required"

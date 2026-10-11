@@ -28,10 +28,8 @@ module Telegram
         return result(:duplicate, message)
       end
 
-      if parsed.image? && remitter_sender_ignored?(parsed)
-        message.update!(processing_status: "ignored")
-        log("telegram.remitter_ignored", chat, parsed)
-        return result(:ignored_remitter, message)
+      if parsed.image? && transfer_photo?(parsed, chat)
+        return receive_remitter_image(chat, parsed, message, remitter_sender(parsed))
       end
 
       BillAlbums::Collector.call(message) if created && parsed.image? && parsed.media_group_id.present?
@@ -53,13 +51,65 @@ module Telegram
 
     private
 
-    # While the remitter feature flag is off, images sent by a remitter are
-    # transfer slips: they are stored but never downloaded or OCR'd.
-    def remitter_sender_ignored?(parsed)
-      return false if AppConfig.remitter_features_enabled?
+    def remitter_sender(parsed)
+      RemitterTransfers::Classifier.remitter_for(sender_id: parsed.sender_id, username: parsed.sender_username)
+    end
 
-      Remitters::Resolver.call(telegram_user_id: parsed.sender_id, telegram_username: parsed.sender_username)
-                         .remitter.present?
+    # "Đi tiền" vs "kết toán", decided on receipt: a remitter's photo, a caption
+    # with a transfer code, or a photo of an album already routed as a transfer
+    # (only the first photo of an album carries the caption). Photos that slip
+    # through are caught after OCR (AnalyzeBillImageJob).
+    def transfer_photo?(parsed, chat)
+      return true if RemitterTransfers::Classifier.transfer_message?(remitter: remitter_sender(parsed), text: parsed.text)
+      return false if parsed.media_group_id.blank?
+
+      siblings = TelegramMessage.where(telegram_chat: chat, media_group_id: parsed.media_group_id).select(:id)
+      RemitterTransfer.where(telegram_message_id: siblings).exists?
+    end
+
+    # A transfer photo is never a settlement bill. With
+    # the feature flag on it becomes a RemitterTransfer (code from the caption,
+    # amount from OCR); with the flag off it is stored and ignored. Albums are
+    # not collected: every photo is its own transfer.
+    def receive_remitter_image(chat, parsed, message, remitter)
+      unless AppConfig.remitter_features_enabled?
+        message.update!(processing_status: "ignored")
+        log("telegram.remitter_ignored", chat, parsed)
+        return result(:ignored_remitter, message)
+      end
+      unless chat.active?
+        message.update!(processing_status: "ignored")
+        log("telegram.chat_inactive", chat, parsed)
+        return result(:ignored_inactive_chat, message)
+      end
+
+      # remitter is nil for a code-only caption from an unknown sender: a person
+      # picks the remitter while reviewing.
+      RemitterTransfer.create!(telegram_message: message, remitter: remitter,
+                               transferred_at: message.sent_at || Time.current)
+      message.update!(processing_status: "queued")
+      DownloadTelegramAttachmentJob.perform_later(message.id)
+      log("telegram.remitter_transfer_received", chat, parsed, telegram_message_record_id: message.id,
+                                                                remitter_id: remitter&.id)
+      result(:queued_remitter_transfer, message)
+    end
+
+    # The caption carries the transfer code: re-read it while nothing is written
+    # yet; once in the sheet, only flag it for a person.
+    def refresh_remitter_transfers(message)
+      messages =
+        if message.media_group_id.present?
+          TelegramMessage.where(telegram_chat_id: message.telegram_chat_id, media_group_id: message.media_group_id)
+        else
+          TelegramMessage.where(id: message.id)
+        end
+      RemitterTransfer.where(telegram_message_id: messages.select(:id)).find_each do |transfer|
+        if transfer.written?
+          transfer.update!(metadata: transfer.metadata.merge("caption_edited_after_write" => true))
+        elsif !transfer.processing?
+          RemitterTransfers::Builder.call(remitter_transfer: transfer)
+        end
+      end
     end
 
     def upsert_chat(parsed)
@@ -121,6 +171,7 @@ module Telegram
         before_data: { "message_text" => previous_text }, after_data: { "message_text" => parsed.text }
       )
 
+      refresh_remitter_transfers(message)
       if CardTypeParser.call(previous_text).sort != CardTypeParser.call(message.effective_text).sort
         Transactions::Flagger.call(transactions: message.related_transactions, reason: "caption_edited")
       end

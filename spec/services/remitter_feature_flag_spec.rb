@@ -1,6 +1,8 @@
 require "rails_helper"
 
-# While remitter_features_enabled is off only settlement bills are processed.
+# remitter_features_enabled off: remitter photos are stored and ignored. (Single
+# photos only become transactions when they are settlements, flag on or off:
+# see single_photo_settlement_only_spec.rb.)
 RSpec.describe "remitter feature flag off" do
   include_context "accounting setup"
 
@@ -59,11 +61,12 @@ RSpec.describe "remitter feature flag off" do
       expect(described_class.call(update).status).to eq(:queued)
     end
 
-    it "processes remitter images again when the flag is on" do
+    it "turns remitter images into transfers when the flag is on" do
       allow(AppConfig).to receive(:remitter_features_enabled?).and_return(true)
       create(:remitter, telegram_user_id: 4242)
 
-      expect(described_class.call(update).status).to eq(:queued)
+      expect(described_class.call(update).status).to eq(:queued_remitter_transfer)
+      expect(RemitterTransfer.count).to eq(1)
     end
   end
 end

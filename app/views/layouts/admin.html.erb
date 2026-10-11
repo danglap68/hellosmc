@@ -24,6 +24,7 @@
               <%= nav_link t("navigation.dashboard"), admin_root_path, "layout-dashboard", resource: :dashboard, active: current_page?(admin_root_path) %>
               <%= nav_link t("navigation.transactions"), admin_transactions_path, "arrows-exchange", resource: :transactions %>
               <%= nav_link t("navigation.reviews"), admin_reviews_path, "scan", resource: :reviews %>
+              <%= nav_link t("navigation.remitter_transfers"), admin_remitter_transfers_path, "cash", resource: :remitter_transfers %>
               <%= nav_link t("navigation.bill_uploads"), new_admin_bill_upload_path, "upload", resource: :bill_uploads %>
 
               <% if can?(:read, :dealers) || can?(:read, :merchants) || can?(:read, :fee_rules) %>

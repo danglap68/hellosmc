@@ -22,6 +22,10 @@ Rails.application.routes.draw do
     resources :bill_images, only: [ :show ]
     resources :bill_albums, only: [ :index, :show ]
     resources :bill_uploads, only: [ :new, :create ]
+    # Remitters' transfers ("đi tiền"), reviewed apart from transactions.
+    resources :remitter_transfers, only: [ :index, :show, :update ] do
+      member { post :write }
+    end
 
     resources :dealers
     resources :remitters, except: [ :show ]

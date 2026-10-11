@@ -37,4 +37,13 @@ RSpec.describe BillVision::ResultComparator do
     validator["documents"][0]["terminal_or_merchant_id"] = nil
     expect(described_class.call(primary: normalize(primary), validator: normalize(validator)).differences).to include("merchant_identity")
   end
+
+  it "does not call it a disagreement when neither model finds a merchant" do
+    primary = extraction_fixture("normal_settlement")
+    primary["documents"][0].merge!("merchant_name" => nil, "terminal_or_merchant_id" => nil)
+    validator = primary.deep_dup
+
+    expect(described_class.call(primary: normalize(primary), validator: normalize(validator)).differences)
+      .not_to include("merchant_identity")
+  end
 end

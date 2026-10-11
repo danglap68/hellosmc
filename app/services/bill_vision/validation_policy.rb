@@ -34,6 +34,12 @@ module BillVision
         if doc["document_type"].in?(%w[settlement transfer])
           visual << "amount_unreadable" if doc["total_amount_vnd"].nil?
           visual << "transaction_date_unreadable" if doc["transaction_date"].nil?
+        end
+        # A bank transfer prints no merchant or terminal and its time is not
+        # needed (album totals inherit them from the child bills; remitter
+        # transfers only use the amount): rereading for them would buy a second
+        # model call for every transfer photo.
+        if doc["document_type"] == "settlement"
           visual << "transaction_time_unreadable" if doc["transaction_time"].nil?
           visual << "merchant_unreadable" if doc["merchant_name"].blank? && doc["terminal_or_merchant_id"].blank?
         end

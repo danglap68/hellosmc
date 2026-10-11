@@ -1,4 +1,6 @@
 class Remitter < ApplicationRecord
+  has_many :remitter_transfers, dependent: :restrict_with_error
+
   before_validation :normalize_fields
 
   validates :name, presence: true, length: { maximum: 80 }

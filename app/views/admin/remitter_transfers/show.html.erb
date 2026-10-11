@@ -1,0 +1,98 @@
+<% content_for :title, t("remitter_transfers.show.title", id: @transfer.id) %>
+<% content_for :breadcrumbs do %>
+  <li class="breadcrumb-item"><%= link_to t("navigation.remitter_transfers"), admin_remitter_transfers_path %></li>
+  <li class="breadcrumb-item active">#<%= @transfer.id %></li>
+<% end %>
+
+<div class="row row-cards">
+  <div class="col-lg-6">
+    <div class="card review-sticky">
+      <div class="card-header">
+        <h3 class="card-title"><%= t("remitter_transfers.show.photo") %></h3>
+        <div class="card-actions"><%= remitter_transfer_status_badge(@transfer) %></div>
+      </div>
+      <div class="card-body">
+        <%= render "admin/transactions/bill_image", bill_image: @transfer.bill_image, large: true %>
+        <div class="mt-3"><%= icon("brand-telegram") %> <%= t("remitter_transfers.show.caption") %>:
+          <code><%= @transfer.caption.presence || "—" %></code></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <% if @transfer.review_reasons.any? %>
+      <div class="alert alert-warning">
+        <h4 class="alert-title"><%= t("remitter_transfers.show.reasons") %></h4>
+        <ul class="mb-0"><% @transfer.review_reasons.each do |reason| %><li><%= remitter_transfer_reason(reason) %></li><% end %></ul>
+      </div>
+    <% end %>
+
+    <div class="card mb-3">
+      <div class="card-body">
+        <dl class="row mb-0">
+          <dt class="col-5"><%= RemitterTransfer.human_attribute_name(:remitter) %></dt>
+          <dd class="col-7"><%= @transfer.remitter&.name || t("remitter_transfers.unknown_remitter") %>
+            <span class="text-secondary small">(<%= @transfer.telegram_message.sender_name %>)</span></dd>
+          <dt class="col-5"><%= RemitterTransfer.human_attribute_name(:transferred_at) %></dt>
+          <dd class="col-7"><%= format_datetime(@transfer.transferred_at) %></dd>
+          <dt class="col-5"><%= RemitterTransfer.human_attribute_name(:transfer_code) %></dt>
+          <dd class="col-7"><%= @transfer.transfer_code ? content_tag(:code, @transfer.transfer_code) : "—" %></dd>
+          <dt class="col-5"><%= RemitterTransfer.human_attribute_name(:merchant) %></dt>
+          <dd class="col-7"><%= @transfer.merchant_dealer&.merchant&.name || "—" %></dd>
+          <dt class="col-5"><%= RemitterTransfer.human_attribute_name(:dealer) %></dt>
+          <dd class="col-7"><%= @transfer.dealer&.name || "—" %><%= " (#{@transfer.merchant_dealer.tid_label})" if @transfer.merchant_dealer %></dd>
+          <dt class="col-5"><%= RemitterTransfer.human_attribute_name(:amount_vnd) %></dt>
+          <dd class="col-7 money"><%= format_vnd(@transfer.amount_vnd) %>
+            <% if @transfer.amount_confidence %><span class="text-secondary small">(<%= (@transfer.amount_confidence * 100).round %>%)</span><% end %></dd>
+          <dt class="col-5"><%= RemitterTransfer.human_attribute_name(:rd_cell) %></dt>
+          <dd class="col-7"><%= @transfer.rd_cell ? "#{@transfer.rd_sheet}!#{@transfer.rd_cell}" : "—" %></dd>
+          <% if @transfer.reviewed_by %>
+            <dt class="col-5"><%= RemitterTransfer.human_attribute_name(:reviewed_by) %></dt>
+            <dd class="col-7"><%= @transfer.reviewed_by.name %> · <%= format_datetime(@transfer.reviewed_at) %></dd>
+          <% end %>
+        </dl>
+      </div>
+    </div>
+
+    <% if (issue = @transfer.metadata["write_issue"]) && !@transfer.written? %>
+      <div class="alert alert-danger">
+        <%= t("remitter_transfers.write_issues.#{issue}", default: issue, sheet: @transfer.metadata["write_sheet"]) %>
+        <% if can?(:manage, :remitter_transfers) && @transfer.writable? %>
+          <%= button_to t("remitter_transfers.show.write_again"), write_admin_remitter_transfer_path(@transfer), class: "btn btn-sm btn-outline-danger mt-2" %>
+        <% end %>
+      </div>
+    <% end %>
+    <% if @transfer.written? %>
+      <div class="alert alert-info"><%= t("remitter_transfers.show.written_note", cell: "#{@transfer.rd_sheet}!#{@transfer.rd_cell}") %></div>
+      <% if @transfer.metadata["caption_edited_after_write"] %>
+        <div class="alert alert-warning"><%= t("remitter_transfers.show.caption_edited_after_write") %></div>
+      <% end %>
+    <% elsif can?(:manage, :remitter_transfers) && !@transfer.processing? %>
+      <%= tabler_form_with model: @transfer, url: admin_remitter_transfer_path(@transfer), method: :patch do |form| %>
+        <%= hidden_field_tag :lock_version, @transfer.lock_version %>
+        <div class="card">
+          <div class="card-header"><h3 class="card-title"><%= t("remitter_transfers.show.review") %></h3></div>
+          <div class="card-body">
+            <%= form.select_field :transfer_code, remitter_transfer_code_options, { include_blank: t("reviews.choose") },
+                  label: RemitterTransfer.human_attribute_name(:transfer_code) %>
+            <%= form.field :amount_vnd, label: RemitterTransfer.human_attribute_name(:amount_vnd), inputmode: "numeric",
+                  value: (@transfer.amount_vnd && number_with_delimiter(@transfer.amount_vnd, delimiter: ".")),
+                  data: { controller: "amount-input", action: "input->amount-input#format" } %>
+            <%= form.select_field :remitter_id, Remitter.active.ordered.map { |remitter| [ remitter.name, remitter.id ] },
+                  { include_blank: t("reviews.choose") }, label: RemitterTransfer.human_attribute_name(:remitter) %>
+          </div>
+          <div class="card-footer">
+            <div class="btn-list">
+              <button type="submit" name="decision" value="approve" class="btn btn-success"
+                      data-turbo-confirm="<%= t('remitter_transfers.confirm.approve') %>"><%= icon("check") %> <%= t("actions.save_and_approve") %></button>
+              <% unless @transfer.rejected? %>
+                <button type="submit" name="decision" value="reject" class="btn btn-outline-danger"
+                        data-turbo-confirm="<%= t('remitter_transfers.confirm.reject') %>"><%= icon("x") %> <%= t("actions.reject") %></button>
+              <% end %>
+            </div>
+          </div>
+        </div>
+      <% end %>
+    <% end %>
+  </div>
+</div>

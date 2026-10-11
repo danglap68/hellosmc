@@ -81,7 +81,7 @@ module Transactions
         return nil
       end
 
-      flag_confidence("transaction_date", "transaction_date")
+      flag_confidence("transaction_date", "transaction_date", corroborated: date_matches_submission?(transaction_at))
       flag_confidence("transaction_time", "transaction_time")
       if transaction_at > Time.current + FUTURE_TOLERANCE || transaction_at < AppConfig.max_receipt_age_days.days.ago
         @reasons << "transaction_date_out_of_range"
@@ -198,15 +198,28 @@ module Transactions
 
     # Below the auto threshold needs review; below the review threshold the
     # value is considered unreadable.
-    def flag_confidence(field, reason_prefix)
+    # corroborated: independent evidence agrees with the value, so a soft score
+    # (between the review and auto-approve thresholds) is not worth a human.
+    # An unreadable value is always reviewed.
+    def flag_confidence(field, reason_prefix, corroborated: false)
       return if Array(@doc["validation_confirmed_fields"]).include?(field)
 
       confidence = BigDecimal(@doc.dig("confidence", field).to_s.presence || "0")
       if confidence < AppConfig.ocr_review_threshold
         @reasons << "#{reason_prefix}_unreadable"
-      elsif confidence < AppConfig.ocr_auto_approve_threshold
+      elsif confidence < AppConfig.ocr_auto_approve_threshold && !corroborated
         @reasons << "#{reason_prefix}_low_confidence"
       end
+    end
+
+    # Settlement bills are posted the day they are printed, or the next morning.
+    # A date read that equals that day is confirmed by when the photo arrived
+    # (Telegram send time, or upload time for bills uploaded in the admin).
+    def date_matches_submission?(transaction_at)
+      submitted_at = @bill_image.telegram_message&.sent_at || @bill_image.created_at
+      return false unless submitted_at
+
+      (submitted_at.in_time_zone.to_date - transaction_at.in_time_zone.to_date).between?(0, 1)
     end
 
     def source_data(merchant_result, card_type_result, fee_result)

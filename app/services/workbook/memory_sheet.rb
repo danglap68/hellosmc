@@ -19,6 +19,7 @@ module Workbook
     def initialize(sheets = {}, row_limits = {})
       @sheets = sheets.transform_values { |rows| rows.map { |row| Array(row).dup } }
       @row_limits = row_limits.dup
+      @notes = {}
     end
 
     def titles
@@ -96,6 +97,30 @@ module Workbook
       end
     end
 
+    # Same observable behaviour as GoogleSheetClient#insert_row_with_value: a
+    # whole row is inserted and every reference to a row at or below it moves
+    # down, so a SUM range that contains the new row grows.
+    def insert_row_with_value(title, row:, col:, value:, note:)
+      grid = @sheets.fetch(title)
+      grid.fill([], grid.length...row) if grid.length < row
+      grid.insert(row, [])
+      grid.each { |cells| cells.map! { |cell| cell.is_a?(String) && cell.start_with?("=") ? shift_rows(cell, row) : cell } }
+      grid[row][col] = value
+      notes = (@notes[title] ||= {})
+      @notes[title] = notes.to_h { |(r, c), text| [ [ r >= row ? r + 1 : r, c ], text ] }
+      @notes[title][[ row, col ]] = note
+    end
+
+    def notes(title, range)
+      grid = @sheets.fetch(title)
+      r1, c1, r2, c2 = parse_range(range, grid)
+      (r1..r2).map { |r| (c1..c2).map { |c| @notes.dig(title, [ r, c ]) } }
+    end
+
+    def note(sheet, a1)
+      @notes.dig(sheet, [ row_index(a1), col_index(a1) ])
+    end
+
     # Raw stored value (formulas as text, dates as Date).
     def cell(sheet, a1)
       @sheets.fetch(sheet).dig(row_index(a1), col_index(a1))
@@ -128,15 +153,30 @@ module Workbook
       end
     end
 
-    # Only what the sheets use: =SUM(B1:B30) on the same sheet.
+    # Only what the sheets use: =SUM(B1:B30) on the same sheet, and the
+    # running totals the writer keeps in DS MB ("=354367000+486000").
     def evaluate(grid, formula)
+      return formula.delete_prefix("=").split("+").sum(&:to_i) if formula.match?(/\A=\d+(?:\+\d+)*\z/)
+
       match = formula.match(/\A=\s*sum\(\s*([A-Z]+\d+)\s*:\s*([A-Z]+\d+)\s*\)\z/i)
       return 0 unless match
 
       r1, c1 = row_index(match[1]), col_index(match[1])
       r2, c2 = row_index(match[2]), col_index(match[2])
       (r1..r2).sum do |r|
-        (c1..c2).sum { |c| grid.dig(r, c).is_a?(Numeric) ? grid.dig(r, c) : 0 }
+        (c1..c2).sum do |c|
+          value = grid.dig(r, c)
+          value = evaluate(grid, value) if value.is_a?(String) && value.start_with?("=")
+          value.is_a?(Numeric) ? value : 0
+        end
+      end
+    end
+
+    # "=SUM(J23:J31)" with a row inserted at index 30 -> "=SUM(J23:J32)".
+    def shift_rows(formula, inserted_at)
+      formula.gsub(/(\$?[A-Z]{1,3}\$?)(\d+)/) do
+        ref, number = Regexp.last_match.captures
+        number.to_i - 1 >= inserted_at ? "#{ref}#{number.to_i + 1}" : "#{ref}#{number}"
       end
     end
 

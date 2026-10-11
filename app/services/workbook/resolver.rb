@@ -1,9 +1,10 @@
 module Workbook
-  # Picks the HKD, DS-MB agent (via TID) and remitter for a Hello SMC write.
+  # Picks the HKD and DS-MB agent (via TID) for a Hello SMC write. Remitters
+  # are not part of a transaction (see RemitterTransfer).
   # The agent re-resolves by TID (not just transaction.dealer) because a dealer
   # like Chị Huệ owns several TIDs under one HKD; only tid_key picks the right row.
   class Resolver
-    Result = Data.define(:status, :merchant, :merchant_dealer, :remitter, :issue) do
+    Result = Data.define(:status, :merchant, :merchant_dealer, :issue) do
       def identified?
         status == :identified
       end
@@ -42,16 +43,7 @@ module Workbook
         return unidentified("agent_tid_unmapped", merchant)
       end
 
-      # Remitter feature off: no remitter, so the thu chi report is not written.
-      remitter =
-        if AppConfig.remitter_features_enabled?
-          Remitters::Resolver.call(
-            telegram_user_id: @transaction.telegram_message&.telegram_sender_id,
-            telegram_username: @transaction.telegram_message&.telegram_username
-          ).remitter
-        end
-
-      Result.new(status: :identified, merchant:, merchant_dealer: link, remitter:, issue: nil)
+      Result.new(status: :identified, merchant:, merchant_dealer: link, issue: nil)
     end
 
     private
@@ -63,7 +55,7 @@ module Workbook
     end
 
     def unidentified(issue, merchant)
-      Result.new(status: :unidentified, merchant:, merchant_dealer: nil, remitter: nil, issue:)
+      Result.new(status: :unidentified, merchant:, merchant_dealer: nil, issue:)
     end
 
     def ocr_merchant_name

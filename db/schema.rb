@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_11_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_11_230000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -262,6 +262,41 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_120000) do
     t.index ["normalized_name"], name: "index_merchants_on_normalized_name"
   end
 
+  create_table "remitter_transfers", force: :cascade do |t|
+    t.bigint "telegram_message_id", null: false
+    t.bigint "bill_image_id"
+    t.bigint "remitter_id"
+    t.bigint "merchant_id"
+    t.bigint "merchant_dealer_id"
+    t.bigint "reviewed_by_id"
+    t.string "transfer_code"
+    t.string "code_source"
+    t.bigint "amount_vnd"
+    t.decimal "amount_confidence", precision: 5, scale: 4
+    t.datetime "transferred_at", null: false
+    t.string "status", default: "processing", null: false
+    t.string "review_reasons", default: [], null: false, array: true
+    t.datetime "reviewed_at"
+    t.string "rd_sheet"
+    t.integer "rd_row"
+    t.string "rd_cell"
+    t.datetime "written_at"
+    t.jsonb "metadata", default: {}, null: false
+    t.integer "lock_version", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["bill_image_id"], name: "index_remitter_transfers_on_bill_image_id", unique: true
+    t.index ["merchant_dealer_id"], name: "index_remitter_transfers_on_merchant_dealer_id"
+    t.index ["merchant_id"], name: "index_remitter_transfers_on_merchant_id"
+    t.index ["remitter_id", "transfer_code", "amount_vnd"], name: "index_remitter_transfers_on_duplicate_scope"
+    t.index ["remitter_id"], name: "index_remitter_transfers_on_remitter_id"
+    t.index ["reviewed_by_id"], name: "index_remitter_transfers_on_reviewed_by_id"
+    t.index ["status"], name: "index_remitter_transfers_on_status"
+    t.index ["telegram_message_id"], name: "index_remitter_transfers_on_telegram_message_id", unique: true
+    t.check_constraint "amount_vnd IS NULL OR amount_vnd > 0", name: "remitter_transfers_amount_positive"
+    t.check_constraint "status::text = ANY (ARRAY['processing'::character varying, 'needs_review'::character varying, 'approved'::character varying, 'rejected'::character varying, 'failed'::character varying]::text[])", name: "remitter_transfers_status_check"
+  end
+
   create_table "remitters", force: :cascade do |t|
     t.string "name", null: false
     t.string "excel_key", null: false
@@ -444,6 +479,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_120000) do
   add_foreign_key "merchant_dealers", "dealers"
   add_foreign_key "merchant_dealers", "merchants"
   add_foreign_key "merchants", "card_types", column: "default_card_type_id"
+  add_foreign_key "remitter_transfers", "bill_images"
+  add_foreign_key "remitter_transfers", "merchant_dealers"
+  add_foreign_key "remitter_transfers", "merchants"
+  add_foreign_key "remitter_transfers", "remitters"
+  add_foreign_key "remitter_transfers", "telegram_messages"
+  add_foreign_key "remitter_transfers", "users", column: "reviewed_by_id"
   add_foreign_key "telegram_chat_merchants", "merchants"
   add_foreign_key "telegram_chat_merchants", "telegram_chats"
   add_foreign_key "telegram_messages", "telegram_chats"

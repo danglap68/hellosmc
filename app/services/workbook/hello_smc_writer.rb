@@ -10,20 +10,22 @@ module Workbook
   # "Bill vô chủ" column G). A retry after an ambiguous failure (timeout after
   # Google applied the batch, crash before the DB entry was saved) finds the
   # marker and only records the entry instead of adding the amount twice.
+  #
+  # Remitters are not part of a transaction: the "thu chi" tab is written from
+  # RemitterTransfer (Workbook::RemitterReportWriter), and MB column K
+  # ("Người đi tiền") is left empty.
   class HelloSmcWriter
+    include SheetText
+
     DS_PREFIX = "DS MB T"
     SETUP_PREFIX = "__setup_"
-    # One tab per day: "thu chi 1010" = 10 Oct, "thu chi 910" = 9 Oct.
-    RD_SHEET_PREFIX = "thu chi"
     MB_SHEET = "MB"
     UNIDENTIFIED_SHEET = "Bill vô chủ"
 
     DS_READ_RANGE = "A1:X80"
     DS_LAST_COL = 23
-    # Whole columns return only the used cells, so any number of remitter
-    # columns per block (and extra rows) is read without a fixed width.
-    RD_READ_RANGE = "A:AZ"
-    CHANNEL_SUFFIX = /(?:\s+(?:mb|sp|qr))+\z/
+    # A DS MB day cell the writer keeps as a running sum: "=354367000+486000".
+    RUNNING_SUM = /\A=\s*-?\d+(?:\s*[+-]\s*\d+)*\s*\z/
     # Whole-column reads return only the used rows, so the ledgers can grow.
     MB_READ_RANGE = "A:L"
     MB_MARKER_COL = 11
@@ -40,7 +42,6 @@ module Workbook
     class LockBusy < StandardError; end
 
     DateRun = Struct.new(:col, :rows)
-    RdTarget = Struct.new(:update, :cell, :sheet, :issue)
 
     def self.call(transaction:, client: nil, spreadsheet_id: AppConfig.hello_smc_spreadsheet_id)
       new(transaction: transaction, client: client, spreadsheet_id: spreadsheet_id).call
@@ -64,7 +65,7 @@ module Workbook
       raise ConfigurationError, "hello_smc_spreadsheet_id is not configured" if @spreadsheet_id.blank?
 
       client = @client || GoogleSheetClient.new(spreadsheet_id: @spreadsheet_id)
-      with_advisory_lock do
+      SheetLock.with(@spreadsheet_id) do
         return :already_written if WorkbookEntry.exists?(transaction_id: @transaction.id)
 
         resolution = Resolver.call(transaction: @transaction)
@@ -87,18 +88,15 @@ module Workbook
       ds_update, ds_cell, ds_sheet = increment_daily(client, resolution.merchant_dealer, amount)
       updates = [ ds_update ]
 
-      rd = resolution.remitter ? increment_remitter(client, resolution, amount) : nil
-      updates << rd.update if rd&.update
-
       mb_row, mb_update = append_mb(client, resolution, mb_rows)
       updates << mb_update
 
       client.batch_update_values(updates)
-      record!(branch: "identified", ds_sheet: ds_sheet, ds_cell: ds_cell, rd_cell: rd&.cell, mb_row: mb_row,
-              payload: payload(resolution, issue: rd&.issue, rd_sheet: rd&.sheet))
+      record!(branch: "identified", ds_sheet: ds_sheet, ds_cell: ds_cell, mb_row: mb_row,
+              payload: payload(resolution, issue: nil))
       :identified
-    rescue CellMissing
-      write_unidentified(client, resolution, issue: "ds_cell_missing")
+    rescue CellMissing => error
+      write_unidentified(client, resolution, issue: error.message == "ds_cell_not_numeric" ? error.message : "ds_cell_missing")
     end
 
     def write_unidentified(client, resolution, issue: resolution.issue)
@@ -136,9 +134,27 @@ module Workbook
       date_row = find_date_row(grid, header_row, header_col, @transaction.transaction_at.to_date)
       raise CellMissing, "ds_date" unless date_row
 
-      current = numeric(grid.dig(date_row, agent_col))
       cell = a1(date_row, agent_col)
-      [ { sheet: sheet, range: "#{cell}:#{cell}", rows: [ [ current + amount ] ] }, cell, sheet ]
+      formula = running_sum(client.values(sheet, cell, value_render_option: "FORMULA").dig(0, 0), amount)
+      # The day cell holds something the writer cannot add to (a note, another
+      # formula): book the bill in "Bill vô chủ" so it is not silently missing
+      # from DS MB, like any other DS MB cell that cannot be found.
+      raise CellMissing, "ds_cell_not_numeric" unless formula
+
+      [ { sheet: sheet, range: "#{cell}:#{cell}", rows: [ [ formula ] ] }, cell, sheet ]
+    end
+
+    # DS MB day cells add up as a formula so every bill stays visible:
+    # empty -> "=n", 354367000 -> "=354367000+n", "=a+b" -> "=a+b+n".
+    # Any other content (text, a different formula) is not touched.
+    def running_sum(current, amount)
+      case current
+      when nil, "" then "=#{amount}"
+      when Integer then "=#{current}+#{amount}"
+      when Float then current == current.round ? "=#{current.round}+#{amount}" : nil
+      when RUNNING_SUM then "#{current.strip}+#{amount}"
+      when /\A\s*\d{1,3}(?:[.,]\d{3})+\s*\z/, /\A\s*\d+\s*\z/ then "=#{current.gsub(/\D/, "")}+#{amount}"
+      end
     end
 
     # Looks for the day only inside this table's contiguous date run, so a
@@ -197,13 +213,19 @@ module Workbook
         updates << range_update(title, rows.first, run.col, rows.last, run.col, dates)
 
         amount_columns(run, runs).each do |col|
-          numeric_rows = run.rows.select { |row| grid.dig(row, col).is_a?(Numeric) }
+          numeric_rows = run.rows.select { |row| amount_cell?(grid.dig(row, col)) }
           consecutive_groups(numeric_rows).each do |group|
             updates << range_update(title, group.first, col, group.last, col, group.map { [ "" ] })
           end
         end
       end
       updates
+    end
+
+    # Day amounts: plain numbers or the writer's running sums ("=a+b"), never
+    # the SUM formulas of the totals block.
+    def amount_cell?(value)
+      value.is_a?(Numeric) || (value.is_a?(String) && value.match?(RUNNING_SUM))
     end
 
     # Columns holding runs of consecutive days (at least MIN_DATE_RUN long).
@@ -259,168 +281,6 @@ module Workbook
       { sheet: sheet, range: "#{a1(row1, col1)}:#{a1(row2, col2)}", rows: rows }
     end
 
-    # --- thu chi {ngày}{tháng} (remitter report) ----------------------------
-    #
-    # One tab per day. Header row 2 repeats the remitter names per block
-    # ("LẬP KIM AN …"); each block's label sits in the blank column before them.
-    # An agent has a label row, more entry rows, a spacer and a TOTAL row. The
-    # amount goes into the first free cell of the remitter's column, like the
-    # hand-typed rows. Anything that cannot be placed safely is skipped with an
-    # issue code; DS MB and MB are still written.
-
-    def increment_remitter(client, resolution, amount)
-      title = rd_sheet_title(client)
-      return RdTarget.new(nil, nil, nil, "rd_sheet_missing") unless title
-
-      grid = client.values(title, RD_READ_RANGE)
-      grid = grid.first(rd_stop_row(grid))
-      label = resolution.merchant_dealer.rd_agent_label
-      block_row, block_col = rd_find_agent(grid, label)
-      return RdTarget.new(nil, nil, title, "rd_agent_missing") unless block_row
-
-      excel_key = resolution.remitter.excel_key
-      remitter_col = rd_remitter_column(grid, block_col, excel_key)
-      if remitter_col.nil? && rd_insert_remitter_columns(client, title, grid, excel_key)
-        # Columns moved: read the tab again and locate everything afresh.
-        grid = client.values(title, RD_READ_RANGE)
-        grid = grid.first(rd_stop_row(grid))
-        block_row, block_col = rd_find_agent(grid, label)
-        remitter_col = block_row && rd_remitter_column(grid, block_col, excel_key)
-      end
-      return RdTarget.new(nil, nil, title, "rd_remitter_missing") unless remitter_col
-
-      total_row = rd_total_row(grid, block_row, block_col)
-      return RdTarget.new(nil, nil, title, "rd_total_missing") unless total_row
-
-      row = rd_first_free_row(grid, block_row, total_row, block_col, remitter_col)
-      return RdTarget.new(nil, nil, title, "rd_block_full") unless row
-
-      cell = a1(row, remitter_col)
-      RdTarget.new({ sheet: title, range: "#{cell}:#{cell}", rows: [ [ amount ] ] }, cell, title, nil)
-    end
-
-    def rd_sheet_title(client)
-      time = @transaction.transaction_at.in_time_zone
-      wanted = "#{RD_SHEET_PREFIX} #{time.day}#{time.month}"
-      client.titles.find { |title| same_text?(title, wanted) }
-    end
-
-    # The bottom accounting area (SP in / MB in / TOTAL AMOUNT …) is manual and
-    # may repeat agent or remitter names; stop reading blocks above it.
-    def rd_stop_row(grid)
-      stop = grid.each_with_index.find do |row, index|
-        next false if index < 2
-
-        Array(row).any? { |cell| normalize_text(cell).start_with?("total amount") } ||
-          %w[sp\ in mb\ in].include?(normalize_text(Array(row)[0]))
-      end
-      stop ? stop[1] : grid.length
-    end
-
-    # Columns that hold an agent label: blank in header row 2, followed by a
-    # remitter name.
-    def rd_block_columns(grid)
-      header = Array(grid[1])
-      (0...header.length).select { |col| blank_cell?(header[col]) && !blank_cell?(header[col + 1]) }
-    end
-
-    def rd_find_agent(grid, label)
-      columns = rd_block_columns(grid)
-      (2...grid.length).each do |row|
-        columns.each do |col|
-          return [ row, col ] if agent_label?(Array(grid[row])[col], label)
-        end
-      end
-      [ nil, nil ]
-    end
-
-    # Remitter columns follow the label column up to the first blank header cell.
-    def rd_remitter_column(grid, agent_col, excel_key)
-      header = Array(grid[1])
-      col = agent_col + 1
-      while col < header.length && !blank_cell?(header[col])
-        return col if same_text?(header[col], excel_key)
-
-        col += 1
-      end
-      nil
-    end
-
-    # A remitter with no column yet (new person in admin): add one at the end of
-    # every block that lacks it, in the header row 2 and with the neighbour's
-    # TOTAL formulas shifted by one column. Blocks are handled right to left so
-    # the columns of the blocks still to do do not move. Only the block rows are
-    # shifted, never the manual accounting area below. Safe to retry: once the
-    # header exists nothing is inserted again.
-    def rd_insert_remitter_columns(client, title, grid, excel_key)
-      stop_row = grid.length
-      targets = rd_block_columns(grid).reject { |col| rd_remitter_column(grid, col, excel_key) }.sort.reverse
-      return false if targets.empty?
-
-      formulas = client.values(title, RD_READ_RANGE, value_render_option: "FORMULA")
-      min_cols = grid.map(&:length).max.to_i + targets.size + 1
-      targets.each do |block_col|
-        last = rd_last_remitter_column(grid, block_col)
-        new_col = last + 1
-        client.insert_columns(title, col: new_col, end_row: stop_row, min_cols: min_cols)
-        updates = [ { sheet: title, range: a1(1, new_col), rows: [ [ text_cell(excel_key) ] ] } ]
-        (2...stop_row).each do |row|
-          next unless normalize_text(Array(grid[row])[block_col]) == "total"
-
-          formula = Array(formulas[row])[last]
-          next unless formula.is_a?(String) && formula.start_with?("=")
-
-          updates << { sheet: title, range: a1(row, new_col), rows: [ [ shift_formula_columns(formula, 1) ] ] }
-        end
-        client.batch_update_values(updates)
-      end
-      true
-    end
-
-    def rd_last_remitter_column(grid, block_col)
-      header = Array(grid[1])
-      col = block_col + 1
-      col += 1 while col + 1 < header.length && !blank_cell?(header[col + 1])
-      col
-    end
-
-    # "=SUM(F8:F12)" -> "=SUM(G8:G12)". Absolute columns ($F) and other-sheet
-    # references stay as they are.
-    def shift_formula_columns(formula, by)
-      formula.gsub(/(?<![A-Za-z0-9_$!'])(\$?)([A-Z]{1,3})(\$?)(\d+)(?![\d(A-Za-z])/) do
-        absolute, letters, row_mark, row = Regexp.last_match.captures
-        next Regexp.last_match[0] if absolute == "$"
-
-        "#{col_letters(letters_to_col(letters) + by)}#{row_mark}#{row}"
-      end
-    end
-
-    def letters_to_col(letters)
-      letters.each_char.reduce(0) { |sum, char| sum * 26 + (char.ord - 64) } - 1
-    end
-
-    def col_letters(col)
-      letters = ""
-      n = col + 1
-      while n.positive?
-        n, rem = (n - 1).divmod(26)
-        letters = (65 + rem).chr + letters
-      end
-      letters
-    end
-
-    def rd_total_row(grid, block_row, block_col)
-      ((block_row + 1)...grid.length).find { |row| normalize_text(Array(grid[row])[block_col]) == "total" }
-    end
-
-    # The row right above TOTAL is a spacer in the template. Whether the SUM
-    # covers it is unknown, so it is never written to.
-    def rd_first_free_row(grid, block_row, total_row, block_col, remitter_col)
-      last = total_row - 1
-      last -= 1 if last > block_row && Array(grid[last])[block_col..remitter_col].to_a.all? { |cell| blank_cell?(cell) }
-      (block_row..last).find { |row| blank_cell?(Array(grid[row])[remitter_col]) }
-    end
-
     # --- MB and Bill vô chủ ledgers ----------------------------------------
 
     def append_mb(client, resolution, rows)
@@ -443,7 +303,7 @@ module Workbook
         date_text("%H:%M:%S"),
         text_cell(resolution.merchant_dealer.dealer.name),
         text_cell(resolution.merchant.name),
-        text_cell(resolution.remitter&.name),
+        nil, # K "Người đi tiền": not part of a transaction any more
         marker
       ] ]
       [ n, { sheet: MB_SHEET, range: "A#{n}:L#{n}", rows: values } ]
@@ -492,35 +352,14 @@ module Workbook
       )
     end
 
-    def payload(resolution, issue:, rd_sheet: nil)
+    def payload(resolution, issue:)
       {
         "merchant_id" => resolution.merchant&.id,
         "dealer_id" => resolution.merchant_dealer&.dealer_id,
         "tid_key" => resolution.merchant_dealer&.tid_key,
-        "remitter_id" => resolution.remitter&.id,
         "issue" => issue,
-        "rd_sheet" => rd_sheet,
         "transaction_date" => @transaction.transaction_at&.to_date&.iso8601
       }.compact
-    end
-
-    def with_advisory_lock
-      key = "hello-smc-workbook:#{@spreadsheet_id}"
-      connection = Transaction.connection
-      acquired = connection.select_value(
-        Transaction.sanitize_sql_array([ "SELECT pg_try_advisory_lock(hashtext(?))", key ])
-      )
-      raise LockBusy, "workbook write in progress for #{@spreadsheet_id}" unless acquired == true || acquired == "t"
-
-      begin
-        yield
-      ensure
-        begin
-          connection.execute(Transaction.sanitize_sql_array([ "SELECT pg_advisory_unlock(hashtext(?))", key ]))
-        rescue StandardError => error
-          Rails.logger.warn("workbook advisory unlock failed: #{error.message}")
-        end
-      end
     end
 
     # --- cell helpers -------------------------------------------------------
@@ -532,45 +371,6 @@ module Workbook
         end
       end
       [ nil, nil ]
-    end
-
-    def same_text?(left, right)
-      normalize_text(left) == normalize_text(right)
-    end
-
-    # Diacritic/space-insensitive, and "tid 1" == "tid1" == "TID 1".
-    def normalize_text(text)
-      VietnameseText.normalize(text).gsub(/\btid\s+(\d+)\b/i, 'tid\1')
-    end
-
-    # Agent labels in the report are free text: "Hồng⏎(MB⏎SP⏎QR", "Mến ( MB )",
-    # "HảiHN QR", "Lập ⏎(MB+SP+QR". Compare only the name: drop the channel in
-    # parentheses or trailing MB/SP/QR, diacritics, case and spaces.
-    def agent_label?(cell, label)
-      label_key(cell.to_s.split("\n").first) == label_key(label)
-    end
-
-    def label_key(text)
-      normalize_text(text.to_s.sub(/\(.*\z/, "")).sub(CHANNEL_SUFFIX, "").delete(" ")
-    end
-
-    def blank_cell?(value)
-      value.nil? || value.to_s.strip.empty?
-    end
-
-    def numeric(value)
-      case value
-      when Numeric then value
-      when String then value.gsub(/[^\d.-]/, "").to_f
-      else 0
-      end
-    end
-
-    # OCR/admin text is written with USER_ENTERED so formulas work; a leading
-    # = + - @ would be run as a formula, so force it to literal text.
-    def text_cell(value)
-      text = value.to_s
-      text.match?(/\A[=+\-@\t\r]/) ? "'#{text}" : text
     end
 
     # Dates in the ledgers are literal text (dd/mm/yyyy): the MB date/time
@@ -600,16 +400,6 @@ module Workbook
 
     def percent_formula(rate)
       Exports::KetToanPhiGocLayout.formula_percent_for(rate)
-    end
-
-    def a1(row, col)
-      letters = ""
-      n = col + 1
-      while n.positive?
-        n, rem = (n - 1).divmod(26)
-        letters = (65 + rem).chr + letters
-      end
-      "#{letters}#{row + 1}"
     end
   end
 end

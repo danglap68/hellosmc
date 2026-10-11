@@ -6,12 +6,12 @@ module Permissions
   MATRIX = {
     "admin" => :all,
     "operator" => {
-      manage: %i[transactions reviews bill_uploads excel_exports],
+      manage: %i[transactions reviews remitter_transfers bill_uploads excel_exports],
       read: %i[dashboard bill_images bill_albums dealers telegram_chats merchants fee_rules remitters card_types audit_logs]
     },
     "viewer" => {
       manage: [],
-      read: %i[dashboard transactions bill_images bill_albums excel_exports]
+      read: %i[dashboard transactions remitter_transfers bill_images bill_albums excel_exports]
     }
   }.freeze
 
