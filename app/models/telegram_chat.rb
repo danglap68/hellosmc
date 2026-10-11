@@ -23,14 +23,19 @@ class TelegramChat < ApplicationRecord
   # The agent named in the group title; nil unless exactly one active dealer
   # matches by name or code (an ambiguous or unknown title never guesses).
   def group_dealer
-    token = parsed_name.agent_token
-    return nil if token.blank?
+    # Memoized per instance (one job / request) and per title: it is read several
+    # times while a transaction is evaluated and scans all active dealers.
+    return @group_dealer if defined?(@group_dealer_name) && @group_dealer_name == name
 
-    normalized = VietnameseText.normalize(token)
-    matches = Dealer.active.select do |dealer|
-      VietnameseText.normalize(dealer.name) == normalized || dealer.code.to_s.casecmp?(token.strip)
-    end
-    matches.one? ? matches.first : nil
+    @group_dealer_name = name
+    @group_dealer = find_group_dealer
+  end
+
+  # The memo above must not outlive a reload (the dealers may have changed).
+  def reload(*)
+    remove_instance_variable(:@group_dealer_name) if defined?(@group_dealer_name)
+    remove_instance_variable(:@group_dealer) if defined?(@group_dealer)
+    super
   end
 
   # HKDs named in the group title that match a configured merchant exactly.
@@ -61,6 +66,20 @@ class TelegramChat < ApplicationRecord
   end
 
   def merchant_ids_differ_from_name?
-    name_merchants.any? && name_merchants.map(&:id).sort != merchant_ids.sort
+    suggested = name_merchants
+    suggested.any? && suggested.map(&:id).sort != merchant_ids.sort
+  end
+
+  private
+
+  def find_group_dealer
+    token = parsed_name.agent_token
+    return nil if token.blank?
+
+    normalized = VietnameseText.normalize(token)
+    matches = Dealer.active.select do |dealer|
+      VietnameseText.normalize(dealer.name) == normalized || dealer.code.to_s.casecmp?(token.strip)
+    end
+    matches.one? ? matches.first : nil
   end
 end

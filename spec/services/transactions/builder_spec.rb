@@ -196,6 +196,29 @@ RSpec.describe Transactions::Builder do
     expect(transaction.review_reason_codes).not_to include("dealer_unmapped", "merchant_fuzzy_match")
   end
 
+  it "keeps the fuzzy match from the stripped name instead of discarding it for the no-match full name" do
+    gat = create(:merchant, name: "Gat Tan Day Coffe", code: "GTD")
+    gat.merchant_aliases.create!(alias_type: "receipt_name", alias: "Gat Tan Day Coffee")
+    cuong = create(:dealer, name: "Cường Duyên")
+    create(:merchant_dealer, merchant: gat, dealer: cuong, tid_key: "tid2")
+
+    # OCR misread "TAN" as "TẠM" and appended a bare "2"; the stripped name
+    # ("GẮT TẠM ĐÂY COFFEE") fuzzy-matches the alias while the full name does not.
+    doc = { "document_type" => "settlement", "total_amount_vnd" => 52_023_000,
+            "transaction_date" => "2026-10-10", "transaction_time" => "20:44:23",
+            "merchant_name" => "GẮT TẠM ĐÂY COFFEE 2", "lot_number" => "003327",
+            "terminal_or_merchant_id" => "106-C-067826",
+            "confidence" => BillVision::Prompt::FIELDS.index_with { 0.97 } }
+    normalized = BillVision::Normalizer.call({ "documents" => [ doc ] }, provider: "openai", model: "gpt-test")
+    image = create(:bill_image, telegram_message: create(:telegram_message, telegram_chat: chat),
+                                normalized_extraction: normalized, ocr_status: "completed")
+
+    transaction = described_class.call(bill_image: image).sole
+
+    expect(transaction.merchant).to eq(gat)
+    expect(transaction.review_reason_codes).to include("merchant_fuzzy_match")
+  end
+
   it "inherits the non-truncated, highest-confidence merchant name" do
     album = create(:bill_album, telegram_chat: chat)
 
@@ -486,6 +509,14 @@ RSpec.describe Transactions::Builder, "reprocessing a multi-settlement image" do
       transaction = described_class.call(bill_image: analyzed_bill).sole
       expect(transaction.review_reason_codes).not_to include("merchant_not_in_chat")
       expect(transaction).to be_approved
+    end
+
+    it "never auto-approves an agent inferred only from the transfer recipient" do
+      result = Dealers::Resolver::Result.new(dealer: dealer, merchant_dealer: merchant_dealer_link, source: "recipient", issue: nil)
+      allow(Dealers::Resolver).to receive(:call).and_return(result)
+      transaction = described_class.call(bill_image: analyzed_bill).sole
+      expect(transaction).to be_needs_review
+      expect(transaction.review_reason_codes).to include("dealer_from_recipient")
     end
 
     it "sends to review when the title's agent disagrees with the TID" do

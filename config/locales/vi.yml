@@ -768,6 +768,7 @@ vi:
     transaction_date_out_of_range: "Ngày giao dịch bất thường (tương lai hoặc quá cũ)"
     dealer_unmapped: "Chưa xác định được đại lý (TID hoặc tên nhóm chưa có mapping)"
     dealer_group_mismatch: "Đại lý theo TID khác đại lý theo tên nhóm Telegram"
+    dealer_from_recipient: "Đại lý suy ra từ tên người nhận chuyển khoản, cần xác nhận"
     dealer_recipient_mismatch: "Người nhận chuyển khoản khác đại lý theo TID/tên nhóm Telegram"
     merchant_not_in_chat: "Hộ kinh doanh không thuộc danh sách của nhóm Telegram"
     dealer_inactive: "Đại lý đang ngừng hoạt động"

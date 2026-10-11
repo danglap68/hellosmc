@@ -580,3 +580,12 @@ OCR đọc thêm `recipient_name` (chủ tài khoản nhận) chỉ với `docum
 - Gợi ý không bao giờ ghi đè: TID hoặc tên nhóm đã xác định đại lý khác → `dealer_recipient_mismatch` (workbook: `agent_recipient_mismatch`, vào `Bill vô chủ`/review).
 - Bill không có TID, tên nhóm không nêu đại lý nào khác, và đại lý đó chỉ có đúng một dòng TID trong HKD → resolve với `source = recipient`. Có nhiều dòng TID thì vẫn `dealer_unmapped`.
 - TID có trên bill nhưng chưa map → vẫn `dealer_unmapped`, người nhận không thay thế.
+
+## Độ bền khi ghi sheet (review kỹ thuật)
+
+- **Retry:** `WriteHelloSmcWorkbookJob` retry 200 lần khi lock bận, tối đa 12 lần (chờ tăng dần, trần 5 phút) với lỗi quota 429, 5xx và lỗi mạng của Google; các lỗi Google khác 5 lần.
+- **Lưới an toàn:** `RetryWorkbookWritesJob` (`bin/rails hellosmc:retry_workbook_writes`, lên lịch ~10 phút/lần) enqueue lại mọi transaction `approved`/`exported` có số tiền, ngày giờ mà chưa có `WorkbookEntry` và `updated_at` quá 15 phút, tối đa 200 cái mỗi lượt, giãn 2 giây. Ghi lại là an toàn nhờ marker `TX<id>` và advisory lock.
+- **Hạn mức Google:** metadata sheet được cache trong một lần ghi (xoá sau mỗi thay đổi cấu trúc) để bớt số lần đọc. Còn có thể gộp đọc MB/DS/thu chi bằng `values.batchGet` và chỉ đọc phần đuôi của MB.
+- **Enqueue:** `Builder` chỉ enqueue sau khi DB commit (`ActiveRecord.after_all_transactions_commit`).
+- **Đại lý suy ra từ người nhận:** luôn kèm lý do review `dealer_from_recipient`, không tự duyệt.
+- **Deploy migration `create_telegram_chat_merchants`:** chạy `db:migrate` rồi restart web/Sidekiq ngay (hoặc dừng nhận webhook trong lúc đó), vì migration bỏ cột `telegram_chats.merchant_id` mà code cũ còn đọc. `down` chỉ giữ HKD đầu tiên của mỗi nhóm.

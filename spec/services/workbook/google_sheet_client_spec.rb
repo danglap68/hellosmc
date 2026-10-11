@@ -132,4 +132,19 @@ RSpec.describe Workbook::GoogleSheetClient do
       expect(requests.first.append_dimension).to have_attributes(dimension: "COLUMNS", length: 3)
     end
   end
+
+  describe "sheet metadata" do
+    let(:props) { Google::Apis::SheetsV4::SheetProperties }
+
+    it "is fetched once for several lookups and again after a structural change" do
+      sheets = [ double(properties: props.new(sheet_id: 1, title: "MB", grid_properties: Google::Apis::SheetsV4::GridProperties.new(row_count: 10, column_count: 12))) ]
+      expect(service).to receive(:get_spreadsheet).with("sheet-id", fields: "sheets.properties")
+        .and_return(double(sheets: sheets)).twice
+      allow(service).to receive(:batch_update_spreadsheet)
+
+      client.ensure_rows("MB", 5)
+      client.ensure_rows("MB", 50)
+      client.ensure_rows("MB", 60)
+    end
+  end
 end

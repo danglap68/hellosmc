@@ -118,9 +118,13 @@ module Workbook
 
     private
 
+    # One metadata call serves every lookup of a write (grow rows, insert
+    # columns, duplicate/rename); it is dropped after any structural change.
+    # Sheets API reads are rate limited per minute, so calls are not free.
     def sheet_properties(title)
-      spreadsheet = @service.get_spreadsheet(@spreadsheet_id, fields: "sheets.properties")
-      properties = spreadsheet.sheets.map(&:properties).find { |props| props.title == title }
+      @sheet_properties ||= @service.get_spreadsheet(@spreadsheet_id, fields: "sheets.properties")
+        .sheets.map(&:properties)
+      properties = @sheet_properties.find { |props| props.title == title }
       raise ArgumentError, "missing sheet #{title}" unless properties
 
       properties
@@ -136,6 +140,7 @@ module Workbook
         Google::Apis::SheetsV4::BatchUpdateSpreadsheetRequest.new(requests: requests)
       )
       @titles = nil
+      @sheet_properties = nil
     end
 
     def credentials(credentials_io)

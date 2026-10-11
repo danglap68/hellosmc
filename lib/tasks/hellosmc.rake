@@ -40,6 +40,11 @@ namespace :hellosmc do
     RetryFailedExtractionJob.perform_now
   end
 
+  desc "Re-enqueue the Hello SMC sheet write for approved transactions that never reached the sheet (schedule every ~10 min)"
+  task retry_workbook_writes: :environment do
+    puts "Enqueued #{RetryWorkbookWritesJob.perform_now.to_i} sheet write(s)"
+  end
+
   desc "Run OCR on a local image without saving anything: bin/rails 'hellosmc:ocr[path/to/bill.jpg]'"
   task :ocr, [ :path ] => :environment do |_task, args|
     path = args[:path] or abort "Usage: bin/rails 'hellosmc:ocr[path/to/bill.jpg]'"

@@ -28,6 +28,15 @@ RSpec.describe TelegramChat do
       expect(build(:telegram_chat, name: "Anh Trân-Thiên Kim GV").group_dealer).to be_nil
     end
 
+    it "forgets the memoized agent on reload" do
+      chat = build(:telegram_chat, name: "Anh Trân-Thiên Kim GV")
+      expect(chat.group_dealer).to eq(tran)
+      tran.update!(active: false)
+      expect(chat.group_dealer).to eq(tran) # memoized for this instance
+      chat.save!
+      expect(chat.reload.group_dealer).to be_nil
+    end
+
     it "ignores inactive dealers" do
       tran.update!(active: false)
       expect(build(:telegram_chat, name: "Anh Trân-Thiên Kim GV").group_dealer).to be_nil

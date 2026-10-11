@@ -97,6 +97,8 @@ module Transactions
       result = Dealers::Resolver.call(merchant: merchant, merchant_name: @doc["merchant_name"],
                                       chat: @bill_image.telegram_chat, recipient_name: @doc["recipient_name"])
       @reasons << result.issue if result.issue
+      # A name match alone never approves a bill: a person confirms the agent.
+      @reasons << "dealer_from_recipient" if result.source == "recipient" && result.issue.nil?
       result
     end
 
@@ -132,14 +134,16 @@ module Transactions
 
     # Dash/tid suffix stripped first; if that is not an exact hit, also try the
     # name without a bare trailing number ("CHERRY COFFE 2" → "CHERRY COFFE").
-    # First exact result wins, otherwise the first attempt is kept.
+    # Prefer the strongest match across attempts: exact → fuzzy → ambiguous →
+    # the first attempt (none). This keeps a fuzzy hit from the stripped name
+    # ("GẮT TẠM ĐÂY COFFEE 2" → "Gat Tan Day Coffe") instead of discarding it.
     def resolve_merchant
       name = @doc["merchant_name"]
       names = [ Workbook::TidParser.strip(name), Workbook::TidParser.strip_bare_number(name) ].uniq
       results = names.map do |candidate|
         Merchants::Resolver.call(merchant_name: candidate, merchant_identifier: @doc["terminal_or_merchant_id"])
       end
-      results.find(&:exact?) || results.first
+      results.find(&:exact?) || results.find(&:fuzzy?) || results.find(&:ambiguous?) || results.first
     end
 
     def check_card_type(merchant, dealer)

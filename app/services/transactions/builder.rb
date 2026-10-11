@@ -344,7 +344,10 @@ module Transactions
       return unless transaction.finalized?
       return if transaction.transaction_amount_vnd.blank? || transaction.transaction_at.blank?
 
-      WriteHelloSmcWorkbookJob.perform_later(transaction.id)
+      # Rows are built inside a DB transaction: enqueue only once it commits, or
+      # the worker could read the row still `processing` and skip it for good.
+      id = transaction.id
+      ActiveRecord.after_all_transactions_commit { WriteHelloSmcWorkbookJob.perform_later(id) }
     end
 
     def record_skipped(index)
