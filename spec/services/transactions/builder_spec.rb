@@ -196,6 +196,34 @@ RSpec.describe Transactions::Builder do
     expect(transaction.review_reason_codes).not_to include("dealer_unmapped", "merchant_fuzzy_match")
   end
 
+  it "inherits the non-truncated, highest-confidence merchant name" do
+    album = create(:bill_album, telegram_chat: chat)
+
+    child = lambda do |merchant, confidence|
+      { "document_type" => "child_receipt", "total_amount_vnd" => 100_000_000,
+        "transaction_date" => "2026-10-04", "transaction_time" => "18:30:00",
+        "merchant_name" => merchant, "lot_number" => "000078",
+        "confidence" => BillVision::Prompt::FIELDS.index_with { 0.97 }.merge("merchant_name" => confidence) }
+    end
+    create(:bill_image, bill_album: album, telegram_message: create(:telegram_message, telegram_chat: chat),
+                        normalized_extraction: BillVision::Normalizer.call({ "documents" => [ child.call("HỘ KINH DOANH THIÊN KIM...", 0.55) ] }, provider: "openai", model: "gpt-test"),
+                        ocr_status: "completed")
+    create(:bill_image, bill_album: album, telegram_message: create(:telegram_message, telegram_chat: chat),
+                        normalized_extraction: BillVision::Normalizer.call({ "documents" => [ child.call("HỘ KINH DOANH THIÊN KIM", 0.72) ] }, provider: "openai", model: "gpt-test"),
+                        ocr_status: "completed")
+
+    settlement = { "document_type" => "settlement", "total_amount_vnd" => 100_000_000,
+                   "transaction_date" => "2026-10-04", "transaction_time" => nil, "merchant_name" => nil,
+                   "confidence" => BillVision::Prompt::FIELDS.index_with { 0.97 }.merge("merchant_name" => 0.0, "transaction_time" => 0.0) }
+    settlement_image = create(:bill_image, bill_album: album, telegram_message: create(:telegram_message, telegram_chat: chat),
+                                           normalized_extraction: BillVision::Normalizer.call({ "documents" => [ settlement ] }, provider: "openai", model: "gpt-test"),
+                                           ocr_status: "needs_review")
+
+    transaction = described_class.call(bill_image: settlement_image).sole
+
+    expect(transaction.source_data.dig("extraction", "merchant_name")).to eq("HỘ KINH DOANH THIÊN KIM")
+  end
+
   it "is idempotent" do
     bill_image = analyzed_bill
     first = described_class.call(bill_image: bill_image)

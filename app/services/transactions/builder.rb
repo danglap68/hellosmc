@@ -141,7 +141,8 @@ module Transactions
 
       merged = document.dup
       confidence = (merged["confidence"] || {}).dup
-      inherit_field(merged, confidence, children, "merchant_name")
+      inherit_field(merged, confidence, children, "merchant_name", best: true)
+      inherit_field(merged, confidence, children, "terminal_or_merchant_id", best: true)
       inherit_field(merged, confidence, children, "lot_number")
       inherit_field(merged, confidence, children, "transaction_time", latest: true)
 
@@ -154,11 +155,15 @@ module Transactions
       merged
     end
 
-    def inherit_field(merged, confidence, children, field, latest: false)
+    def inherit_field(merged, confidence, children, field, latest: false, best: false)
       return if merged[field].present?
 
       source = if latest
                  children.select { |doc| doc[field].present? }.max_by { |doc| doc[field].to_s }
+               elsif best
+                 children.select { |doc| doc[field].present? }.max_by do |doc|
+                   [ doc[field].to_s.include?("...") ? 0 : 1, doc.dig("confidence", field).to_f ]
+                 end
                else
                  children.find { |doc| doc[field].present? }
                end

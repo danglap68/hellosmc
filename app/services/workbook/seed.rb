@@ -21,10 +21,11 @@ module Workbook
       { code: "ASCAFE001", name: "HKD AS CAFE", anchor: "HKD AS CAFE" }
     ].freeze
 
-    # Extra receipt-name aliases for common OCR misspellings, keyed by HKD code.
-    # "CHERRY COFEE" is how OCR often reads "Cherry Coffee".
+    # Extra receipt-name aliases for common OCR misspellings/truncations, keyed
+    # by HKD code. OCR often drops the trailing branch ("GV") or misspells names.
     RECEIPT_ALIASES = {
-      "CHERRY001" => [ "CHERRY COFEE" ]
+      "CHERRY001" => [ "CHERRY COFEE" ],
+      "001" => [ "HỘ KINH DOANH THIÊN KIM" ]
     }.freeze
 
     # [hkd_code, dealer_name, tid_key, tid_label, ds_header, rd_agent_label]
