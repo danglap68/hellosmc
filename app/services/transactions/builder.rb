@@ -135,8 +135,7 @@ module Transactions
       return document if document["merchant_name"].present? && document["terminal_or_merchant_id"].present? &&
                         document["lot_number"].present? && document["transaction_time"].present?
 
-      children = @bill_image.bill_album.bill_images.analyzable.flat_map(&:documents)
-                           .select { |doc| doc["document_type"] == "child_receipt" }
+      children = album_child_receipts
       return document if children.empty?
 
       merged = document.dup
@@ -177,6 +176,14 @@ module Transactions
       else
         confidence[field].to_f
       end
+    end
+
+    # The album's child receipts are loaded once per build and reused for every
+    # settlement document, so a multi-settlement image does not re-query the
+    # album for each one.
+    def album_child_receipts
+      @album_child_receipts ||= @bill_image.bill_album.bill_images.analyzable.flat_map(&:documents)
+                                   .select { |doc| doc["document_type"] == "child_receipt" }
     end
 
     def inherit_field(merged, confidence, children, field, latest: false, best: false)
