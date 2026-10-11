@@ -2,8 +2,8 @@
 #
 #   SEED_ADMIN_EMAIL=admin@example.com SEED_ADMIN_PASSWORD=... bin/rails db:seed
 #
-# Sample dealers/merchants/fee rules are created in development only. Fee
-# values below are DEMO values; real rates are configured in the admin UI.
+# Sample dealers/merchants are created in development only. Fee rules are the
+# real ones (FeeRules::Seed, created only when missing, never overwritten).
 
 [
   { key: "normal", name: "Thẻ thường", aliases: [ "normal", "the thuong" ], position: 0 },
@@ -18,6 +18,11 @@ puts "Card types: #{CardType.pluck(:key).join(', ')}"
 
 # Hello SMC workbook: remitters + agent×HKD mapping (idempotent).
 Workbook::Seed.call
+
+# Real fee rules (needs the HKDs above). Skips rules that already exist, so
+# rates edited in the admin are kept.
+FeeRules::Seed.call
+puts "Fee rules: #{FeeRule.count}"
 
 admin_email = ENV["SEED_ADMIN_EMAIL"].presence || "danglap686868@gmail.com"
 unless User.exists?(email: admin_email)
