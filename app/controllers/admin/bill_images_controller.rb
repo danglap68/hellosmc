@@ -11,7 +11,7 @@ module Admin
       return head :not_found unless bill_image&.image&.attached?
 
       blob = bill_image.image.blob
-      if blob.service.is_a?(ActiveStorage::Service::DiskService)
+      if disk_storage?(blob)
         response.headers["Cache-Control"] = "private, max-age=300"
         send_data blob.download, type: blob.content_type, disposition: "inline", filename: blob.filename.to_s
       else

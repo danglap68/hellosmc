@@ -13,10 +13,15 @@ RSpec.describe Exports::ExcelGenerator do
   end
   let(:export) { create(:excel_export, export_date: Date.new(2026, 10, 4), generated_by: admin) }
 
+  # Tempfiles are removed after each example (they used to pile up in tmp/).
+  after { @tempfiles&.each(&:close!) }
+
   def read_sheet(export)
-    path = Rails.root.join("tmp", "spec-export-#{export.id}.xlsx")
-    File.binwrite(path, export.file.download)
-    Roo::Excelx.new(path.to_s)
+    file = Tempfile.new([ "spec-export", ".xlsx" ], binmode: true)
+    (@tempfiles ||= []) << file
+    file.write(export.file.download)
+    file.flush
+    Roo::Excelx.new(file.path)
   end
 
   it "writes legacy headers and maps statuses" do

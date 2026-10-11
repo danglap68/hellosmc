@@ -32,6 +32,14 @@ module Admin
       forbid! unless can?(ability, permission_resource)
     end
 
+    # Disk storage (development/test) streams the bytes; R2/S3 redirects to a
+    # presigned URL. Compared by name: ActiveStorage only loads the service
+    # classes that are configured, so ActiveStorage::Service::DiskService is
+    # undefined in production and referencing it raises NameError.
+    def disk_storage?(blob)
+      blob.service.class.name == "ActiveStorage::Service::DiskService"
+    end
+
     def forbid!
       respond_to do |format|
         format.html { render "admin/shared/forbidden", status: :forbidden }

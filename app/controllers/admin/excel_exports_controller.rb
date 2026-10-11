@@ -32,7 +32,7 @@ module Admin
 
       AuditLogger.log!(actor: current_user, action: "export.downloaded", auditable: @excel_export)
       blob = @excel_export.file.blob
-      if blob.service.is_a?(ActiveStorage::Service::DiskService)
+      if disk_storage?(blob)
         send_data blob.download, filename: @excel_export.filename, type: blob.content_type, disposition: "attachment"
       else
         redirect_to blob.url(expires_in: 5.minutes, disposition: "attachment", filename: @excel_export.filename),

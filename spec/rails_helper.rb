@@ -33,6 +33,13 @@ RSpec.configure do |config|
     Rails.application.reload_routes_unless_loaded
   end
 
+  # Files attached during the suite land on the Disk service (tmp/storage) and
+  # are not rolled back with the database; clear them so tmp/ does not grow.
+  config.after(:suite) do
+    service = ActiveStorage::Blob.service
+    FileUtils.rm_rf(service.root) if service.respond_to?(:root)
+  end
+
   config.before(:each, type: :system) do
     driven_by :rack_test
   end
