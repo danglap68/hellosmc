@@ -173,8 +173,10 @@ module ApplicationHelper
     end
   end
 
-  def dealer_options
-    Dealer.ordered.map { |dealer| [ dealer.active? ? dealer.name : "#{dealer.name} (#{t('common.inactive')})", dealer.id ] }
+  def dealer_options(transaction = nil)
+    # Once the HKD is known, only its agents are offered; otherwise every dealer.
+    scope = transaction&.merchant ? transaction.merchant.dealers.distinct : Dealer.all
+    scope.ordered.map { |dealer| [ dealer.active? ? dealer.name : "#{dealer.name} (#{t('common.inactive')})", dealer.id ] }
   end
 
   def merchant_options(scope = Merchant.all)
