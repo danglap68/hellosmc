@@ -28,6 +28,12 @@ module Telegram
         return result(:duplicate, message)
       end
 
+      if parsed.image? && remitter_sender_ignored?(parsed)
+        message.update!(processing_status: "ignored")
+        log("telegram.remitter_ignored", chat, parsed)
+        return result(:ignored_remitter, message)
+      end
+
       BillAlbums::Collector.call(message) if created && parsed.image? && parsed.media_group_id.present?
 
       if !chat.active?
@@ -46,6 +52,15 @@ module Telegram
     end
 
     private
+
+    # While the remitter feature flag is off, images sent by a remitter are
+    # transfer slips: they are stored but never downloaded or OCR'd.
+    def remitter_sender_ignored?(parsed)
+      return false if AppConfig.remitter_features_enabled?
+
+      Remitters::Resolver.call(telegram_user_id: parsed.sender_id, telegram_username: parsed.sender_username)
+                         .remitter.present?
+    end
 
     def upsert_chat(parsed)
       chat = TelegramChat.find_by(telegram_chat_id: parsed.chat_id)

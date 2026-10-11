@@ -42,10 +42,14 @@ module Workbook
         return unidentified("agent_tid_unmapped", merchant)
       end
 
-      remitter = Remitters::Resolver.call(
-        telegram_user_id: @transaction.telegram_message&.telegram_sender_id,
-        telegram_username: @transaction.telegram_message&.telegram_username
-      ).remitter
+      # Remitter feature off: no remitter, so the thu chi report is not written.
+      remitter =
+        if AppConfig.remitter_features_enabled?
+          Remitters::Resolver.call(
+            telegram_user_id: @transaction.telegram_message&.telegram_sender_id,
+            telegram_username: @transaction.telegram_message&.telegram_username
+          ).remitter
+        end
 
       Result.new(status: :identified, merchant:, merchant_dealer: link, remitter:, issue: nil)
     end

@@ -34,6 +34,11 @@ module AppConfig
   # messages are stored but not processed until an admin activates them.
   def telegram_auto_activate_chats? = AppSetting.get("telegram_auto_activate_chats")
 
+  # Feature flag for everything about remitters ("người đi tiền"): bills sent by
+  # a remitter, transfer documents, and the thu chi report. While false only
+  # settlement bills become transactions and everything else is skipped.
+  def remitter_features_enabled? = AppSetting.get("remitter_features_enabled")
+
   # How long to wait for more photos of a Telegram album before finalizing it.
   def album_collect_window_seconds = AppSetting.get("album_collect_window_seconds")
 

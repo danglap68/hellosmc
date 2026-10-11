@@ -211,6 +211,14 @@ module Transactions
     # * outside an album (single image) only confident child receipts are skipped.
     def skippable_document?(document)
       type = document["document_type"]
+      # Remitter feature off: a single image only becomes a row when it is a
+      # settlement; transfers, unreadable and unknown documents are skipped
+      # instead of cluttering review. Albums keep their normal handling below
+      # (child receipts + the settlement/transfer total).
+      if @bill_image.bill_album_id.blank? && type != "settlement" && !AppConfig.remitter_features_enabled?
+        return true
+      end
+
       if @bill_image.bill_album_id.present?
         return true if type.in?(%w[child_receipt unknown])
         return true if type.in?(%w[settlement transfer]) && document["total_amount_vnd"].nil?
