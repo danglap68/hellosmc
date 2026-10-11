@@ -56,6 +56,14 @@ RSpec.describe Telegram::UpdateReceiver do
       expect(log.before_data["message_text"]).to eq("MB")
       expect(DownloadTelegramAttachmentJob).to have_been_enqueued.once
     end
+
+    it "collects media-group images into an album" do
+      album_update = { "update_id" => 900010, "message" => update["message"].merge("media_group_id" => "mg-1") }
+      described_class.call(album_update)
+
+      album = BillAlbum.find_by!(telegram_chat: chat, media_group_id: "mg-1")
+      expect(album.metadata["message_ids"]).to be_present
+    end
   end
 
   it "ignores updates without a message" do

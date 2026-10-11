@@ -25,6 +25,22 @@
 
 <%= render "admin/transactions/review_reasons", transaction: @transaction %>
 
+<div class="card mb-3">
+  <div class="card-body">
+    <div class="d-flex align-items-center gap-4 flex-wrap">
+      <div>
+        <div class="text-secondary small"><%= Transaction.human_attribute_name(:dealer) %></div>
+        <div class="fs-3 fw-bold"><%= @transaction.dealer&.name || "—" %></div>
+      </div>
+      <div class="vr d-none d-sm-block" style="height: 3rem"></div>
+      <div>
+        <div class="text-secondary small"><%= t("transactions.show.hkd") %></div>
+        <div class="fs-3 fw-bold"><%= @transaction.merchant&.name || "—" %></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="row row-cards">
   <div class="col-lg-5">
     <div class="card mb-3">
@@ -162,6 +178,52 @@
         </div>
       </div>
     </div>
+
+    <% if (entry = @transaction.workbook_entry) %>
+      <div class="card mb-3">
+        <div class="card-header"><h3 class="card-title"><%= icon("table") %> <%= t("transactions.show.workbook") %></h3></div>
+        <div class="card-body">
+          <div class="datagrid">
+            <div class="datagrid-item">
+              <div class="datagrid-title"><%= t("transactions.show.workbook_branch") %></div>
+              <div class="datagrid-content"><%= entry.branch %></div>
+            </div>
+            <% if entry.ds_cell %>
+              <div class="datagrid-item">
+                <div class="datagrid-title"><%= t("transactions.show.workbook_ds_cell") %></div>
+                <div class="datagrid-content"><code><%= entry.ds_sheet %>!<%= entry.ds_cell %></code></div>
+              </div>
+            <% end %>
+            <% if entry.rd_cell %>
+              <div class="datagrid-item">
+                <div class="datagrid-title"><%= t("transactions.show.workbook_rd_cell") %></div>
+                <div class="datagrid-content"><code>R&D Report!<%= entry.rd_cell %></code></div>
+              </div>
+            <% end %>
+            <% if entry.mb_row %>
+              <div class="datagrid-item">
+                <div class="datagrid-title"><%= t("transactions.show.workbook_mb_row") %></div>
+                <div class="datagrid-content"><code>MB!A<%= entry.mb_row %></code></div>
+              </div>
+            <% end %>
+            <% if entry.unidentified_row %>
+              <div class="datagrid-item">
+                <div class="datagrid-title"><%= t("transactions.show.workbook_unidentified_row") %></div>
+                <div class="datagrid-content"><code>Bill vô chủ!A<%= entry.unidentified_row %></code></div>
+              </div>
+            <% end %>
+            <div class="datagrid-item">
+              <div class="datagrid-title"><%= t("transactions.show.workbook_tid") %></div>
+              <div class="datagrid-content"><code><%= entry.payload["tid_key"] || "—" %></code></div>
+            </div>
+            <div class="datagrid-item">
+              <div class="datagrid-title"><%= t("transactions.show.workbook_remitter") %></div>
+              <div class="datagrid-content"><%= Remitter.find_by(id: entry.payload["remitter_id"])&.name || "—" %></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    <% end %>
 
     <div class="card mb-3">
       <div class="card-header"><h3 class="card-title"><%= icon("math-function") %> <%= t("transactions.show.calculation") %></h3></div>

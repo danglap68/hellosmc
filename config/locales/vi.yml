@@ -25,8 +25,10 @@ vi:
     bill_uploads: "Tải bill lên"
     dealers: "Đại lý / Nhóm"
     telegram_chats: "Nhóm Telegram"
+    bill_albums: "Album bill"
     merchants: "Hộ kinh doanh"
     fee_rules: "Quy tắc phí"
+    remitters: "Người đi tiền"
     excel_exports: "Xuất Excel"
     audit_logs: "Nhật ký thay đổi"
     users: "Người dùng"
@@ -191,8 +193,17 @@ vi:
       message_edited: "Tin nhắn đã bị chỉnh sửa sau khi gửi. Hệ thống không tự xử lý lại – vui lòng kiểm tra."
       manual_upload: "Tải lên thủ công bởi %{user}"
       summary: "Thông tin giao dịch"
+      hkd: "HKD"
       view_export: "Xem lần xuất"
       calculation: "Cách tính"
+      workbook: "Ghi Google Sheet Hello SMC"
+      workbook_branch: "Nhánh"
+      workbook_ds_cell: "Ô DS MB"
+      workbook_rd_cell: "Ô R&D Report"
+      workbook_mb_row: "Hàng MB"
+      workbook_unidentified_row: "Hàng Bill vô chủ"
+      workbook_tid: "TID"
+      workbook_remitter: "Người đi tiền"
       normalized_extraction: "Dữ liệu OCR đã chuẩn hoá"
       resolution: "Kết quả đối chiếu"
       raw_output: "Kết quả OCR gốc"
@@ -306,9 +317,23 @@ vi:
       map_group: "Gán nhóm Telegram"
       no_groups: "Chưa gán nhóm Telegram nào."
 
+  remitters:
+    index:
+      title: "Người đi tiền"
+      new: "Thêm người đi tiền"
+      empty: "Chưa có người đi tiền"
+    form:
+      excel_key_hint: "Khớp hàng 2 của sheet R&D Report. Ví dụ: LẬP, KIM."
+      telegram_username_hint: "Không cần ký tự @, không phân biệt hoa thường."
+    new:
+      title: "Thêm người đi tiền"
+    edit:
+      title: "Sửa người đi tiền %{name}"
+
   telegram_chats:
     messages: "Tin nhắn"
     unmapped: "Chưa gán đại lý"
+    unmapped_hkd: "Chưa gán hộ kinh doanh"
     index:
       title: "Nhóm Telegram"
       new: "Thêm nhóm"
@@ -322,6 +347,7 @@ vi:
     form:
       chat_id_hint: "ID số của nhóm, ví dụ -1001234567890"
       dealer_hint: "Bill từ nhóm này được tính cho đại lý đã chọn."
+      merchant_hint: "HKD dùng làm fallback khi OCR không nhận ra hộ kinh doanh trên bill."
       active_hint: "Chỉ nhóm đang hoạt động mới được xử lý bill."
     new:
       title: "Thêm nhóm Telegram"
@@ -348,6 +374,9 @@ vi:
       no_dealer: "Không thuộc đại lý nào"
       no_default_card_type: "Không có"
       default_card_type_hint: "Dùng khi tin nhắn không ghi loại thẻ."
+      agents: "Đại lý theo TID"
+      tid_key_hint: "Ví dụ: tid1, tid127"
+      ds_sheet_anchor_hint: "Đúng chữ ở ô góc trái bảng trong DS MB, ví dụ: Thiên Kim GV"
     new:
       title: "Thêm hộ kinh doanh"
     edit:
@@ -549,18 +578,21 @@ vi:
       telegram: "Telegram"
       uploads: "Ảnh bill"
       email: "Email"
+      exports: "Google Sheet Hello SMC"
     group_hints:
       ocr: "Nhà cung cấp, mô hình và ngưỡng độ tin cậy để tự động duyệt."
       matching: "Cách nhận diện hộ kinh doanh và phát hiện bill trùng."
       telegram: "Cách xử lý nhóm Telegram mới."
       uploads: "Giới hạn ảnh nhận từ Telegram và tải lên thủ công."
       email: "Địa chỉ gửi email đặt lại mật khẩu."
+      exports: "Spreadsheet ID của bảng Hello SMC (bản Google Sheet native)."
     group_icons:
       ocr: "scan"
       matching: "git-compare"
       telegram: "brand-telegram"
       uploads: "photo"
       email: "mail"
+      exports: "table"
     keys:
       vision_provider: "Nhà cung cấp OCR"
       openai_vision_model: "Mô hình OpenAI"
@@ -577,8 +609,10 @@ vi:
       duplicate_window_minutes: "Khoảng thời gian kiểm tra trùng"
       max_receipt_age_days: "Tuổi tối đa của bill"
       telegram_auto_activate_chats: "Tự động kích hoạt nhóm Telegram mới"
+      album_collect_window_seconds: "Thời gian chờ ảnh album"
       max_bill_image_mb: "Dung lượng ảnh tối đa"
       mailer_sender: "Email người gửi"
+      hello_smc_spreadsheet_id: "Spreadsheet ID"
     hints:
       vision_provider: "Cần khai báo API key tương ứng trên máy chủ."
       openai_vision_model: "Ví dụ: gpt-4.1"
@@ -595,10 +629,13 @@ vi:
       duplicate_window_minutes: "Cùng hộ kinh doanh và cùng số tiền trong khoảng này được đánh dấu có thể trùng."
       max_receipt_age_days: "Bill cũ hơn số ngày này phải kiểm tra thủ công."
       telegram_auto_activate_chats: "Khi tắt, nhóm mới phải được quản trị viên gán đại lý và bật trước khi xử lý bill."
+      album_collect_window_seconds: "Chờ thêm ảnh của cùng một album trước khi chốt để đối chiếu tổng."
       max_bill_image_mb: "Telegram giới hạn tải file của bot ở 20 MB."
       mailer_sender: "Hiển thị ở trường “Từ” của email."
+      hello_smc_spreadsheet_id: "Để trống nếu chưa cấu hình ghi Google Sheet Hello SMC."
     units:
       vision_timeout_seconds: "giây"
+      album_collect_window_seconds: "giây"
       max_ocr_attempts: "lần"
       duplicate_window_minutes: "phút"
       max_receipt_age_days: "ngày"
@@ -747,6 +784,28 @@ vi:
     reprocessed_multi_settlement: "Ảnh có nhiều bill kết toán – kiểm tra kỹ bill này tương ứng với bill nào trước khi duyệt hoặc từ chối"
     too_many_documents: "Ảnh có quá nhiều bill, một số bill chưa được đọc – cần kiểm tra"
     caption_edited: "Tin nhắn Telegram (loại thẻ) đã bị sửa sau khi xử lý"
+    album_total_mismatch: "Tổng các bill con không khớp số tiền đã chuyển"
+    album_multiple_transfers: "Album có nhiều ảnh tổng kết – cần kiểm tra"
+    album_ocr_failed: "Album có bill đọc lỗi – cần kiểm tra"
+    album_amount_unreadable: "Album có bill con thiếu tổng tiền"
+    album_missing_bills: "Ảnh tổng kết không có bill con để đối chiếu"
+    album_total_review: "Giao dịch tổng kết của album – cần kiểm tra"
+
+  bill_albums:
+    index:
+      title: "Album bill"
+      empty: "Chưa có album nào."
+    show:
+      title: "Album #%{id}"
+      reconciliation: "Đối chiếu"
+      transfer_amount: "Số tiền chuyển"
+      child_total: "Tổng bill con"
+      difference: "Chênh lệch"
+      images: "Ảnh trong album"
+      transfer_image: "Hình chuyển tiền"
+      bill_con: "Bill con"
+      transactions: "Giao dịch"
+      skipped_note: "Album chưa được ghi sổ do thiếu hình chuyển tiền tổng kết."
 
   activemodel:
     models:
@@ -765,10 +824,13 @@ vi:
       telegram_chat: "Nhóm Telegram"
       merchant: "Hộ kinh doanh"
       merchant_alias: "Alias"
+      remitter: "Người đi tiền"
+      merchant_dealer: "Đại lý theo TID"
       card_type: "Loại thẻ"
       fee_rule: "Quy tắc phí"
       telegram_message: "Tin nhắn Telegram"
       bill_image: "Ảnh bill"
+      bill_album: "Album bill"
       transaction: "Giao dịch"
       transaction_review: "Lượt kiểm tra"
       audit_log: "Nhật ký"
@@ -793,8 +855,8 @@ vi:
         name: "Tên nhóm"
         telegram_chat_id: "Telegram chat ID"
         chat_type: "Loại chat"
-        dealer: "Đại lý"
-        dealer_id: "Đại lý"
+        merchant: "Hộ kinh doanh"
+        merchant_id: "Hộ kinh doanh"
         active: "Hoạt động"
       merchant:
         name: "Tên hộ kinh doanh"
@@ -809,6 +871,21 @@ vi:
         alias: "Alias"
         alias_type: "Loại alias"
         normalized_alias: "Dạng chuẩn hoá"
+        active: "Hoạt động"
+      remitter:
+        name: "Tên"
+        excel_key: "Mã Excel"
+        telegram_user_id: "Telegram user ID"
+        telegram_username: "Telegram username"
+        active: "Hoạt động"
+      merchant_dealer:
+        dealer: "Đại lý"
+        dealer_id: "Đại lý"
+        tid_key: "TID"
+        tid_label: "Nhãn TID"
+        ds_sheet_anchor: "Tên HKD trong DS MB"
+        ds_header: "Cột trong DS MB"
+        rd_agent_label: "Nhãn R&D Report"
         active: "Hoạt động"
       card_type:
         key: "Mã"
@@ -850,6 +927,17 @@ vi:
         source: "Nguồn"
         file_size: "Dung lượng"
         processing_error: "Lỗi xử lý"
+      bill_album:
+        telegram_chat: "Nhóm Telegram"
+        media_group_id: "Media group ID"
+        status: "Trạng thái"
+        reconciliation_status: "Kết quả đối chiếu"
+        transfer_amount_vnd: "Số tiền chuyển"
+        child_total_vnd: "Tổng bill con"
+        child_count: "Số bill con"
+        transfer_count: "Số hình chuyển tiền"
+        match_difference_vnd: "Chênh lệch"
+        created_at: "Thời điểm"
       transaction:
         dealer: "Đại lý"
         dealer_id: "Đại lý"
@@ -917,6 +1005,22 @@ vi:
         source:
           telegram: "Telegram"
           manual_upload: "Tải lên thủ công"
+      bill_album:
+        status:
+          collecting: "Đang nhận ảnh"
+          processing: "Đang xử lý"
+          reconciled: "Đã đối chiếu"
+          needs_review: "Cần kiểm tra"
+          skipped: "Đã bỏ qua"
+          failed: "Xử lý lỗi"
+        reconciliation_status:
+          matched: "Khớp"
+          mismatched: "Lệch"
+          multiple_transfers: "Nhiều ảnh tổng kết"
+          missing_bills: "Thiếu bill con"
+          no_transfer: "Không có ảnh tổng kết"
+          transfer_duplicate: "Ảnh tổng kết bị trùng"
+          incomplete: "Chưa đủ dữ liệu"
       user:
         role:
           admin: "Quản trị"
@@ -957,4 +1061,5 @@ vi:
         document_type:
           settlement: "Bill kết toán"
           child_receipt: "Bill con"
+          transfer: "Hình chuyển tiền"
           unknown: "Không xác định"

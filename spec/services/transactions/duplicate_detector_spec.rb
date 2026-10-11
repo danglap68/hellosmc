@@ -2,11 +2,12 @@ require "rails_helper"
 
 RSpec.describe Transactions::DuplicateDetector do
   let(:merchant) { create(:merchant) }
+  let(:dealer) { create(:dealer) }
   let(:at) { Time.zone.local(2026, 10, 4, 10, 57, 25) }
-  let!(:existing) { create(:transaction, :approved, merchant: merchant, dealer: merchant.dealer, transaction_at: at, lot_number: "000269") }
+  let!(:existing) { create(:transaction, :approved, merchant: merchant, dealer: dealer, transaction_at: at, lot_number: "000269") }
 
   def candidate(**attributes)
-    build(:transaction, { merchant: merchant, dealer: merchant.dealer, transaction_at: at, lot_number: "000269",
+    build(:transaction, { merchant: merchant, dealer: dealer, transaction_at: at, lot_number: "000269",
                           transaction_amount_vnd: existing.transaction_amount_vnd }.merge(attributes))
   end
 

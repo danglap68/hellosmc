@@ -42,6 +42,7 @@ module Telegram
 
       bill_image = BillImage.new(
         telegram_message: @message,
+        bill_album: album_for_message,
         source: "telegram",
         telegram_file_id: attachment.file_id,
         telegram_file_unique_id: attachment.file_unique_id,
@@ -98,9 +99,16 @@ module Telegram
       raise InvalidImageError, "Unsupported image type: #{mime_type}"
     end
 
+    def album_for_message
+      return nil if @message.media_group_id.blank?
+
+      BillAlbum.find_by(telegram_chat: @message.telegram_chat, media_group_id: @message.media_group_id)
+    end
+
     def record_duplicate(attachment, original, reason:, **attributes)
       bill_image = BillImage.create!(
         telegram_message: @message,
+        bill_album: album_for_message,
         source: "telegram",
         telegram_file_id: attachment.file_id,
         duplicate_of: original,

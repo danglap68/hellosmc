@@ -2,7 +2,7 @@
 # email sender). One row per changed key; missing keys use the default.
 # Secrets (API keys, tokens) never live here — they stay in ENV.
 class AppSetting < ApplicationRecord
-  Definition = Data.define(:key, :type, :default, :group, :min, :max, :options) do
+  Definition = Data.define(:key, :type, :default, :group, :min, :max, :options, :allow_blank) do
     def cast(raw)
       case type
       when :decimal, :percent then BigDecimal(raw.to_s)
@@ -23,8 +23,8 @@ class AppSetting < ApplicationRecord
     end
   end
 
-  def self.define(key, type, default, group, min: nil, max: nil, options: nil)
-    Definition.new(key: key, type: type, default: default, group: group, min: min, max: max, options: options)
+  def self.define(key, type, default, group, min: nil, max: nil, options: nil, allow_blank: false)
+    Definition.new(key:, type:, default:, group:, min:, max:, options:, allow_blank:)
   end
 
   VISION_PROVIDERS = (Rails.env.production? ? %w[openai gemini] : %w[openai gemini fake]).freeze
@@ -45,8 +45,10 @@ class AppSetting < ApplicationRecord
     define("duplicate_window_minutes", :integer, "10", "matching", min: "0", max: "1440"),
     define("max_receipt_age_days", :integer, "45", "matching", min: "1", max: "366"),
     define("telegram_auto_activate_chats", :boolean, "false", "telegram"),
+    define("album_collect_window_seconds", :integer, "15", "telegram", min: "3", max: "300"),
     define("max_bill_image_mb", :integer, "20", "uploads", min: "1", max: "20"),
-    define("mailer_sender", :string, "no-reply@hellosmc.com", "email")
+    define("mailer_sender", :string, "no-reply@hellosmc.com", "email"),
+    define("hello_smc_spreadsheet_id", :string, "", "exports", allow_blank: true)
   ].index_by(&:key).freeze
 
   GROUPS = DEFINITIONS.values.map(&:group).uniq.freeze

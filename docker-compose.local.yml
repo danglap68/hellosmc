@@ -1,0 +1,46 @@
+# Chạy toàn bộ app trong Docker chỉ để phát triển/test trên máy local.
+# KHÔNG dùng cho production (xem docker-compose.production.yml / docker-compose.coolify.yml).
+#
+#   colima start
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml up -d
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml run --rm web bin/rails db:prepare
+#
+# Code được mount từ thư mục hiện tại, gem được cache trong volume `bundle_cache`.
+# DB và Redis là container postgres/redis của docker-compose.yml; biến DB_HOST,
+# REDIS_URL bên dưới ghi đè giá trị `localhost` trong .env (dotenv không ghi đè ENV có sẵn).
+x-rails: &rails
+  image: ruby:3.4.10
+  working_dir: /app
+  volumes:
+    - .:/app
+    - bundle_cache:/usr/local/bundle
+  environment:
+    RAILS_ENV: development
+    DB_HOST: postgres
+    DB_PORT: "5432"
+    REDIS_URL: redis://redis:6379/0
+    SIDEKIQ_CONCURRENCY: "5"
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+services:
+  web:
+    <<: *rails
+    command: bash -lc "bundle check || bundle install; rm -f tmp/pids/server.pid; bin/rails server -b 0.0.0.0 -p 3000"
+    ports:
+      - "3000:3000"
+
+  worker:
+    <<: *rails
+    command: bash -lc "until bundle check; do sleep 3; done; bundle exec sidekiq -C config/sidekiq.yml"
+
+  # Long polling cho local; không chạy cùng webhook. Tắt dịch vụ này nếu chưa muốn bot nhận tin.
+  telegram:
+    <<: *rails
+    command: bash -lc "until bundle check; do sleep 3; done; bin/telegram_bot"
+
+volumes:
+  bundle_cache:

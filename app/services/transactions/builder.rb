@@ -26,13 +26,12 @@ module Transactions
       return [ build_failed(0) ] + fail_leftovers if @bill_image.ocr_failed?
       return [] unless @bill_image.ocr_completed? || @bill_image.ocr_needs_review?
 
-      dealer_result = Dealers::Resolver.call(bill_image: @bill_image)
       processing_rows = @bill_image.transactions.where(status: "processing").order(:source_index).to_a
       transactions =
         if processing_rows.any?
-          rebuild(processing_rows, dealer_result)
+          rebuild(processing_rows)
         else
-          first_build(dealer_result)
+          first_build
         end
       @bill_image.telegram_message&.update!(processing_status: "processed")
       transactions
@@ -41,21 +40,21 @@ module Transactions
     private
 
     # First analysis (or a retry of it): one row per document, keyed by position.
-    def first_build(dealer_result)
+    def first_build
       @bill_image.documents.filter_map do |document|
         index = document.fetch("index")
-        if skippable_child_receipt?(document)
-          record_skipped(index)
+        if skippable_document?(document)
+          record_skipped(index) if document["document_type"] == "child_receipt"
           next
         end
 
-        build_document(document, index, dealer_result)
+        build_document(document, index)
       end
     end
 
-    def rebuild(processing_rows, dealer_result)
+    def rebuild(processing_rows)
       decided_rows = @bill_image.transactions.where.not(status: "processing").to_a
-      documents = @bill_image.documents.reject { |document| skippable_child_receipt?(document) }
+      documents = @bill_image.documents.reject { |document| skippable_document?(document) }
       # A settlement that already has a decided row is not booked twice.
       available = documents.reject { |document| decided_rows.any? { |row| same_settlement?(row, document) } }
       multi_settlement = @bill_image.documents.size > 1 || decided_rows.any? || processing_rows.size > 1
@@ -68,7 +67,7 @@ module Transactions
       results = processing_rows.map do |row|
         document = assignments[row]
         if document
-          build_document(document, row.source_index, dealer_result,
+          build_document(document, row.source_index,
                          extra_reasons: multi_settlement ? [ "reprocessed_multi_settlement" ] : [])
         else
           move_leftover(row, "needs_review", "document_missing_after_reprocess")
@@ -77,23 +76,24 @@ module Transactions
 
       next_index = @bill_image.transactions.maximum(:source_index).to_i + 1
       (available - assignments.values.compact).each_with_index do |document, offset|
-        results << build_document(document, next_index + offset, dealer_result,
+        results << build_document(document, next_index + offset,
                                   extra_reasons: [ "document_added_after_reprocess" ])
       end
       results
     end
 
-    def build_document(document, index, dealer_result, extra_reasons: [])
+    def build_document(document, index, extra_reasons: [])
       with_transaction_row(index) do |transaction, creating|
         before = creating ? nil : transaction.audit_snapshot
-        evaluation = Evaluator.call(document: document, bill_image: @bill_image, dealer_result: dealer_result)
+        document = inherit_album_fields(document)
+        evaluation = Evaluator.call(document: document, bill_image: @bill_image)
 
         transaction.assign_attributes(evaluation.attributes)
         transaction.source_data = evaluation.source_data
         lock_duplicate_scope(transaction)
         transaction.save!
 
-        reasons = evaluation.review_reasons + extra_reasons
+        reasons = evaluation.review_reasons + extra_reasons + album_total_reasons(document)
         duplicates = DuplicateDetector.call(transaction)
         reasons += [ "possible_duplicate" ] if duplicates.possible_duplicate?
         transaction.source_data = transaction.source_data.merge(
@@ -116,9 +116,109 @@ module Transactions
       )
     end
 
-    # Child receipts are only skipped when the model is confident they are not settlements.
-    def skippable_child_receipt?(document)
-      document["document_type"] == "child_receipt" && !document["requires_review"]
+    # In an album the settlement/transfer is the single "tổng kết" transaction,
+    # which is never auto-approved: a human confirms it against the child bills.
+    def album_total_reasons(document)
+      return [] unless @bill_image.bill_album_id.present?
+      return [] unless document["document_type"].in?(%w[settlement transfer])
+
+      [ "album_total_review" ]
+    end
+
+    # A "tổng kết" (settlement/transfer) often prints only the total, not the
+    # merchant/lot/time. Inherit those (and their confidence) from the album's
+    # child receipts so the transaction is complete instead of flagged
+    # merchant_missing / transaction_time_missing.
+    def inherit_album_fields(document)
+      return document unless @bill_image.bill_album_id.present?
+      return document unless document["document_type"].in?(%w[settlement transfer])
+      return document if document["merchant_name"].present? && document["terminal_or_merchant_id"].present? &&
+                        document["lot_number"].present? && document["transaction_time"].present?
+
+      children = album_child_receipts
+      return document if children.empty?
+
+      merged = document.dup
+      confidence = (merged["confidence"] || {}).dup
+      inherit_field(merged, confidence, children, "merchant_name", best: true)
+      inherit_field(merged, confidence, children, "terminal_or_merchant_id", best: true)
+      inherit_field(merged, confidence, children, "lot_number")
+      inherit_field(merged, confidence, children, "transaction_time", latest: true)
+
+      if merged["transaction_date"].present? && merged["transaction_time"].present? && merged["transaction_at"].blank?
+        date = Date.parse(merged["transaction_date"])
+        hour, minute, second = merged["transaction_time"].split(":").map(&:to_i)
+        merged["transaction_at"] = Time.zone.local(date.year, date.month, date.day, hour, minute, second).iso8601
+      end
+      merged["confidence"] = confidence
+      refresh_critical_fields(merged, confidence)
+      merged
+    end
+
+    # The stored critical_confidence / low_confidence_fields were computed from
+    # the un-inherited document; recompute them so the summary matches the
+    # inherited per-field confidence.
+    def refresh_critical_fields(document, confidence)
+      type = document["document_type"]
+      critical_fields = BillVision::Normalizer::CRITICAL_FIELDS_BY_TYPE.fetch(type, %w[document_type])
+      values = critical_fields.to_h { |field| [ field, critical_confidence_value(confidence, field) ] }
+
+      document["critical_confidence"] = values.values.min
+      document["low_confidence_fields"] = critical_fields.select do |field|
+        BigDecimal(values[field].to_s) < AppConfig.ocr_auto_approve_threshold
+      end
+      document["requires_review"] = type == "unknown" || document["low_confidence_fields"].any?
+    end
+
+    def critical_confidence_value(confidence, field)
+      if field == "merchant_name"
+        [ confidence["merchant_name"], confidence["terminal_or_merchant_id"] ].compact.max.to_f
+      else
+        confidence[field].to_f
+      end
+    end
+
+    # The album's child receipts are loaded once per build and reused for every
+    # settlement document, so a multi-settlement image does not re-query the
+    # album for each one.
+    def album_child_receipts
+      @album_child_receipts ||= @bill_image.bill_album.bill_images.analyzable.flat_map(&:documents)
+                                   .select { |doc| doc["document_type"] == "child_receipt" }
+    end
+
+    def inherit_field(merged, confidence, children, field, latest: false, best: false)
+      return if merged[field].present?
+
+      source = if latest
+                 children.select { |doc| doc[field].present? }.max_by { |doc| doc[field].to_s }
+               elsif best
+                 children.select { |doc| doc[field].present? }.max_by do |doc|
+                   [ doc[field].to_s.include?("...") ? 0 : 1, doc.dig("confidence", field).to_f ]
+                 end
+               else
+                 children.find { |doc| doc[field].present? }
+               end
+      return unless source
+
+      merged[field] = source[field]
+      confidence[field] = source.dig("confidence", field)
+    end
+
+    # Child receipts (bill con) and unreadable documents are evidence, never
+    # accounting rows:
+    # * inside an album only a "tổng kết" (settlement/transfer) with a readable
+    #   amount is built; a nil-amount total (e.g. a confirm popup) is skipped;
+    # * outside an album (single image) only confident child receipts are skipped.
+    def skippable_document?(document)
+      type = document["document_type"]
+      if @bill_image.bill_album_id.present?
+        return true if type.in?(%w[child_receipt unknown])
+        return true if type.in?(%w[settlement transfer]) && document["total_amount_vnd"].nil?
+
+        return false
+      end
+
+      type == "child_receipt" && !document["requires_review"]
     end
 
     def same_settlement?(row, document)
@@ -176,6 +276,7 @@ module Transactions
 
       StructuredLog.info("transaction.built", transaction_id: transaction.id, bill_image_id: @bill_image.id,
                                               status: transaction.status, review_reasons: reasons)
+      enqueue_workbook(transaction)
       transaction
     end
 
@@ -205,8 +306,6 @@ module Transactions
     def build_failed(index)
       with_transaction_row(index) do |transaction, creating|
         before = creating ? nil : transaction.audit_snapshot
-        dealer_result = Dealers::Resolver.call(bill_image: @bill_image)
-        transaction.assign_attributes(dealer: dealer_result.dealer)
         transaction.source_data = transaction.source_data.merge(
           "review_reasons" => [ "ocr_failed" ],
           "ocr_error" => @bill_image.processing_error,
@@ -239,6 +338,12 @@ module Transactions
       end
     rescue ActiveRecord::RecordNotUnique
       Transaction.find_by!(bill_image: @bill_image, source_index: index)
+    end
+
+    def enqueue_workbook(transaction)
+      return if transaction.failed? || transaction.transaction_amount_vnd.blank? || transaction.transaction_at.blank?
+
+      WriteHelloSmcWorkbookJob.perform_later(transaction.id)
     end
 
     def record_skipped(index)

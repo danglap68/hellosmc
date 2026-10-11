@@ -1,10 +1,13 @@
 class Merchant < ApplicationRecord
-  belongs_to :dealer, optional: true
   belongs_to :default_card_type, class_name: "CardType", optional: true
 
   has_many :merchant_aliases, dependent: :destroy
   has_many :fee_rule_merchants, dependent: :restrict_with_error
   has_many :fee_rules, through: :fee_rule_merchants
+  has_many :merchant_dealers, dependent: :destroy
+  has_many :dealers, through: :merchant_dealers
+  accepts_nested_attributes_for :merchant_dealers, allow_destroy: true, reject_if: :all_blank
+  has_many :telegram_chats, dependent: :restrict_with_error
   has_many :transactions, dependent: :restrict_with_error
 
   before_validation :normalize_fields

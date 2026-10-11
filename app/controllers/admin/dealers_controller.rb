@@ -8,13 +8,11 @@ module Admin
       scope = Dealer.includes(:default_card_type).ordered
       scope = scope.where("dealers.name ILIKE :q OR dealers.code ILIKE :q", q: "%#{Dealer.sanitize_sql_like(params[:q])}%") if params[:q].present?
       @pagy, @dealers = pagy(scope)
-      @chat_counts = TelegramChat.where(dealer_id: @dealers.map(&:id)).group(:dealer_id).count
-      @merchant_counts = Merchant.where(dealer_id: @dealers.map(&:id)).group(:dealer_id).count
+      @merchant_counts = MerchantDealer.where(dealer_id: @dealers.map(&:id)).group(:dealer_id).count
     end
 
     def show
-      @telegram_chats = @dealer.telegram_chats.ordered
-      @merchants = @dealer.merchants.ordered
+      @merchants = @dealer.assigned_merchants.ordered
       @fee_rules = @dealer.fee_rules.includes(:fee_rule_merchants, :merchants, :fee_rule_card_types, :card_types).ordered
     end
 

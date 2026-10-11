@@ -1,0 +1,50 @@
+require "rails_helper"
+
+RSpec.describe MerchantDealer do
+  describe "validations" do
+    it "requires tid_key, ds_header and rd_agent_label" do
+      md = build(:merchant_dealer, tid_key: nil, ds_header: nil, rd_agent_label: nil)
+      expect(md).not_to be_valid
+      expect(md.errors[:tid_key]).to be_present
+      expect(md.errors[:ds_header]).to be_present
+      expect(md.errors[:rd_agent_label]).to be_present
+    end
+
+    it "defaults tid_label to tid_key" do
+      md = build(:merchant_dealer, tid_key: "tid1", tid_label: nil)
+      md.valid?
+      expect(md.tid_label).to eq("tid1")
+    end
+
+    it "requires the DS MB header anchor instead of guessing the merchant name" do
+      merchant = create(:merchant, name: "001_ HỘ KINH DOANH THIÊN KIM GV")
+      md = build(:merchant_dealer, merchant: merchant, ds_sheet_anchor: nil)
+      expect(md).not_to be_valid
+      expect(md.errors[:ds_sheet_anchor]).to be_present
+    end
+
+    it "normalizes a bare number to a tid key" do
+      md = build(:merchant_dealer, tid_key: "1")
+      md.valid?
+      expect(md.tid_key).to eq("tid1")
+    end
+
+    it "normalizes tid_key from 'TID 127' to 'tid127'" do
+      md = build(:merchant_dealer, tid_key: "TID 127")
+      md.valid?
+      expect(md.tid_key).to eq("tid127")
+    end
+
+    it "rejects two active rows with the same merchant and tid_key" do
+      merchant = create(:merchant)
+      create(:merchant_dealer, merchant: merchant, tid_key: "tid1")
+      expect(build(:merchant_dealer, merchant: merchant, tid_key: "tid1")).not_to be_valid
+    end
+
+    it "allows the same dealer under multiple HKDs" do
+      dealer = create(:dealer)
+      create(:merchant_dealer, dealer: dealer, tid_key: "tid1")
+      expect(build(:merchant_dealer, dealer: dealer, tid_key: "tid1")).to be_valid
+    end
+  end
+end

@@ -31,6 +31,7 @@ class Transaction < ApplicationRecord
 
   has_many :reviews, class_name: "TransactionReview", foreign_key: :transaction_id,
     inverse_of: :reviewed_transaction, dependent: :destroy
+  has_one :workbook_entry, inverse_of: :recorded_transaction, dependent: :destroy
   has_many :audit_logs, as: :auditable, dependent: :restrict_with_error
 
   enum :status, STATUSES.index_by(&:itself), validate: true

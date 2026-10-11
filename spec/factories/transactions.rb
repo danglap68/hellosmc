@@ -4,7 +4,7 @@ FactoryBot.define do
     telegram_message { bill_image&.telegram_message }
     sequence(:source_index) { |n| n }
     dealer
-    merchant { association :merchant, dealer: dealer }
+    merchant
     card_type factory: :normal_card_type
     lot_number { "000269" }
     transaction_at { Time.zone.local(2026, 10, 4, 10, 57, 25) }

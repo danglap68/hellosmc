@@ -5,6 +5,7 @@ class BillImage < ApplicationRecord
   ALLOWED_MIME_TYPES = %w[image/jpeg image/png image/webp].freeze
 
   belongs_to :telegram_message, optional: true
+  belongs_to :bill_album, optional: true
   belongs_to :uploaded_by, class_name: "User", optional: true
   belongs_to :duplicate_of, class_name: "BillImage", optional: true
 
@@ -30,11 +31,7 @@ class BillImage < ApplicationRecord
     telegram_message&.telegram_chat
   end
 
-  # Manual uploads carry the dealer and card type chosen by the uploader.
-  def manual_dealer_id
-    metadata["dealer_id"]
-  end
-
+  # Manual uploads carry the card type chosen by the uploader.
   def manual_card_type_key
     metadata["card_type_key"]
   end

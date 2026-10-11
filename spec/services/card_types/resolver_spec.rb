@@ -5,7 +5,7 @@ RSpec.describe CardTypes::Resolver do
   let!(:mb) { create(:mb_card_type) }
   let!(:napas) { create(:napas_card_type) }
   let(:dealer) { create(:dealer) }
-  let(:merchant) { create(:merchant, dealer: dealer) }
+  let(:merchant) { create(:merchant) }
 
   it "prefers the explicit Telegram tag over defaults" do
     merchant.update!(default_card_type: napas)

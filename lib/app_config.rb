@@ -34,6 +34,9 @@ module AppConfig
   # messages are stored but not processed until an admin activates them.
   def telegram_auto_activate_chats? = AppSetting.get("telegram_auto_activate_chats")
 
+  # How long to wait for more photos of a Telegram album before finalizing it.
+  def album_collect_window_seconds = AppSetting.get("album_collect_window_seconds")
+
   def max_bill_image_bytes = AppSetting.get("max_bill_image_mb").megabytes
 
   # --- Secrets (ENV) -------------------------------------------------------
@@ -47,6 +50,17 @@ module AppConfig
   def r2_missing_env = R2_ENV.select { |key| ENV[key].blank? }
   def r2_configured? = r2_missing_env.empty?
   def smtp_configured? = ENV["SMTP_ADDRESS"].present?
+
+  def hello_smc_spreadsheet_id
+    ENV["HELLO_SMC_SPREADSHEET_ID"].presence || AppSetting.get("hello_smc_spreadsheet_id").presence
+  end
+
+  def google_sheets_credentials_path = ENV["GOOGLE_SHEETS_CREDENTIALS_PATH"].presence
+  def google_sheets_credentials_json = ENV["GOOGLE_SHEETS_CREDENTIALS_JSON"].presence
+  def google_sheets_configured?
+    hello_smc_spreadsheet_id.present? &&
+      (google_sheets_credentials_path.present? || google_sheets_credentials_json.present?)
+  end
 
   def active_storage_service
     Rails.configuration.active_storage.service.to_s

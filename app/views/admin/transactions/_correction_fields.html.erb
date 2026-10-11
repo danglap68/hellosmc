@@ -6,7 +6,7 @@
 
 <div class="row">
   <div class="col-md-6">
-    <%= form.select_field :dealer_id, dealer_options, { include_blank: t("reviews.choose") }, required: true %>
+    <%= form.select_field :dealer_id, dealer_options(transaction), { include_blank: t("reviews.choose") }, required: true %>
   </div>
   <div class="col-md-6">
     <%= form.select_field :card_type_id, card_type_options, { include_blank: t("reviews.choose") },

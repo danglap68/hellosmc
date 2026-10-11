@@ -96,7 +96,7 @@ class SettingsForm
       when :select
         errors.add(key, :inclusion) unless definition.options.include?(@values[key])
       when :string
-        errors.add(key, :blank) if @values[key].to_s.strip.empty?
+        errors.add(key, :blank) if @values[key].to_s.strip.empty? && !definition.allow_blank
       end
     end
   end

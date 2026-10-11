@@ -17,7 +17,7 @@ RSpec.describe BillVision::Normalizer do
       "transaction_date" => "2026-10-04",
       "transaction_time" => "10:57:25",
       "transaction_at" => "2026-10-04T10:57:25+07:00",
-      "merchant_name" => "HỘ KINH DOANH THIÊN KIM GV",
+      "merchant_name" => "HỘ KINH DOANH THIÊN KIM GV-1",
       "low_confidence_fields" => []
     )
   end
@@ -65,6 +65,33 @@ RSpec.describe BillVision::Normalizer do
 
   it "does not require review for a confident child receipt" do
     expect(normalize(extraction_fixture("child_receipt"))["requires_review"]).to be(false)
+  end
+
+  it "normalizes a transfer without requiring merchant or time" do
+    document = normalize(extraction_fixture("transfer"))["documents"].first
+
+    expect(document["document_type"]).to eq("transfer")
+    expect(document["total_amount_vnd"]).to eq(600_000_000)
+    expect(document["merchant_name"]).to be_nil
+    expect(document["requires_review"]).to be(false)
+    expect(document["low_confidence_fields"]).to be_empty
+  end
+
+  it "requires review for a transfer missing its amount" do
+    data = { "documents" => [ { "document_type" => "transfer", "total_amount_vnd" => nil,
+                                "transaction_date" => "2026-10-04" } ] }
+    document = normalize(data)["documents"].first
+    expect(document["requires_review"]).to be(true)
+    expect(document["low_confidence_fields"]).to include("total_amount_vnd")
+  end
+
+  it "reclassifies a transfer carrying POS batch/terminal fields as a child receipt" do
+    data = { "documents" => [ { "document_type" => "transfer", "total_amount_vnd" => 20_001_000,
+                                "lot_number" => "000078", "terminal_or_merchant_id" => "**** 0957",
+                                "merchant_name" => "001_ HỘ KINH DOANH THIÊN KIM",
+                                "transaction_date" => "2026-10-05", "transaction_time" => "18:33:32" } ] }
+    document = normalize(data)["documents"].first
+    expect(document["document_type"]).to eq("child_receipt")
   end
 end
 

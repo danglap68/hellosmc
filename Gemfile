@@ -48,6 +48,10 @@ gem "aws-sdk-s3", require: false
 # Excel export
 gem "caxlsx", "~> 4.1"
 
+# Google Sheets (Hello SMC live workbook)
+gem "google-apis-sheets_v4", "~> 0.45"
+gem "googleauth", "~> 1.11"
+
 # HTTP client for vision providers and Telegram file downloads
 gem "faraday", "~> 2.12"
 

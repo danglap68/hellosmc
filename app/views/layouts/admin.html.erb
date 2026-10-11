@@ -33,6 +33,7 @@
               <%= nav_link t("navigation.telegram_chats"), admin_telegram_chats_path, "brand-telegram", resource: :telegram_chats %>
               <%= nav_link t("navigation.merchants"), admin_merchants_path, "building-store", resource: :merchants %>
               <%= nav_link t("navigation.fee_rules"), admin_fee_rules_path, "percentage", resource: :fee_rules %>
+              <%= nav_link t("navigation.remitters"), admin_remitters_path, "user-dollar", resource: :remitters %>
 
               <% if can?(:read, :excel_exports) || can?(:read, :audit_logs) %>
                 <%= nav_section t("navigation.sections.operations") %>

@@ -20,9 +20,11 @@ Rails.application.routes.draw do
     # The OCR review queue; ids are transaction ids.
     resources :reviews, only: [ :index, :show, :update ]
     resources :bill_images, only: [ :show ]
+    resources :bill_albums, only: [ :index, :show ]
     resources :bill_uploads, only: [ :new, :create ]
 
     resources :dealers
+    resources :remitters, except: [ :show ]
     resources :telegram_chats do
       member { post :process_stored }
     end

@@ -1,0 +1,54 @@
+<% content_for :title, t("remitters.index.title") %>
+<% content_for :actions do %>
+  <% if can?(:manage, :remitters) %>
+    <%= link_to new_admin_remitter_path, class: "btn btn-primary" do %><%= icon("plus") %> <%= t("remitters.index.new") %><% end %>
+  <% end %>
+<% end %>
+
+<div class="card">
+  <div class="card-header">
+    <%= form_with url: admin_remitters_path, method: :get, class: "ms-auto" do %>
+      <div class="input-icon">
+        <input type="search" name="q" value="<%= params[:q] %>" class="form-control" placeholder="<%= t('actions.search') %>">
+        <span class="input-icon-addon"><%= icon("search") %></span>
+      </div>
+    <% end %>
+  </div>
+  <% if @remitters.any? %>
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table">
+        <thead>
+          <tr>
+            <th><%= Remitter.human_attribute_name(:name) %></th>
+            <th><%= Remitter.human_attribute_name(:excel_key) %></th>
+            <th><%= Remitter.human_attribute_name(:telegram_user_id) %></th>
+            <th><%= Remitter.human_attribute_name(:telegram_username) %></th>
+            <th><%= Remitter.human_attribute_name(:active) %></th>
+            <th class="w-1"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @remitters.each do |remitter| %>
+            <tr>
+              <td><%= remitter.name %></td>
+              <td><code><%= remitter.excel_key %></code></td>
+              <td><code><%= remitter.telegram_user_id %></code></td>
+              <td><code><%= remitter.telegram_username %></code></td>
+              <td><%= active_badge(remitter.active?) %></td>
+              <td class="text-nowrap">
+                <% if can?(:manage, :remitters) %>
+                  <%= link_to t("actions.edit"), edit_admin_remitter_path(remitter), class: "btn btn-sm" %>
+                  <%= link_to t("actions.destroy"), admin_remitter_path(remitter), class: "btn btn-sm text-danger",
+                              data: { turbo_method: :delete, turbo_confirm: t("actions.confirm_destroy") } %>
+                <% end %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+    <%= pagination(@pagy) %>
+  <% else %>
+    <div class="card-body"><%= empty_state t("remitters.index.empty") %></div>
+  <% end %>
+</div>

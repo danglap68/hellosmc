@@ -1,0 +1,20 @@
+<%= tabler_form_with model: [:admin, remitter] do |form| %>
+  <div class="card">
+    <div class="card-body">
+      <%= form.error_summary %>
+      <div class="row">
+        <div class="col-md-6"><%= form.field :name, required: true %></div>
+        <div class="col-md-6"><%= form.field :excel_key, required: true, hint: t("remitters.form.excel_key_hint") %></div>
+      </div>
+      <div class="row">
+        <div class="col-md-6"><%= form.field :telegram_user_id %></div>
+        <div class="col-md-6"><%= form.field :telegram_username, hint: t("remitters.form.telegram_username_hint") %></div>
+      </div>
+      <%= form.switch_field :active %>
+    </div>
+    <div class="card-footer d-flex gap-2">
+      <%= form.submit_button %>
+      <%= link_to t("actions.cancel"), admin_remitters_path, class: "btn btn-link" %>
+    </div>
+  </div>
+<% end %>

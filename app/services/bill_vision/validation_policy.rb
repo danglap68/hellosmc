@@ -9,7 +9,7 @@ module BillVision
     end
 
     CONFIGURATION_REASONS = %w[dealer_unmapped dealer_inactive fee_rule_not_found fee_rule_ambiguous
-                               card_fee_rule_ambiguous card_fee_rule_not_applied merchant_dealer_mismatch merchant_not_found card_type_conflict
+                               card_fee_rule_ambiguous card_fee_rule_not_applied merchant_not_found card_type_conflict
                                card_type_unknown].freeze
 
     def self.call(normalized:, bill_image: nil)
@@ -23,17 +23,18 @@ module BillVision
     def call
       visual, business = [], []
       documents = @normalized.fetch("documents")
+      in_album = @bill_image&.bill_album_id.present?
       visual << "multiple_settlement_documents" if documents.count { |doc| doc["document_type"] == "settlement" } > 1
       visual << "too_many_documents" if @normalized["documents_truncated"].to_i.positive?
       documents.each do |doc|
-        next if doc["document_type"] == "child_receipt" && !doc["requires_review"]
+        next if doc["document_type"] == "child_receipt" && !doc["requires_review"] && !in_album
 
         visual << "document_type_uncertain" if doc["document_type"] == "unknown"
-        visual << "amount_unreadable" if doc["document_type"] == "settlement" && doc["total_amount_vnd"].nil?
-        visual << "transaction_date_unreadable" if doc["document_type"] == "settlement" && doc["transaction_date"].nil?
-        visual << "transaction_time_unreadable" if doc["document_type"] == "settlement" && doc["transaction_time"].nil?
-        if doc["document_type"] == "settlement" && doc["merchant_name"].blank? && doc["terminal_or_merchant_id"].blank?
-          visual << "merchant_unreadable"
+        if doc["document_type"].in?(%w[settlement transfer])
+          visual << "amount_unreadable" if doc["total_amount_vnd"].nil?
+          visual << "transaction_date_unreadable" if doc["transaction_date"].nil?
+          visual << "transaction_time_unreadable" if doc["transaction_time"].nil?
+          visual << "merchant_unreadable" if doc["merchant_name"].blank? && doc["terminal_or_merchant_id"].blank?
         end
         # Confidence is a supporting signal, not calibrated probability.
         # A soft score such as .91 alone does not buy another model call.

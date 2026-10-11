@@ -21,7 +21,6 @@
           <tr>
             <th><%= Dealer.human_attribute_name(:name) %></th>
             <th><%= Dealer.human_attribute_name(:code) %></th>
-            <th><%= t("dealers.telegram_groups") %></th>
             <th><%= t("dealers.merchants") %></th>
             <th><%= Dealer.human_attribute_name(:default_card_type) %></th>
             <th><%= Dealer.human_attribute_name(:active) %></th>
@@ -33,7 +32,6 @@
             <tr>
               <td><%= link_to dealer.name, admin_dealer_path(dealer) %></td>
               <td><code><%= dealer.code %></code></td>
-              <td><%= @chat_counts[dealer.id].to_i %></td>
               <td><%= @merchant_counts[dealer.id].to_i %></td>
               <td><%= dealer.default_card_type&.name || "—" %></td>
               <td><%= active_badge(dealer.active?) %></td>

@@ -3,7 +3,7 @@ require "rails_helper"
 RSpec.describe "Telegram groups" do
   include_context "accounting setup"
 
-  let!(:inactive) { create(:telegram_chat, telegram_chat_id: -1001234567890, active: false, dealer: nil) }
+  let!(:inactive) { create(:telegram_chat, telegram_chat_id: -1001234567890, active: false) }
 
   before do
     Telegram::UpdateReceiver.call(telegram_fixture("photo_update"))
@@ -17,7 +17,7 @@ RSpec.describe "Telegram groups" do
     expect(flash[:alert]).to be_present
     expect(DownloadTelegramAttachmentJob).not_to have_been_enqueued
 
-    inactive.update!(active: true, dealer: dealer)
+    inactive.update!(active: true, merchant: merchant)
     get admin_telegram_chat_path(inactive)
     expect(response.body).to include("Có 1 ảnh được gửi khi nhóm chưa hoạt động")
 

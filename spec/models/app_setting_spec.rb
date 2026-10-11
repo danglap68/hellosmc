@@ -37,4 +37,10 @@ RSpec.describe AppSetting do
     described_class.create!(key: "max_ocr_attempts", value: "10")
     expect(AppConfig.max_ocr_attempts).to eq(3)
   end
+
+  it "exposes the album collect window" do
+    expect(AppConfig.album_collect_window_seconds).to eq(15)
+    described_class.create!(key: "album_collect_window_seconds", value: "30")
+    expect(AppConfig.album_collect_window_seconds).to eq(30)
+  end
 end

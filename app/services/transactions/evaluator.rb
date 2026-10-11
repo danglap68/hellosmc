@@ -7,14 +7,13 @@ module Transactions
 
     Evaluation = Data.define(:attributes, :review_reasons, :source_data)
 
-    def self.call(document:, bill_image:, dealer_result: nil)
-      new(document:, bill_image:, dealer_result:).call
+    def self.call(document:, bill_image:)
+      new(document:, bill_image:).call
     end
 
-    def initialize(document:, bill_image:, dealer_result: nil)
+    def initialize(document:, bill_image:)
       @doc = document
       @bill_image = bill_image
-      @dealer_result = dealer_result || Dealers::Resolver.call(bill_image: bill_image)
       @reasons = Array(@doc["vision_review_reasons"]).dup
     end
 
@@ -23,8 +22,9 @@ module Transactions
       check_document_type
       amount = check_amount
       transaction_at = check_transaction_time
-      dealer = check_dealer
-      merchant, merchant_result = check_merchant(dealer)
+      merchant, merchant_result = check_merchant
+      @dealer_result = check_dealer(merchant)
+      dealer = @dealer_result.dealer
       card_type_result = check_card_type(merchant, dealer)
       fee_result = check_fee_rule(merchant, dealer, card_type_result.card_type, transaction_at)
       base_fee = base_fee_for(fee_result.fee_rule, merchant, dealer, card_type_result.card_type, transaction_at)
@@ -55,7 +55,7 @@ module Transactions
 
     def check_document_type
       case @doc["document_type"]
-      when "settlement"
+      when "settlement", "transfer"
         flag_confidence("document_type", "document_type")
       when "child_receipt"
         @reasons << "document_type_uncertain"
@@ -89,17 +89,39 @@ module Transactions
       transaction_at
     end
 
-    def check_dealer
-      @reasons << @dealer_result.issue if @dealer_result.issue
-      @dealer_result.dealer
+    def check_dealer(merchant)
+      # The agent is only meaningful once the HKD is known; a missing merchant
+      # is already reported as merchant_missing / merchant_not_found.
+      return Dealers::Resolver::Result.new(dealer: nil, merchant_dealer: nil, source: nil, issue: nil) if merchant.nil?
+
+      result = Dealers::Resolver.call(merchant: merchant, tid_key: @tid_key)
+      @reasons << result.issue if result.issue
+      result
     end
 
-    def check_merchant(dealer)
+    def check_merchant
+      raw_name = @doc["merchant_name"]
+      base_name = Workbook::TidParser.strip(raw_name)
+      @tid_key = Workbook::TidParser.call(raw_name)
+
       result = Merchants::Resolver.call(
-        merchant_name: @doc["merchant_name"],
-        merchant_identifier: @doc["terminal_or_merchant_id"],
-        dealer: dealer
+        merchant_name: base_name,
+        merchant_identifier: @doc["terminal_or_merchant_id"]
       )
+
+      # A bare space-separated trailing number may be a terminal marker
+      # ("CHERRY COFEE 2" → tid2) or part of the name ("…CAFE 96"). Only treat
+      # it as a TID when stripping it yields an exact merchant match.
+      if !result.exact? && (match = base_name.match(/\s+(\d+)\s*\z/))
+        candidate = Merchants::Resolver.call(
+          merchant_name: base_name.sub(/\s+\d+\s*\z/, ""),
+          merchant_identifier: @doc["terminal_or_merchant_id"]
+        )
+        if candidate.exact?
+          result = candidate
+          @tid_key = "tid#{match[1].to_i}"
+        end
+      end
 
       if result.exact?
         source_field = result.method == :identifier ? "terminal_or_merchant_id" : "merchant_name"
@@ -114,11 +136,7 @@ module Transactions
         @reasons << "merchant_not_found"
       end
 
-      merchant = result.merchant
-      if merchant && dealer && merchant.dealer_id.present? && merchant.dealer_id != dealer.id
-        @reasons << "merchant_dealer_mismatch"
-      end
-      [ merchant, result ]
+      [ result.merchant, result ]
     end
 
     def check_card_type(merchant, dealer)

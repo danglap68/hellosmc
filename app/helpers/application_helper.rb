@@ -65,6 +65,23 @@ module ApplicationHelper
     content_tag(:span, t("activerecord.enums.bill_image.ocr_status.#{status}"), class: "badge bg-#{color}-lt")
   end
 
+  ALBUM_STATUS_COLORS = {
+    "collecting" => "secondary", "processing" => "blue", "reconciled" => "green",
+    "needs_review" => "yellow", "skipped" => "orange", "failed" => "red"
+  }.freeze
+
+  def album_status_badge(album)
+    color = ALBUM_STATUS_COLORS.fetch(album.status.to_s, "secondary")
+    content_tag(:span, enum_label(:bill_album, :status, album.status), class: "badge bg-#{color}-lt")
+  end
+
+  def reconciliation_status_badge(album)
+    return content_tag(:span, "—", class: "badge bg-secondary-lt") if album.reconciliation_status.blank?
+
+    color = album.reconciliation_status == "matched" ? "green" : "yellow"
+    content_tag(:span, enum_label(:bill_album, :reconciliation_status, album.reconciliation_status), class: "badge bg-#{color}-lt")
+  end
+
   def export_status_badge(status)
     color = EXPORT_STATUS_COLORS.fetch(status.to_s, "secondary")
     content_tag(:span, t("activerecord.enums.excel_export.status.#{status}"), class: "badge bg-#{color}-lt")
@@ -156,8 +173,10 @@ module ApplicationHelper
     end
   end
 
-  def dealer_options
-    Dealer.ordered.map { |dealer| [ dealer.active? ? dealer.name : "#{dealer.name} (#{t('common.inactive')})", dealer.id ] }
+  def dealer_options(transaction = nil)
+    # Once the HKD is known, only its agents are offered; otherwise every dealer.
+    scope = transaction&.merchant ? transaction.merchant.dealers.distinct : Dealer.all
+    scope.ordered.map { |dealer| [ dealer.active? ? dealer.name : "#{dealer.name} (#{t('common.inactive')})", dealer.id ] }
   end
 
   def merchant_options(scope = Merchant.all)

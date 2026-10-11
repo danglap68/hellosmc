@@ -33,4 +33,11 @@
 
 # Ignore key files for decrypting credentials and more.
 /config/*.key
+/*-*.json
+/learned-nimbus*.json
+/config/*sheets*.json
+/config/*service-account*.json
+
+# macOS
+.DS_Store
 

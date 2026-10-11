@@ -1,33 +1,39 @@
 module Dealers
-  # Dealer comes from configuration, never from OCR:
-  # Telegram chat -> telegram_chats.dealer, or the dealer chosen on manual upload.
+  # The dealer is the agent under a resolved HKD: the TID suffix on the OCR
+  # merchant name points at a merchant_dealers row. Never from the chat.
   class Resolver
-    Result = Data.define(:dealer, :source, :issue) do
+    Result = Data.define(:dealer, :merchant_dealer, :source, :issue) do
       def resolved?
         dealer.present? && issue.nil?
       end
     end
 
-    def self.call(bill_image:)
-      new(bill_image).call
+    def self.call(merchant:, tid_key:)
+      new(merchant:, tid_key:).call
     end
 
-    def initialize(bill_image)
-      @bill_image = bill_image
+    def initialize(merchant:, tid_key:)
+      @merchant = merchant
+      @tid_key = tid_key
     end
 
     def call
-      dealer, source =
-        if @bill_image.manual_upload?
-          [ Dealer.find_by(id: @bill_image.manual_dealer_id), "manual_upload" ]
-        else
-          [ @bill_image.telegram_chat&.dealer, "telegram_chat" ]
-        end
+      return unresolved(nil) if @merchant.nil?
+      return unresolved(nil) if @tid_key.blank?
 
-      return Result.new(dealer: nil, source: source, issue: "dealer_unmapped") if dealer.nil?
-      return Result.new(dealer: dealer, source: source, issue: "dealer_inactive") unless dealer.active?
+      link = MerchantDealer.active.find_by(merchant: @merchant, tid_key: @tid_key)
+      return unresolved(nil) unless link
 
-      Result.new(dealer: dealer, source: source, issue: nil)
+      dealer = link.dealer
+      return Result.new(dealer:, merchant_dealer: link, source: "tid", issue: "dealer_inactive") unless dealer.active?
+
+      Result.new(dealer:, merchant_dealer: link, source: "tid", issue: nil)
+    end
+
+    private
+
+    def unresolved(merchant_dealer)
+      Result.new(dealer: nil, merchant_dealer: merchant_dealer, source: nil, issue: "dealer_unmapped")
     end
   end
 end

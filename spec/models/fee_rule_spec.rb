@@ -35,7 +35,9 @@ RSpec.describe FeeRule do
   end
 
   it "refuses a merchant that belongs to another dealer" do
+    other_dealer = create(:dealer)
     merchant = create(:merchant)
+    create(:merchant_dealer, merchant: merchant, dealer: other_dealer)
     rule = build(:fee_rule, merchant: merchant, dealer: create(:dealer))
     expect(rule).not_to be_valid
     expect(rule.errors[:merchant_ids]).to be_present
@@ -107,9 +109,9 @@ RSpec.describe FeeRule do
 
     it "orders levels from most to least specific" do
       expect(build(:fee_rule, merchant: merchant, card_type: card_type).specificity_level).to eq("merchant_card_type")
-      expect(build(:fee_rule, dealer: merchant.dealer, card_type: card_type).specificity_level).to eq("dealer_card_type")
+      expect(build(:fee_rule, dealer: create(:dealer), card_type: card_type).specificity_level).to eq("dealer_card_type")
       expect(build(:fee_rule, merchant: merchant).specificity_level).to eq("merchant")
-      expect(build(:fee_rule, dealer: merchant.dealer).specificity_level).to eq("dealer")
+      expect(build(:fee_rule, dealer: create(:dealer)).specificity_level).to eq("dealer")
       expect(build(:fee_rule, card_type: card_type).specificity_level).to eq("card_type")
     end
   end
