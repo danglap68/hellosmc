@@ -55,14 +55,5 @@ if Rails.env.development?
   # Groups named "TenDaiLy-HKD1[-HKD2]" with their HKDs (development demo ids).
   Workbook::Seed.seed_telegram_chats
 
-  start = Time.zone.local(2026, 1, 1)
-  unless FeeRule.exists?
-    FeeRule.create!(base_fee_rate: BigDecimal("0.0088"), effective_from: start, priority: 100,
-                    metadata: { "note" => "DEMO: system default" })
-    FeeRule.create!(card_types: [ CardType.find_by!(key: "mb") ], base_fee_rate: BigDecimal("0.011"),
-                    effective_from: start, priority: 100, metadata: { "note" => "DEMO: MB cards" })
-    FeeRule.create!(card_types: [ CardType.find_by!(key: "napas") ], base_fee_rate: BigDecimal("0.0125"),
-                    effective_from: start, priority: 100, metadata: { "note" => "DEMO: Napas cards" })
-  end
   puts "Development sample data ready."
 end

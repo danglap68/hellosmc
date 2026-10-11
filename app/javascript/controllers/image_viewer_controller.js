@@ -1,8 +1,9 @@
 import { Controller } from "@hotwired/stimulus"
 
-// Zoom and rotate a bill image while reviewing it.
+// Zoom and rotate a bill image while reviewing it. In an album, clicking a
+// photo of the strip shows it in the main viewer.
 export default class extends Controller {
-  static targets = ["image"]
+  static targets = ["image", "original"]
 
   connect() {
     this.scale = 1
@@ -28,6 +29,16 @@ export default class extends Controller {
     this.scale = 1
     this.rotation = 0
     this.apply()
+  }
+
+  show(event) {
+    const src = event.params.src
+    if (!src) return
+
+    this.imageTarget.src = src
+    if (this.hasOriginalTarget) this.originalTarget.href = src
+    this.element.querySelectorAll(".album-thumb").forEach((thumb) => thumb.classList.toggle("active", thumb === event.currentTarget))
+    this.reset()
   }
 
   apply() {

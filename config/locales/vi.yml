@@ -286,6 +286,14 @@ vi:
     open_original: "Mở ảnh gốc"
     alt: "Ảnh bill kết toán"
     missing: "Không có ảnh bill"
+    album:
+      title: "Album #%{id} · %{count} ảnh"
+      open: "Xem album"
+      total_amount: "Tổng kết"
+      kinds:
+        total: "Tổng kết"
+        child: "Bill con"
+        unread: "Không đọc được"
 
   bill_uploads:
     new:

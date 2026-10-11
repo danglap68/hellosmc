@@ -1,0 +1,35 @@
+<%# locals: (bill_image:) %>
+<%# Every photo of the Telegram album (bill con + tổng kết), so the reviewer can
+    check the total against the child bills. Clicking a photo shows it above. %>
+<% album = bill_image.bill_album %>
+<div class="mt-3">
+  <div class="d-flex align-items-center flex-wrap gap-2 mb-2">
+    <strong><%= icon("photo") %> <%= t("bill_images.album.title", id: album.id, count: album.bill_images.size) %></strong>
+    <%= reconciliation_status_badge(album) %>
+    <%= link_to t("bill_images.album.open"), admin_bill_album_path(album), class: "ms-auto small" %>
+  </div>
+
+  <div class="album-strip">
+    <% album.bill_images.order(:id).each do |image| %>
+      <% kind = album_image_kind(album, image) %>
+      <button type="button" class="album-thumb <%= 'active' if image.id == bill_image.id %>"
+              data-action="image-viewer#show" data-image-viewer-src-param="<%= admin_bill_image_path(image) %>"
+              title="<%= t("bill_images.album.kinds.#{kind}") %>">
+        <%= image_tag admin_bill_image_path(image), alt: "", loading: "lazy" %>
+        <span class="badge <%= kind == 'total' ? 'bg-blue-lt' : 'bg-secondary-lt' %>"><%= t("bill_images.album.kinds.#{kind}") %></span>
+        <% album_image_amounts(image).each do |amount| %>
+          <span class="small money d-block"><%= format_vnd(amount) %></span>
+        <% end %>
+      </button>
+    <% end %>
+  </div>
+
+  <dl class="row small mt-2 mb-0">
+    <dt class="col-6"><%= t("bill_albums.show.child_total") %> (<%= album.child_count %>)</dt>
+    <dd class="col-6 text-end money mb-0"><%= format_vnd(album.child_total_vnd) %></dd>
+    <dt class="col-6"><%= t("bill_images.album.total_amount") %></dt>
+    <dd class="col-6 text-end money mb-0"><%= format_vnd(album.transfer_amount_vnd) %></dd>
+    <dt class="col-6"><%= t("bill_albums.show.difference") %></dt>
+    <dd class="col-6 text-end money mb-0 <%= 'text-red' if album.match_difference_vnd.to_i != 0 %>"><%= format_vnd(album.match_difference_vnd) %></dd>
+  </dl>
+</div>

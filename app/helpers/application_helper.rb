@@ -75,6 +75,21 @@ module ApplicationHelper
     content_tag(:span, enum_label(:bill_album, :status, album.status), class: "badge bg-#{color}-lt")
   end
 
+  # "total" for the album's tổng kết (settlement/transfer), "child" for a bill
+  # con, "unread" when OCR found nothing usable.
+  def album_image_kind(album, image)
+    types = (image.duplicate_of || image).documents.map { |doc| doc["document_type"] }
+    return "total" if image.id == album.transfer_bill_image_id || types.intersect?(%w[settlement transfer])
+    return "child" if types.include?("child_receipt")
+
+    "unread"
+  end
+
+  # Amounts OCR read on one album photo (a photo can hold several bills).
+  def album_image_amounts(image)
+    (image.duplicate_of || image).documents.filter_map { |doc| doc["total_amount_vnd"] }
+  end
+
   def reconciliation_status_badge(album)
     return content_tag(:span, "—", class: "badge bg-secondary-lt") if album.reconciliation_status.blank?
 
