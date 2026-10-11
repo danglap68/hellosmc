@@ -176,7 +176,23 @@ module ApplicationHelper
   def dealer_options(transaction = nil)
     # Once the HKD is known, only its agents are offered; otherwise every dealer.
     scope = transaction&.merchant ? transaction.merchant.dealers.distinct : Dealer.all
-    scope.ordered.map { |dealer| [ dealer.active? ? dealer.name : "#{dealer.name} (#{t('common.inactive')})", dealer.id ] }
+    scope.ordered.map { |dealer| dealer_option(dealer) }
+  end
+
+  # Agents per HKD for the review form, so the dealer list follows the HKD the
+  # reviewer picks in the browser: { "merchant_id" => [[label, id], ...], "" => every dealer }.
+  def dealer_options_by_merchant
+    dealers = Dealer.ordered.to_a
+    by_id = dealers.index_by(&:id)
+    links = MerchantDealer.distinct.pluck(:merchant_id, :dealer_id).group_by(&:first)
+    options = links.transform_keys(&:to_s).transform_values do |pairs|
+      pairs.map { |(_merchant_id, dealer_id)| by_id[dealer_id] }.compact.uniq.sort_by(&:name).map { |dealer| dealer_option(dealer) }
+    end
+    options.merge("" => dealers.map { |dealer| dealer_option(dealer) })
+  end
+
+  def dealer_option(dealer)
+    [ dealer.active? ? dealer.name : "#{dealer.name} (#{t('common.inactive')})", dealer.id ]
   end
 
   def merchant_options(scope = Merchant.all)

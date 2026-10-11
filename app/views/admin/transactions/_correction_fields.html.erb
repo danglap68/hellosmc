@@ -4,9 +4,11 @@
 <% confidence = ->(field) { extraction.present? ? confidence_badge(extraction.dig("confidence", field)) : "".html_safe } %>
 <% ocr_hint = ->(value) { value.present? ? t("reviews.ocr_read", value: value) : nil } %>
 
+<div data-controller="dealer-by-merchant" data-dealer-by-merchant-options-value="<%= dealer_options_by_merchant.to_json %>">
 <div class="row">
   <div class="col-md-6">
-    <%= form.select_field :dealer_id, dealer_options(transaction), { include_blank: t("reviews.choose") }, required: true %>
+    <%= form.select_field :dealer_id, dealer_options(transaction), { include_blank: t("reviews.choose") }, required: true,
+          data: { dealer_by_merchant_target: "dealer" } %>
   </div>
   <div class="col-md-6">
     <%= form.select_field :card_type_id, card_type_options, { include_blank: t("reviews.choose") },
@@ -17,7 +19,9 @@
 
 <%= form.select_field :merchant_id, merchant_options(Merchant.active), { include_blank: t("reviews.choose") },
       label: safe_join([Transaction.human_attribute_name(:merchant), " ", confidence.call("merchant_name")]), required: true,
-      hint: ocr_hint.call([extraction["merchant_name"], extraction["terminal_or_merchant_id"]].compact.join(" · ").presence) %>
+      hint: ocr_hint.call([extraction["merchant_name"], extraction["terminal_or_merchant_id"]].compact.join(" · ").presence),
+      data: { dealer_by_merchant_target: "merchant", action: "change->dealer-by-merchant#refresh" } %>
+</div>
 
 <div class="row">
   <div class="col-md-6">
