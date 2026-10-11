@@ -30,9 +30,9 @@ flowchart TD
 
     subgraph WRITE["4 · Ghi Google Sheet"]
         H --> I["HelloSmcWriter.call"]
-        I --> I1{"amount? failed?<br/>đã ghi? spreadsheet_id?"}
+        I --> I1{"amount? failed/rejected?<br/>đã ghi? spreadsheet_id?"}
         I1 -- "skip / fail" --> X
-        I1 -- "ok" --> I2["🔒 advisory lock (session)<br/>theo spreadsheet_id"]
+        I1 -- "ok" --> I2["🔒 pg_try_advisory_lock<br/>(bận → LockBusy → retry)"]
         I2 --> I3["Workbook::Resolver<br/>resolve HKD + agent(TID) + remitter"]
         I3 --> I4{"identified?<br/>(có HKD + agent)"}
         I4 -- "không" --> J["write_unidentified<br/>→ sheet 'Bill vô chủ'"]
@@ -42,7 +42,7 @@ flowchart TD
         K2 -- "có" --> K3["R&D Report: +amount<br/>ô agent × remitter"]
         K2 -- "không" --> K4["bỏ R&D"]
         K --> K5["MB: append row A…K"]
-        J --> L["1 lần batchUpdate →<br/>tạo workbook_entries (idempotent)"]
+        J --> L["1 lần batchUpdate (kèm marker TX id) →<br/>tạo workbook_entries<br/>(retry thấy marker → chỉ tạo entry)"]
         K1 --> L
         K3 --> L
         K4 --> L
@@ -70,19 +70,16 @@ flowchart TD
     R6 -- "nil" --> R8["remitter = null<br/>(vẫn ghi DS MB + MB, bỏ R&D)"]
 ```
 
-## 3. Hai khái niệm "dealer" (PHA 1 — hybrid)
+## 3. Dealer = agent (PHA 2, đã áp dụng)
 
 ```mermaid
 flowchart LR
-    TX["1 Transaction"] --> DA["transaction.dealer_id<br/>= dealer từ chat"]
-    TX --> AG["agent từ merchant_dealers<br/>theo (HKD, tid_key)"]
-    DA --> FR["FeeRules::Resolver<br/>(tính phí gốc / phí đại lý)"]
-    AG --> WB["Workbook<br/>(cột I sheet MB = agent)"]
-    DA -. "PHA 2: gộp dealer = agent" .-> AG
+    TX["1 Transaction"] --> AG["agent từ merchant_dealers<br/>theo (HKD, tid_key)"]
+    AG --> FR["FeeRules::Resolver<br/>(phí gốc / phí đại lý)"]
+    AG --> WB["Workbook<br/>(cột I sheet MB)"]
 ```
 
-> PHA 1 giữ 2 khái niệm song song để không rủi ro fee rule. PHA 2 (§14 spec) gộp lại:
-> `Dealers::Resolver` chuyển sang TID, `transaction.dealer_id` = agent, bỏ `chat→dealer`.
+> `Dealers::Resolver` tra theo TID trên tên merchant OCR; không còn chat → dealer. Merchant chưa cấu hình `merchant_dealers` thì `dealer_unmapped` và vào `needs_review`.
 
 ## 4. Sequence diagram
 

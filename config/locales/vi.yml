@@ -375,6 +375,7 @@ vi:
       default_card_type_hint: "Dùng khi tin nhắn không ghi loại thẻ."
       agents: "Đại lý theo TID"
       tid_key_hint: "Ví dụ: tid1, tid127"
+      ds_sheet_anchor_hint: "Đúng chữ ở ô góc trái bảng trong DS MB, ví dụ: Thiên Kim GV"
     new:
       title: "Thêm hộ kinh doanh"
     edit:

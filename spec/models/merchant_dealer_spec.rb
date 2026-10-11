@@ -10,12 +10,23 @@ RSpec.describe MerchantDealer do
       expect(md.errors[:rd_agent_label]).to be_present
     end
 
-    it "defaults tid_label to tid_key and ds_sheet_anchor to the merchant name" do
-      merchant = create(:merchant, name: "Thiên Kim GV")
-      md = build(:merchant_dealer, merchant: merchant, tid_key: "tid1", tid_label: nil, ds_sheet_anchor: nil)
+    it "defaults tid_label to tid_key" do
+      md = build(:merchant_dealer, tid_key: "tid1", tid_label: nil)
       md.valid?
       expect(md.tid_label).to eq("tid1")
-      expect(md.ds_sheet_anchor).to eq("Thiên Kim GV")
+    end
+
+    it "requires the DS MB header anchor instead of guessing the merchant name" do
+      merchant = create(:merchant, name: "001_ HỘ KINH DOANH THIÊN KIM GV")
+      md = build(:merchant_dealer, merchant: merchant, ds_sheet_anchor: nil)
+      expect(md).not_to be_valid
+      expect(md.errors[:ds_sheet_anchor]).to be_present
+    end
+
+    it "normalizes a bare number to a tid key" do
+      md = build(:merchant_dealer, tid_key: "1")
+      md.valid?
+      expect(md.tid_key).to eq("tid1")
     end
 
     it "normalizes tid_key from 'TID 127' to 'tid127'" do

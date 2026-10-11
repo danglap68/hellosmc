@@ -29,4 +29,46 @@ RSpec.describe Workbook::MemorySheet do
     expect(sheet.cell("MB", "A2")).to eq(2)
     expect(sheet.cell("RD", "A1")).to eq(9)
   end
+
+  describe "behaves like the Sheets API" do
+    it "returns [] for an empty row in the middle and drops trailing empty rows" do
+      sheet = described_class.new("MB" => [ [ "h" ], [ 1 ], [], [ 3 ], [], [] ])
+      expect(sheet.values("MB", "A:A")).to eq([ [ "h" ], [ 1 ], [], [ 3 ] ])
+    end
+
+    it "skips nil and clears a cell on an empty string when writing" do
+      sheet = described_class.new("MB" => [ [ 1, 2 ] ])
+      sheet.update("MB", "A1:B1", [ [ nil, "" ] ])
+      expect(sheet.values("MB", "A1:B1")).to eq([ [ 1 ] ])
+    end
+
+    it "treats a leading apostrophe as literal text and ISO dates as dates" do
+      sheet = described_class.new("MB" => [ [ nil, nil ] ])
+      sheet.update("MB", "A1:B1", [ [ "'=1+1", "2026-11-01" ] ])
+      expect(sheet.cell("MB", "A1")).to eq("=1+1")
+      expect(sheet.cell("MB", "B1")).to eq(Date.new(2026, 11, 1))
+      expect(sheet.values("MB", "B1:B1")).to eq([ [ (Date.new(2026, 11, 1) - Date.new(1899, 12, 30)).to_i ] ])
+    end
+
+    it "evaluates =SUM unless FORMULA rendering is requested" do
+      sheet = described_class.new("MB" => [ [ 1 ], [ 2 ], [ "=sum(A1:A2)" ] ])
+      expect(sheet.values("MB", "A3:A3")).to eq([ [ 3 ] ])
+      expect(sheet.values("MB", "A3:A3", value_render_option: "FORMULA")).to eq([ [ "=sum(A1:A2)" ] ])
+    end
+
+    it "refuses to write past the row limit until rows are added" do
+      sheet = described_class.new({ "MB" => [ [ 1 ] ] }, { "MB" => 1 })
+      expect { sheet.update("MB", "A2:A2", [ [ 2 ] ]) }.to raise_error(described_class::GridLimitError)
+      sheet.ensure_rows("MB", 2)
+      sheet.update("MB", "A2:A2", [ [ 2 ] ])
+      expect(sheet.cell("MB", "A2")).to eq(2)
+    end
+
+    it "renames and deletes sheets" do
+      sheet = described_class.new("a" => [ [ 1 ] ], "b" => [ [ 2 ] ])
+      sheet.rename_sheet(from: "a", to: "c")
+      sheet.delete_sheet("b")
+      expect(sheet.titles).to eq([ "c" ])
+    end
+  end
 end

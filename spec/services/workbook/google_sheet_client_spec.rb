@@ -65,4 +65,33 @@ RSpec.describe Workbook::GoogleSheetClient do
         .to raise_error(ArgumentError, /missing sheet/)
     end
   end
+
+  describe "#rename_sheet / #delete_sheet / #ensure_rows" do
+    let(:sheet) { double(properties: double(title: "MB", sheet_id: 7, grid_properties: double(row_count: 1000))) }
+
+    before do
+      allow(service).to receive(:get_spreadsheet).with("sheet-id", fields: "sheets.properties")
+        .and_return(double(sheets: [ sheet ]))
+    end
+
+    it "renames by sheet id" do
+      expect(service).to receive(:batch_update_spreadsheet).with("sheet-id", instance_of(Google::Apis::SheetsV4::BatchUpdateSpreadsheetRequest))
+      client.rename_sheet(from: "MB", to: "MB 2")
+    end
+
+    it "deletes by sheet id" do
+      expect(service).to receive(:batch_update_spreadsheet).with("sheet-id", instance_of(Google::Apis::SheetsV4::BatchUpdateSpreadsheetRequest))
+      client.delete_sheet("MB")
+    end
+
+    it "does nothing when the grid already has enough rows" do
+      expect(service).not_to receive(:batch_update_spreadsheet)
+      client.ensure_rows("MB", 1000)
+    end
+
+    it "appends rows when the grid is too small" do
+      expect(service).to receive(:batch_update_spreadsheet).with("sheet-id", instance_of(Google::Apis::SheetsV4::BatchUpdateSpreadsheetRequest))
+      client.ensure_rows("MB", 1001)
+    end
+  end
 end

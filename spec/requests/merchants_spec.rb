@@ -9,7 +9,8 @@ RSpec.describe "Merchants admin" do
 
     patch admin_merchant_path(merchant), params: {
       merchant: { name: merchant.name, code: merchant.code,
-                  merchant_dealers_attributes: { "0" => { dealer_id: chuong.id, tid_key: "tid1",
+                  merchant_dealers_attributes: { "0" => { dealer_id: chuong.id, tid_key: "1",
+                                                          ds_sheet_anchor: "Thiên Kim GV",
                                                           ds_header: "Chương (tid1)", rd_agent_label: "Chương" } } }
     }
 
@@ -18,7 +19,7 @@ RSpec.describe "Merchants admin" do
     expect(link.dealer).to eq(chuong)
     expect(link.ds_header).to eq("Chương (tid1)")
     expect(link.tid_label).to eq("tid1")
-    expect(link.ds_sheet_anchor).to eq(merchant.name)
+    expect(link.ds_sheet_anchor).to eq("Thiên Kim GV")
   end
 
   it "removes a TID agent via _destroy" do
@@ -33,6 +34,20 @@ RSpec.describe "Merchants admin" do
     }
 
     expect(response).to redirect_to(admin_merchant_path(merchant))
+    expect(merchant.merchant_dealers.count).to eq(0)
+  end
+
+  it "rejects an agent row without the DS MB header anchor" do
+    merchant = create(:merchant, name: "001_ HỘ KINH DOANH THIÊN KIM GV", code: "001")
+    chuong = create(:dealer, name: "Chương")
+
+    patch admin_merchant_path(merchant), params: {
+      merchant: { name: merchant.name, code: merchant.code,
+                  merchant_dealers_attributes: { "0" => { dealer_id: chuong.id, tid_key: "tid1",
+                                                          ds_header: "Chương (tid1)", rd_agent_label: "Chương" } } }
+    }
+
+    expect(response).to have_http_status(:unprocessable_content)
     expect(merchant.merchant_dealers.count).to eq(0)
   end
 end

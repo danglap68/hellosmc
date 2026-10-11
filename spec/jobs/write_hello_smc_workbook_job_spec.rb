@@ -17,4 +17,14 @@ RSpec.describe WriteHelloSmcWorkbookJob do
     expect(WorkbookEntry.count).to eq(0)
     expect(Transaction.find(transaction.id)).to be_present
   end
+
+  it "retries later when another writer holds the spreadsheet lock" do
+    allow(Workbook::HelloSmcWriter).to receive(:call).and_raise(Workbook::HelloSmcWriter::LockBusy)
+    expect { described_class.perform_now(transaction.id) }
+      .to have_enqueued_job(described_class).with(transaction.id)
+  end
+
+  it "discards the job when the transaction no longer exists" do
+    expect { described_class.perform_now(0) }.not_to raise_error
+  end
 end

@@ -1,6 +1,6 @@
 # Spec: ghi giao dịch vào Google Sheet Hello SMC khi tạo transaction
 
-Trạng thái: chưa implement. Album để sau. File này là hợp đồng cho việc tự điền **Google Sheet** (bản clone từ `Hello SMC.xlsx`) sau khi OCR tạo giao dịch.
+Trạng thái: đã implement, **pha 2 (dealer = agent theo TID)**. Album để sau. Phần §15 ghi các quyết định sau review ngày 11/10/2026; khi §15 mâu thuẫn với phần trên thì §15 đúng. File này là hợp đồng cho việc tự điền **Google Sheet** (bản clone từ `Hello SMC.xlsx`) sau khi OCR tạo giao dịch.
 
 Mẫu bố cục (chỉ để đọc khi viết spec/seed, **không ghi**): `/Users/ducnguyen/Documents/work/hellosmc/Hello SMC.xlsx` (đọc ngày 10/10/2026). Bản sống là Google Sheet. Tên tab phải giữ nguyên tên sheet trong file gốc.
 
@@ -138,15 +138,14 @@ Unique `excel_key`. Unique `telegram_user_id` khi có giá trị.
 | `amount_vnd` | số đã cộng |
 | `payload` | jsonb: merchant, dealer, tid, remitter, ngày |
 
-**Đổi quan hệ cũ — pha 1 (giữ 2 khái niệm):**
+**Quan hệ (pha 2, đã áp dụng):**
 
-Pha này **không đụng** dealer dùng cho fee rule: `transaction.dealer_id` vẫn là dealer từ chat (`Dealers::Resolver`). `merchant_dealers` + `Workbook::Resolver` là khái niệm **agent** riêng, chỉ để tìm ô trong Excel. Gộp làm một ở pha 2 (§14).
-
-- `Merchant`: giữ `dealer_id` (để `Merchants::Resolver` disambiguate + fee rule). Thêm `has_many :merchant_dealers`, `has_many :dealers, through: :merchant_dealers`.
-- `TelegramChat`: thêm `merchant_id` (group = HKD, dùng làm fallback resolve HKD). Giữ `dealer_id` cho fee rule (bỏ ở pha 2).
-- `TelegramMessage`: thêm `telegram_username` (lấy `from.username`). Đã có `telegram_sender_id`.
-- `Dealers::Resolver`: **giữ nguyên** "chat → dealer".
-- `FeeRules::Resolver` / `Merchants::Resolver`: **giữ nguyên** (kể cả disambiguation theo `dealer`).
+- `Merchants.dealer_id` và `telegram_chats.dealer_id` đã **bị xoá** (migration `drop_legacy_dealer_columns`, không backfill).
+- Dealer của giao dịch = agent theo TID: `Dealers::Resolver` tra `merchant_dealers` theo `(merchant, tid_key)` lấy từ tên merchant trên OCR. Không còn "chat → dealer" và không còn `manual_dealer_id`.
+- Merchant chưa có `merchant_dealers` hoặc tên không có hậu tố TID → `dealer_unmapped` → `needs_review` (hành vi mong đợi, người duyệt xử lý).
+- `Merchant`: `has_many :merchant_dealers`, `has_many :dealers, through:`. `TelegramChat`: `belongs_to :merchant` (group = HKD, dùng làm fallback resolve HKD).
+- `TelegramMessage`: thêm `telegram_username` (lấy `from.username`).
+- `Merchants::Resolver` không còn disambiguation theo dealer; nhiều khớp → `ambiguous`.
 
 ### 4.2 Seed remitter
 
@@ -193,7 +192,7 @@ Merchant trong app hiện có (`001_ HỘ KINH DOANH THIÊN KIM GV`, `HKD AS CAF
 
 ## 5. Cách chọn HKD, đại lý, remitter
 
-Thứ tự sau OCR, trong service mới `Workbook::Resolver` — **chỉ phục vụ workbook**, không nhét vào `FeeRules::Resolver` (fee rule vẫn dùng `Dealers::Resolver` như hiện tại; gộp ở pha 2, xem §14):
+Thứ tự sau OCR, trong `Workbook::Resolver` (cùng nguồn TID với `Dealers::Resolver`, nên agent trên sheet và dealer của fee rule là một):
 
 ```
 HKD:
@@ -242,7 +241,7 @@ Writer trả về các cờ skip (không ghi, không tạo entry): `:skipped_no_
 
 **Client.** `Workbook::GoogleSheetClient`: `get_values(range)`, `update_values(range, values)`, `append_values(range, values)`, `duplicate_sheet(source_title:, dest_title:)`, `sheet_titles`. Test stub client này, không gọi mạng.
 
-**Khóa ghi.** Advisory lock Postgres theo `spreadsheet_id` (tránh hai giao dịch đọc-cộng-ghi cùng ô). Google không lock ô; app phải serialize. Dùng **session-level** `pg_advisory_lock`/`pg_advisory_unlock` quanh toàn bộ read→compute→write; nếu dùng `pg_advisory_xact_lock` thì phải bọc `write_*` trong một `ActiveRecord::Base.transaction` để lock giữ đến commit (lock ngoài transaction sẽ nhả ngay, vô tác dụng). Sau khi lock xong phải kiểm tra lại `workbook_entries` trước khi ghi.
+**Khóa ghi.** Advisory lock Postgres theo `spreadsheet_id` (tránh hai giao dịch đọc-cộng-ghi cùng ô). Google không lock ô; app phải serialize. Dùng **session-level** `pg_try_advisory_lock`/`pg_advisory_unlock` quanh toàn bộ read→compute→write (khoá bận → `LockBusy` → job retry, không chặn thread Sidekiq); nếu dùng `pg_advisory_xact_lock` thì phải bọc `write_*` trong một `ActiveRecord::Base.transaction` để lock giữ đến commit (lock ngoài transaction sẽ nhả ngay, vô tác dụng). Sau khi lock xong phải kiểm tra lại `workbook_entries` trước khi ghi.
 
 **Một lần ghi.** Đọc các ô cần cộng → tính số mới → gom mọi ô/hàng của giao dịch đó (DS MB + R&D + MB, hoặc chỉ Bill vô chủ) vào **một** `values.batchUpdate` duy nhất → mới tạo `workbook_entries`. Client phải có method `batch_update_values` (không ghi từng ô bằng `update` riêng lẻ). Fail giữa chừng: không tạo entry, job retry. Retry phải idempotent: đã có entry thì dừng.
 
@@ -442,12 +441,10 @@ Thiếu HKD hoặc tid: chỉ `Bill vô chủ`.
 - Chị Huệ 3 TID (127/128/129) cùng HKD: ba cột, không gộp; mỗi tid ghi đúng cột của nó.
 - Một đại lý nhiều HKD: hợp lệ; resolve theo HKD hiện tại.
 
-### 11.20 Hybrid — dealer (fee) ≠ agent (workbook)
+### 11.20 Dealer = agent (pha 2)
 
-- `transaction.dealer` (chat) = "Anh Trân"; agent TID = "Chương".
-- Sheet MB cột I ghi **"Chương"** (agent từ `merchant_dealers`), KHÔNG ghi "Anh Trân".
-- Fee rule vẫn nhận `transaction.dealer` = "Anh Trân" (pha 1 không đổi).
-- (Pha 2) sau khi gộp: cả hai đều là "Chương".
+- `transaction.dealer` (từ TID) = "Chương"; cột I sheet MB ghi **"Chương"**; fee rule nhận cùng dealer đó.
+- Merchant không có `merchant_dealers` hoặc tên không hậu tố TID → `dealer_unmapped`, `needs_review`, workbook ghi `Bill vô chủ`.
 
 ### 11.21 Seed merchant_dealers
 
@@ -497,9 +494,9 @@ Thiếu HKD hoặc tid: chỉ `Bill vô chủ`.
 | 14 | Khóa ghi bằng session-level advisory lock (hoặc xact lock bọc trong transaction). |
 | 15 | Ngày trên `DS MB` đọc bằng serial/`DATE_VALUE`, không `Date.parse` chuỗi locale. |
 | 16 | Nhãn R&D: normalize + bỏ hậu tố ` (MB+SP)` trước khi so. |
-| 17 | Pha 1 tách "dealer" (fee, chat) và "agent" (workbook, TID); gộp làm một ở pha 2 (§14). |
+| 17 | Pha 2 đã áp dụng: dealer = agent theo TID (§14). |
 
-## 14. Pha 2 (sau khi workbook ổn định): gộp `dealer` = `agent`
+## 14. Pha 2: gộp `dealer` = `agent` (ĐÃ LÀM)
 
 Làm riêng, chỉ sau khi pha 1 chạy ổn và có spec test cho fee rule. Khi đó thống nhất một khái niệm dealer = agent TID:
 
@@ -509,3 +506,33 @@ Làm riêng, chỉ sau khi pha 1 chạy ổn và có spec test cho fee rule. Khi
 - `TelegramChat.dealer_id` drop; `FeeRule#merchant_belongs_to_dealer` chuyển sang `merchant_dealers`.
 - Export/review/dashboard tự khớp agent (chỉ đổi nghĩa `transaction.dealer`, không đổi logic hiển thị).
 - Data migration: chỉ drop cột `dealer_id` cũ, **không backfill** `merchant_dealers` (tid1 tổng hợp sẽ xung đột unique `(merchant_id, tid_key)` với seed thật). Mapping thật do `Workbook::Seed` tạo từ DS MB.
+
+## 15. Quyết định sau review (11/10/2026)
+
+**Idempotent khi retry.** Mỗi dòng sổ có marker `TX<id>`: sheet `MB` cột **L**, sheet `Bill vô chủ` cột **G**. Writer đọc sổ (`A:L` / `A:G`) trong khoá; thấy marker nghĩa là lần trước đã ghi nhưng chưa lưu `workbook_entries` (timeout sau khi Google đã áp dụng, crash, lỗi DB). Khi đó chỉ tạo `workbook_entries` (`payload.issue = reconciled_after_retry`), không cộng lại. Không xoá cột L/G trên sheet. Giới hạn: nếu lần đầu ghi vào `MB` nhưng lần retry resolve ra nhánh `Bill vô chủ` (hoặc ngược lại) thì không phát hiện được.
+
+**Khoá.** `pg_try_advisory_lock`; bận thì `HelloSmcWriter::LockBusy`, job `retry_on` (3s, jitter, 30 lần).
+
+**Guard.** Thêm `:skipped_rejected`. Không chặn `hold` (không có chỗ enqueue lại khi hold → approved). Giao dịch đã ghi rồi mới bị reject hoặc sửa số tiền **không** được đảo ngược trên sheet: phải trừ tay (xem ticket cảnh báo UI).
+
+**Sổ MB / Bill vô chủ.** Tìm hàng trống đầu tiên trên mảng 2-D gốc (không `flatten`; API có thể trả `[]`, `[""]` hoặc bỏ hàng cuối). Hết hàng thì `appendDimension` thêm hàng. Ngày/giờ ghi dạng **text** `dd/mm/yyyy`, `HH:MM:SS` (tiền tố `'`), vì cột G/H của MB đang format `#,##0` và `Bill vô chủ` đang lưu text; ghi ISO sẽ hiện thành số serial. Muốn ngày thật: đổi định dạng cột G/H trong sheet rồi sửa `date_text` trong writer.
+
+**Chống formula injection.** Mọi ô chữ lấy từ OCR/admin (tên đại lý, HKD, remitter, `raw_merchant_name`) bắt đầu bằng `= + - @` được ghi với tiền tố `'`.
+
+**Tạo `DS MB T{n}`.** Nhân bản sheet tháng lớn nhất thành `__setup_DS MB T{n}`, đặt lại ngày và xoá số, rồi mới đổi tên thành `DS MB T{n}`; lỗi giữa chừng không để lại sheet tháng dở, lần retry xoá sheet tạm và làm lại. Cột ngày là các dãy ≥ 5 ngày liên tiếp; chỉ ô **số** (không phải công thức) dưới cột ngày bị xoá, bằng `""` (Sheets bỏ qua `null`). Đọc bằng `FORMULA` để không đụng các ô `=sum(...)`. Tháng ít ngày hơn: ô ngày thừa để trống; tháng nhiều ngày hơn dùng lại hàng trống dưới bảng.
+
+**Tìm hàng ngày.** Chỉ trong dãy ngày liên tiếp của đúng bảng; không trượt sang bảng bên dưới. Thiếu ngày → `ds_cell_missing` → `Bill vô chủ`.
+
+**Admin.** Form agent có ô `ds_sheet_anchor` (đúng chữ góc trái bảng trong DS MB) và bắt buộc nhập, không còn mặc định theo tên merchant. `tid_key` nhập `1` thành `tid1`. Xoá dealer đang gắn HKD bị chặn (`restrict_with_error`).
+
+**Lưu ý template.** Công thức tổng trong `DS MB T10` đang là `=sum(B1:B30)` (và `B40:B69` cho bảng dưới), trong khi dữ liệu chạy đến hàng 32 (và 70): ngày 30 và 31 không được cộng vào tổng. Sửa trong sheet, code không đổi công thức.
+
+**Ticket (chưa làm).** Tên sheet kèm năm (va chạm ngày 9/2027; deadline xử lý 8/2027). Nút ghi lại (resync) trong admin. Cảnh báo UI khi reject hoặc đổi số tiền của giao dịch đã ghi sheet ("đã ghi vào `DS MB T10!B2`, trừ tay 486.000").
+
+## 16. Checklist deploy pha 2
+
+1. Snapshot (pg_dump) hai cột `merchants.dealer_id` và `telegram_chats.dealer_id` trước khi chạy migration; `down` chỉ tạo lại cột rỗng.
+2. Chạy `Workbook::Seed.call` và tạo `merchant_dealers` cho **mọi** merchant đang hoạt động (ds_sheet_anchor = chữ trong DS MB). Merchant thiếu mapping sẽ vào `needs_review` với `dealer_unmapped`.
+3. Fee rule gắn dealer: kiểm tra vẫn khớp với dealer theo TID.
+4. Spreadsheet là Google Sheet native, đã share quyền Editor cho service account; có `HELLO_SMC_SPREADSHEET_ID` và `GOOGLE_SHEETS_CREDENTIALS_*`.
+5. Sheet `MB` cột L và `Bill vô chủ` cột G dành cho marker, không dùng cho việc khác.

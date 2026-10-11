@@ -21,6 +21,14 @@ RSpec.describe Dealer do
     expect(dealer.errors).to be_present
   end
 
+  it "cannot be deleted while it is mapped to an HKD" do
+    dealer = create(:dealer)
+    create(:merchant_dealer, dealer: dealer)
+    expect(dealer.destroy).to be(false)
+    expect(dealer.errors).to be_present
+    expect(MerchantDealer.where(dealer: dealer)).to exist
+  end
+
   it "has many HKDs through merchant_dealers" do
     dealer = create(:dealer, name: "Cường Duyên")
     create(:merchant_dealer, dealer: dealer, merchant: create(:merchant, name: "Cường Duyên 1"))
