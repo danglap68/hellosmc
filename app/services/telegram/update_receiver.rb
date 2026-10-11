@@ -28,11 +28,20 @@ module Telegram
         return result(:duplicate, message)
       end
 
-      if parsed.image? && transfer_photo?(parsed, chat)
+      # Flag off: no transfer flow at all. Every photo (remitters' included)
+      # takes the normal path, so a remitter's settlement bill still becomes a
+      # transaction; a transfer photo is dropped after OCR (AnalyzeBillImageJob).
+      if parsed.image? && AppConfig.remitter_features_enabled? && transfer_photo?(parsed, chat)
         return receive_remitter_image(chat, parsed, message, remitter_sender(parsed))
       end
 
-      BillAlbums::Collector.call(message) if created && parsed.image? && parsed.media_group_id.present?
+      # A remitter's photos are never an agent album (child bills + total):
+      # with the flag off each one is judged on its own after OCR (settlement
+      # -> transaction, anything else skipped) instead of the album path
+      # turning every transfer into a "tổng kết" transaction to reject by hand.
+      if created && parsed.image? && parsed.media_group_id.present? && remitter_sender(parsed).nil?
+        BillAlbums::Collector.call(message)
+      end
 
       if !chat.active?
         message.update!(processing_status: "ignored")
@@ -52,7 +61,10 @@ module Telegram
     private
 
     def remitter_sender(parsed)
-      RemitterTransfers::Classifier.remitter_for(sender_id: parsed.sender_id, username: parsed.sender_username)
+      return @remitter_sender if defined?(@remitter_sender)
+
+      @remitter_sender = RemitterTransfers::Classifier.remitter_for(sender_id: parsed.sender_id,
+                                                                    username: parsed.sender_username)
     end
 
     # "Đi tiền" vs "kết toán", decided on receipt: a remitter's photo, a caption
@@ -67,16 +79,10 @@ module Telegram
       RemitterTransfer.where(telegram_message_id: siblings).exists?
     end
 
-    # A transfer photo is never a settlement bill. With
-    # the feature flag on it becomes a RemitterTransfer (code from the caption,
-    # amount from OCR); with the flag off it is stored and ignored. Albums are
+    # A transfer photo becomes a RemitterTransfer (code from the caption,
+    # amount from OCR; a settlement bill is handed back after OCR). Albums are
     # not collected: every photo is its own transfer.
     def receive_remitter_image(chat, parsed, message, remitter)
-      unless AppConfig.remitter_features_enabled?
-        message.update!(processing_status: "ignored")
-        log("telegram.remitter_ignored", chat, parsed)
-        return result(:ignored_remitter, message)
-      end
       unless chat.active?
         message.update!(processing_status: "ignored")
         log("telegram.chat_inactive", chat, parsed)

@@ -76,9 +76,9 @@ Luồng cũ: `UpdateReceiver` → `DownloadTelegramAttachmentJob` → `AnalyzeBi
 ```
 Telegram update (ảnh)
   │
-  ├─ UpdateReceiver#transfer_photo?  ── có ──► cờ remitter_features_enabled?
-  │     (Remitter / mã trong tin nhắn /          ├─ tắt → lưu tin nhắn, bỏ qua
-  │      album đã là đi tiền)                    └─ bật → RemitterTransfer(processing)
+  ├─ cờ bật && UpdateReceiver#transfer_photo?  ── có ──► RemitterTransfer(processing)
+  │     (Remitter / mã trong tin nhắn /
+  │      album đã là đi tiền; cờ tắt → luôn "không")
   │                                                       → Download → OCR
   │                                                       → BuildRemitterTransferJob
   │                                                       → RemitterTransfers::Builder
@@ -105,7 +105,7 @@ Telegram update (ảnh)
 
 Quy tắc phụ:
 - Nhóm Telegram phải đang **active**; nhóm chưa active thì ảnh chỉ được lưu (như ảnh kết toán).
-- Cờ `remitter_features_enabled` (Cài đặt → Telegram) tắt → ảnh đi tiền chỉ được lưu, không OCR, không tạo gì. Ảnh bị nhận ra sau OCR khi cờ tắt: tin nhắn `ignored`, không transaction.
+- Cờ `remitter_features_enabled` (Cài đặt → Telegram) tắt → **không có luồng đi tiền**: mọi ảnh (kể cả của Remitter, caption có mã) đi luồng kết toán thường. Sau OCR: bill kết toán → transaction (remitter gửi bill kết toán vẫn không mất); ảnh chuyển khoản → tin nhắn `ignored`, không lệnh, không transaction. Ảnh của Remitter **không bao giờ gom album** (cờ bật hay tắt): cờ tắt thì gửi nhiều hình = nhiều ảnh đơn, ảnh nào không phải bill kết toán thì bỏ qua; cờ bật thì nhiều hình = nhiều lệnh đi tiền.
 - Ảnh đi tiền không đi qua `BillAlbums::Collector`: mỗi ảnh một lệnh.
 - Album của đại lý (bill con + tổng kết `settlement`/`transfer`) không bị phân loại lại.
 - Ảnh đã có transaction (chạy lại OCR) giữ luồng kết toán.
@@ -261,7 +261,7 @@ Kèm theo, `BillVision::ValidationPolicy`: `amount_unreadable` / `transaction_da
 
 ## 6. Test case
 
-Cột "File" là nơi test được viết. Suite (kể cả test của §7.4) xanh: **671 examples, 0 failures** (12/10/2026).
+Cột "File" là nơi test được viết. Suite (kể cả test của §7.4) xanh: **679 examples, 0 failures** (12/10/2026).
 
 ### 6.1 Bảng mã và dò mã
 
@@ -295,7 +295,9 @@ Cột "File" là nơi test được viết. Suite (kể cả test của §7.4) x
 | R3 | Người lạ gửi caption `TK01` | Luồng đi tiền, `remitter` = nil | idem |
 | R4 | Ảnh thứ hai của album không caption | Luồng đi tiền nhờ ảnh đầu | idem |
 | R5 | Remitter tắt / người khác, caption `MB` | Luồng kết toán | idem |
-| R6 | Cờ tắt | `:ignored_remitter`, không tạo lệnh | idem, `remitter_feature_flag_spec.rb` |
+| R6 | Cờ tắt, ảnh của Remitter / caption `TK01` | `:queued` (luồng thường, tải ảnh + OCR), không tạo lệnh | idem, `remitter_feature_flag_spec.rb` |
+| R11 | Cờ tắt, Remitter gửi album 2 ảnh | Cả hai `:queued`, không tạo `BillAlbum` (mỗi ảnh là ảnh đơn) | `remitter_feature_flag_spec.rb` |
+| R12 | Cờ tắt, đại lý gửi album | Vẫn gom `BillAlbum` | idem |
 | R7 | Album của người đi tiền | Không tạo `BillAlbum` | `receiving_spec.rb` |
 | R8 | Sửa caption trước khi ghi sheet | Builder chạy lại | idem |
 | R9 | Sửa caption sau khi ghi sheet | Chỉ đánh dấu `caption_edited_after_write` | idem |
@@ -310,6 +312,9 @@ Cột "File" là nơi test được viết. Suite (kể cả test của §7.4) x
 | A8 | Lệnh của Remitter đã khai, OCR ra `settlement` | Lệnh `rejected` (`settlement_photo`), `BuildTransactionJob` | idem |
 | A9 | Lệnh của Remitter, OCR ra `unknown` | Giữ đi tiền, `BuildRemitterTransferJob` | idem |
 | A10 | Lệnh đã đánh giá (`approved`), OCR chạy lại ra `settlement` | Không đổi, không transaction | idem |
+| A11 | Lệnh đã trả về (`rejected`/`settlement_photo`), transaction được "Chạy lại OCR" | `BuildTransactionJob` dựng lại transaction, không đụng lệnh | idem |
+| A12 | Lệnh `failed` (OCR lỗi), OCR thử lại thành công ra `settlement` | Lệnh `rejected` (`settlement_photo`), `BuildTransactionJob` | idem |
+| A13 | Lệnh bị người từ chối (lý do khác), OCR chạy lại ra `settlement` | Không transaction | idem |
 
 ### 6.3 Đánh giá lệnh
 
@@ -424,7 +429,7 @@ Người dùng chạy suite: **22 fail** (18 do spec tạo trùng `excel_key` "L
 
 ### 7.3 Chưa kiểm chứng
 
-- **Suite đã xanh: 658 examples, 0 failures** sau §7.2; **671 examples, 0 failures** sau §7.4.
+- **Suite đã xanh: 658 examples, 0 failures** sau §7.2; **679 examples, 0 failures** sau §7.4 (gồm #7–#8).
 - Hành vi thật của Google Sheets với `insertDimension` trong vùng merge + `SUM` (giãn range, giãn merge) đã giả lập trong `MemorySheet`, chưa thử trên sheet thật.
 - Bố cục dòng của tab `thu chi` thật (nhãn hàng 23, TOTAL hàng 32) lấy từ file mẫu cũ; cột đã đối chiếu với Google Sheet thật (`thu chi 1010` có `LOI`, `thu chi 1110` không có).
 - View ERB chưa render thử ngoài spec request.
@@ -439,6 +444,13 @@ Người dùng chạy suite: **22 fail** (18 do spec tạo trùng `excel_key` "L
 | 4 | Medium (chi phí) | Mọi ảnh chuyển khoản đều thiếu HKD/giờ → `merchant_unreadable` + `transaction_time_unreadable` → **gọi thêm model kiểm chứng cho mỗi lệnh đi tiền** (gấp đôi chi phí OCR, chậm hơn) | Hai lý do đó chỉ xét `settlement`; test V1–V3 |
 | 5 | Medium | Ô DS MB không cộng được (chữ, công thức khác) → bỏ DS MB nhưng vẫn ghi MB: báo cáo ngày thiếu tiền mà không ai thấy | Ghi vào **Bill vô chủ** (`ds_cell_not_numeric`) như ô không tìm thấy; số gõ dạng chữ `354.367.000` được cộng; test D4, D9, D10 |
 | 6 | Low | `RetryWorkbookWritesJob` dùng toán tử jsonb `?` trong chuỗi SQL thô (dễ bị hiểu là placeholder bind) | Đổi sang `metadata->>'write_issue' IS NULL` |
+
+Rà lại sau khi trả bill kết toán của remitter về transaction và bỏ gom album cho remitter:
+
+| # | Mức | Vấn đề | Sửa |
+|---|---|---|---|
+| 7 | **High** | Transaction sinh từ lệnh đã trả về (`settlement_photo`) bấm "Chạy lại OCR" → job thấy tin nhắn còn gắn lệnh đi tiền → chạy Builder đi tiền (bỏ qua vì `rejected`) → transaction **treo `processing` mãi** | Lệnh `rejected` + `settlement_photo` coi như không có; test A11 |
+| 8 | Medium | Ảnh OCR lỗi lần đầu (lệnh `failed`), lần thử lại đọc ra bill kết toán → vẫn ở luồng đi tiền, `needs_review` | Cho phép trả về cả lệnh `failed`; test A12 |
 
 Đã rà và **không** thấy vấn đề: khoá advisory dùng chung cho hai writer (không deadlock vì mỗi job chỉ giữ một khoá); idempotency `RT<id>`/`TX<id>` khi batch đã áp mà DB chưa lưu; `lock_version` ở duyệt tay; enqueue sau commit; `raise ActiveRecord::Rollback` thay cho `break`; retry 429/5xx có backoff; trang HKD 0 query mỗi dòng.
 
@@ -464,7 +476,8 @@ Người dùng chạy suite: **22 fail** (18 do spec tạo trùng `excel_key` "L
 | 13 | Đổi bảng mã cần deploy | Chấp nhận | Theo yêu cầu (hằng số); spec C1–C2 bắt lỗi bảng |
 | 14 | Bill kết toán thật bị OCR đọc thành `unknown` → bị bỏ qua, không hiện trong "Cần kiểm tra" | Trung bình | Theo yêu cầu ("ảnh khác thì bỏ qua"); OCR lỗi hẳn vẫn hiện; ảnh gốc vẫn lưu, chạy lại được |
 | 15 | Album của **người lạ** (chưa khai ID) có mã ở caption ảnh đầu: webhook xử lý song song, ảnh sau có thể tới trước ảnh có caption → đi luồng album, tổng kết thành transaction | Thấp | Khai Telegram ID cho người đi tiền (khi đó phân loại theo người gửi, không phụ thuộc thứ tự) |
-| 16 | Cờ tắt + album người lạ có mã: ảnh đầu bị bỏ qua, ảnh sau vào luồng album | Thấp | Như #15 |
+| 16 | Cờ tắt: mọi ảnh chuyển khoản của remitter đều được OCR (tốn phí OCR) để bắt bill kết toán | Thấp | Cờ tắt chỉ là trạng thái tạm; bật cờ để dùng luồng đi tiền |
+| 16b | Remitter gửi đúng kiểu album đại lý (bill con + tổng kết) → không gom album, không đối chiếu tổng | Thấp | Remitter không gửi kiểu này; bill kết toán trong đó vẫn thành transaction |
 | 17 | **Tên tab `thu chi {ngày}{tháng}` không phân biệt được** `1/11` và `11/1` (cùng `thu chi 111`), tương tự `1/12`–`11/2`, `2/11`–`21/1`… Nếu file giữ tab tháng cũ, lệnh sẽ ghi vào tab sai | Cao từ 1/11 nếu file chứa tab nhiều tháng | Cần chốt quy ước tên tab (vd. `thu chi 01/11`) hoặc mỗi tháng một file / xoá tab cũ; xem §10.4 |
 | 18 | OCR đọc nhầm ảnh chuyển khoản của remitter thành `settlement` → thành transaction thay vì lệnh đi tiền | Thấp | Chuyển khoản không có số lô/TID nên transaction rơi vào "Cần kiểm tra", không mất; lệnh `rejected` (`settlement_photo`) vẫn còn để đối chiếu |
 
@@ -482,7 +495,7 @@ Người dùng chạy suite: **22 fail** (18 do spec tạo trùng `excel_key` "L
 7. Chạy kiểm thử tay §6.7.
 
 **Rollback**
-- Tắt cờ: ảnh đi tiền chỉ được lưu, không tạo gì; luồng kết toán không đổi.
+- Tắt cờ: không tạo lệnh đi tiền mới; ảnh chuyển khoản bị bỏ qua sau OCR, bill kết toán (kể cả của remitter) vẫn tạo transaction; lệnh đã có giữ nguyên.
 - Revert code + `db:rollback` (migration reversible). Hàng đã chèn vào `thu chi` phải xoá tay (tìm theo note `RT<id>`).
 
 ---

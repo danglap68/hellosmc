@@ -25,10 +25,14 @@ class AnalyzeBillImageJob < ApplicationJob
   # not immediately, so the whole album is reconciled in one place.
   def build_or_finalize(bill_image)
     transfer = bill_image.telegram_message&.remitter_transfer
-    if transfer&.processing? && RemitterTransfers::Classifier.settlement_image?(bill_image)
+    # Already handed back as a settlement: an OCR re-run (reprocessed or
+    # retried transaction) must rebuild the transaction, not the transfer.
+    transfer = nil if transfer&.rejected? && transfer.review_reasons.include?("settlement_photo")
+    if transfer && transfer.status.in?(%w[processing failed]) && RemitterTransfers::Classifier.settlement_image?(bill_image)
       # Routed to the transfer flow on receipt (remitter sender or a code in
       # the caption), but OCR reads a settlement bill and no transfer: it is a
       # transaction after all. The transfer is kept, rejected, for the audit trail.
+      # (failed = an earlier OCR run failed and this retry succeeded.)
       transfer.update!(status: "rejected", review_reasons: [ "settlement_photo" ])
       transfer = nil
     end

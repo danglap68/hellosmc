@@ -59,11 +59,11 @@ RSpec.describe Telegram::UpdateReceiver, "remitter transfers" do
     expect(RemitterTransfer.count).to eq(0)
   end
 
-  it "ignores remitter photos while the feature flag is off" do
+  it "sends remitter photos down the normal path while the feature flag is off" do
     allow(AppConfig).to receive(:remitter_features_enabled?).and_return(false)
     create(:remitter, telegram_user_id: 4242)
 
-    expect(described_class.call(update).status).to eq(:ignored_remitter)
+    expect(described_class.call(update).status).to eq(:queued)
     expect(RemitterTransfer.count).to eq(0)
   end
 
@@ -154,6 +154,38 @@ RSpec.describe AnalyzeBillImageJob, "remitter transfers" do
 
     expect(transfer.reload).to be_processing
     expect(BuildRemitterTransferJob).to have_been_enqueued.with(transfer.id)
+    expect(BuildTransactionJob).not_to have_been_enqueued
+  end
+
+  it "rebuilds the transaction, not the transfer, when a handed-back settlement is OCR'd again" do
+    transfer = create(:remitter_transfer, status: "rejected", review_reasons: [ "settlement_photo" ])
+    bill_image = create(:bill_image, :analyzed, extraction: "normal_settlement",
+                                    telegram_message: transfer.telegram_message)
+
+    described_class.new.build_or_finalize(bill_image)
+
+    expect(BuildTransactionJob).to have_been_enqueued.with(bill_image.id)
+    expect(BuildRemitterTransferJob).not_to have_been_enqueued
+  end
+
+  it "hands a transfer back when an OCR retry succeeds and reads a settlement" do
+    transfer = create(:remitter_transfer, status: "failed", review_reasons: [ "ocr_failed" ])
+    bill_image = create(:bill_image, :analyzed, extraction: "normal_settlement",
+                                    telegram_message: transfer.telegram_message)
+
+    described_class.new.build_or_finalize(bill_image)
+
+    expect(transfer.reload).to be_rejected
+    expect(BuildTransactionJob).to have_been_enqueued.with(bill_image.id)
+  end
+
+  it "keeps a transfer a person rejected on the transfer path" do
+    transfer = create(:remitter_transfer, status: "rejected", review_reasons: [ "code_missing" ])
+    bill_image = create(:bill_image, :analyzed, extraction: "normal_settlement",
+                                    telegram_message: transfer.telegram_message)
+
+    described_class.new.build_or_finalize(bill_image)
+
     expect(BuildTransactionJob).not_to have_been_enqueued
   end
 
