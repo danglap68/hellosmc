@@ -87,3 +87,71 @@ namespace :hellosmc do
     end
   end
 end
+
+namespace :hellosmc do
+  # Wipes everything a bill produced, keeps configuration.
+  #
+  # Deleted: transactions, reviews, workbook entries, bill images (and their
+  # files on R2), albums, Telegram messages, Excel exports, the audit log of
+  # those records, and every queued/retrying/scheduled Sidekiq job.
+  # Kept: users, settings, secrets (bot token, webhook), card types, dealers,
+  # merchants + aliases, merchant_dealers (TID mapping), fee rules, remitters,
+  # Telegram groups and their HKD mapping.
+  #
+  # The Google Sheet is NOT touched: rows already written stay there.
+  #
+  #   CONFIRM=yes bin/rails hellosmc:purge_transaction_data
+  PURGE_DATA_TABLES = %w[workbook_entries transaction_reviews transactions bill_images bill_albums
+                   telegram_messages excel_exports].freeze
+  PURGE_RECORD_TYPES = %w[Transaction TransactionReview WorkbookEntry BillImage BillAlbum
+                         TelegramMessage ExcelExport].freeze
+
+  desc "Delete all transaction data (bills, transactions, messages, exports) but keep configuration. CONFIRM=yes required"
+  task purge_transaction_data: :environment do
+    require "sidekiq/api"
+
+    counts = PURGE_DATA_TABLES.index_with { |table| ActiveRecord::Base.connection.select_value("SELECT COUNT(*) FROM #{table}").to_i }
+    attachments = ActiveStorage::Attachment.where(record_type: %w[BillImage ExcelExport])
+    blob_ids = attachments.distinct.pluck(:blob_id)
+    blob_keys = ActiveStorage::Blob.where(id: blob_ids).pluck(:key)
+    audit_logs = AuditLog.where(auditable_type: PURGE_RECORD_TYPES)
+
+    puts "Database: #{ActiveRecord::Base.connection.current_database}"
+    counts.each { |table, count| puts format("  %-22s %d", table, count) }
+    puts format("  %-22s %d", "files (R2)", blob_keys.size)
+    puts format("  %-22s %d", "audit_logs", audit_logs.count)
+    puts format("  %-22s %d", "sidekiq jobs", Sidekiq::Queue.all.sum(&:size) + Sidekiq::RetrySet.new.size +
+                                               Sidekiq::ScheduledSet.new.size)
+
+    unless ENV["CONFIRM"] == "yes"
+      puts "\nNothing deleted. Re-run with CONFIRM=yes to delete the above."
+      next
+    end
+
+    # Jobs first, so nothing recreates rows or touches ids that are about to go.
+    Sidekiq::Queue.all.each(&:clear)
+    Sidekiq::RetrySet.new.clear
+    Sidekiq::ScheduledSet.new.clear
+
+    ActiveRecord::Base.transaction do
+      audit_logs.delete_all
+      attachments.delete_all
+      ActiveStorage::VariantRecord.where(blob_id: blob_ids).delete_all
+      ActiveStorage::Blob.where(id: blob_ids).delete_all
+      # No CASCADE: Postgres refuses if any table outside this list still
+      # references these rows, so configuration can never be truncated by accident.
+      ActiveRecord::Base.connection.execute("TRUNCATE #{PURGE_DATA_TABLES.join(', ')} RESTART IDENTITY")
+    end
+
+    failed = 0
+    blob_keys.each do |key|
+      ActiveStorage::Blob.service.delete(key)
+    rescue StandardError => e
+      failed += 1
+      warn "Could not delete file #{key}: #{e.class}: #{e.message}" if failed <= 3
+    end
+
+    puts "\nDeleted. Files removed from storage: #{blob_keys.size - failed}/#{blob_keys.size}."
+    puts "#{failed} file(s) are left in the bucket (orphans, harmless; delete them in Cloudflare if needed)." if failed.positive?
+  end
+end
