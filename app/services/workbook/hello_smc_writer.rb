@@ -26,6 +26,7 @@ module Workbook
     def call
       return :skipped_no_amount if @transaction.transaction_amount_vnd.blank?
       return :skipped_failed if @transaction.failed?
+      return :skipped_no_date if @transaction.transaction_at.blank?
       return :already_written if WorkbookEntry.exists?(transaction_id: @transaction.id)
       raise ConfigurationError, "hello_smc_spreadsheet_id is not configured" if @spreadsheet_id.blank?
 
@@ -106,7 +107,8 @@ module Workbook
     end
 
     def remitter_column(grid, agent_col, excel_key)
-      header_row = 1 # row 2 in A1
+      # R&D Report layout is fixed: row 1 = "AGENT/RIMITTER" header, row 2 = remitter names.
+      header_row = 1
       start_col = agent_col + 1
       (start_col..start_col + 4).find { |col| same_text?(grid.dig(header_row, col), excel_key) }
     end
@@ -187,7 +189,9 @@ module Workbook
 
           day = date_of(value)
           if day
-            new_date = (day.day <= days_in_month) ? Date.new(year, month, day.day) : nil
+            # Write an ISO string so Google (USER_ENTERED) stores it as a date;
+            # the writer reads dates back as serials via UNFORMATTED_VALUE.
+            new_date = (day.day <= days_in_month) ? Date.new(year, month, day.day).iso8601 : nil
             updates << { sheet: title, range: "#{a1(r, c)}:#{a1(r, c)}", rows: [ [ new_date ] ] }
           elsif value.is_a?(Numeric)
             updates << { sheet: title, range: "#{a1(r, c)}:#{a1(r, c)}", rows: [ [ nil ] ] }
@@ -238,12 +242,19 @@ module Workbook
     end
 
     def same_text?(left, right)
-      VietnameseText.normalize(left) == VietnameseText.normalize(right)
+      normalize_text(left) == normalize_text(right)
     end
 
-    # Matches an R&D agent label, ignoring the "(MB+SP)" channel suffix.
+    # Diacritic/space-insensitive, and "tid 1" == "tid1" == "TID 1".
+    def normalize_text(text)
+      VietnameseText.normalize(text).gsub(/\btid\s+(\d+)\b/i, 'tid\1')
+    end
+
+    # R&D labels are multi-line: the first line is the agent name, the rest is
+    # the channel ("(MB+SP)", "(SP)", …). Also tolerate a single-line "(MB+SP)".
     def agent_label?(cell, label)
-      VietnameseText.normalize(cell.to_s).sub(/\s+mb\s+sp\z/, "") == VietnameseText.normalize(label)
+      normalized = normalize_text(cell.to_s.split("\n").first).sub(/\s+mb\s+sp\z/, "")
+      normalized == normalize_text(label)
     end
 
     def numeric(value)
@@ -255,7 +266,8 @@ module Workbook
     end
 
     # Dates come back as Excel serial numbers (UNFORMATTED_VALUE); amounts are
-    # large numbers and must not be mistaken for dates.
+    # large numbers and must not be mistaken for dates. ISO strings are also
+    # accepted so month-rollover dates written by this writer round-trip.
     def date_of(value)
       case value
       when Date then value
@@ -265,6 +277,8 @@ module Workbook
         return nil unless serial.between?(1, 110_000)
 
         Date.new(1899, 12, 30) + serial
+      when String
+        Date.iso8601(value.strip) if value.strip.present?
       end
     rescue ArgumentError, TypeError
       nil

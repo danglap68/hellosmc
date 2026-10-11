@@ -156,6 +156,16 @@ RSpec.describe Workbook::HelloSmcWriter do
       expect(client.cell("DS MB T10", "B2")).to eq(354_367_000)
     end
 
+    it "skips transactions without a transaction date" do
+      transaction = build_transaction
+      transaction.update!(transaction_at: nil)
+      client = memory
+      expect(described_class.call(transaction: transaction, client: client, spreadsheet_id: "sheet-id"))
+        .to eq(:skipped_no_date)
+      expect(client.cell("DS MB T10", "B2")).to eq(354_367_000)
+      expect(WorkbookEntry.count).to eq(0)
+    end
+
     it "raises ConfigurationError when the spreadsheet id is missing" do
       create(:remitter, name: "Lập", excel_key: "LẬP", telegram_user_id: 12_345)
       expect { described_class.call(transaction: build_transaction, client: memory, spreadsheet_id: nil) }
@@ -173,8 +183,8 @@ RSpec.describe Workbook::HelloSmcWriter do
       )
 
       expect(client.titles).to include("DS MB T11")
-      expect(client.cell("DS MB T11", "A2")).to eq(Date.new(2026, 11, 1))
-      expect(client.cell("DS MB T11", "A3")).to eq(Date.new(2026, 11, 2))
+      expect(client.cell("DS MB T11", "A2")).to eq("2026-11-01")
+      expect(client.cell("DS MB T11", "A3")).to eq("2026-11-02")
       expect(client.cell("DS MB T11", "B2")).to eq(486_000)
       expect(client.cell("DS MB T11", "B3")).to be_nil
       # T10 unchanged
@@ -191,6 +201,25 @@ RSpec.describe Workbook::HelloSmcWriter do
       expect(client.cell("MB", "C2")).to be_nil
       expect(client.cell("MB", "E2")).to be_nil
       expect(client.cell("MB", "B2")).to eq("=A2-(A2*D2)")
+    end
+  end
+
+  describe "serialized accumulation" do
+    it "accumulates two transactions into the same daily cell without losing an update" do
+      create(:remitter, name: "Lập", excel_key: "LẬP", telegram_user_id: 12_345)
+      client = memory
+      described_class.call(transaction: build_transaction(amount: 100_000), client: client, spreadsheet_id: "sheet-id")
+      described_class.call(transaction: build_transaction(amount: 200_000), client: client, spreadsheet_id: "sheet-id")
+      expect(client.cell("DS MB T10", "B2")).to eq(354_367_000 + 100_000 + 200_000)
+    end
+
+    it "issues a session advisory lock around the write" do
+      create(:remitter, name: "Lập", excel_key: "LẬP", telegram_user_id: 12_345)
+      connection = Transaction.connection
+      allow(connection).to receive(:execute).and_call_original
+      described_class.call(transaction: build_transaction, client: memory, spreadsheet_id: "sheet-42")
+      expect(connection).to have_received(:execute).with(a_string_including("pg_advisory_lock"))
+      expect(connection).to have_received(:execute).with(a_string_including("pg_advisory_unlock"))
     end
   end
 end

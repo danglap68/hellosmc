@@ -8,11 +8,12 @@ RSpec.describe WriteHelloSmcWorkbookJob do
     described_class.perform_now(transaction.id)
   end
 
-  it "fails loudly when the spreadsheet id is missing and leaves the transaction intact" do
+  it "discards without retry when the spreadsheet id is missing and leaves the transaction intact" do
     allow(AppConfig).to receive(:hello_smc_spreadsheet_id).and_return(nil)
+    expect(StructuredLog).to receive(:error).with("workbook.hello_smc_configuration_error", error: anything)
     expect {
       described_class.perform_now(transaction.id)
-    }.to raise_error(Workbook::HelloSmcWriter::ConfigurationError)
+    }.not_to raise_error
     expect(WorkbookEntry.count).to eq(0)
     expect(Transaction.find(transaction.id)).to be_present
   end

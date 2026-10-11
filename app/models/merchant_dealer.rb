@@ -13,8 +13,8 @@ class MerchantDealer < ApplicationRecord
 
   def normalize_fields
     self.tid_key = Workbook::TidParser.normalize(tid_key) || tid_key.to_s.strip.downcase
-    self.tid_label = tid_label.to_s.strip.presence
-    self.ds_sheet_anchor = ds_sheet_anchor.to_s.strip.presence
+    self.tid_label = tid_label.to_s.strip.presence || self.tid_key
+    self.ds_sheet_anchor = ds_sheet_anchor.to_s.strip.presence || merchant&.name
     self.ds_header = ds_header.to_s.strip.presence
     self.rd_agent_label = rd_agent_label.to_s.strip.presence
   end

@@ -10,6 +10,27 @@
             hint: t("merchants.form.default_card_type_hint") %>
       <%= form.switch_field :active %>
     </div>
+    <% if merchant.persisted? %>
+      <div class="card-body border-top">
+        <h3 class="card-title mb-3"><%= icon("users") %> <%= t("merchants.form.agents") %></h3>
+        <%= form.fields_for :merchant_dealers do |md| %>
+          <div class="row align-items-end mb-2">
+            <div class="col-md-3"><%= md.select_field :dealer_id, dealer_options, { include_blank: t("reviews.choose") } %></div>
+            <div class="col-md-2"><%= md.field :tid_key, hint: t("merchants.form.tid_key_hint") %></div>
+            <div class="col-md-3"><%= md.field :ds_header %></div>
+            <div class="col-md-2"><%= md.field :rd_agent_label %></div>
+            <div class="col-md-2">
+              <% if md.object.persisted? %>
+                <label class="form-check mb-2">
+                  <%= md.check_box :_destroy, class: "form-check-input" %>
+                  <span class="form-check-label"><%= t("actions.delete") %></span>
+                </label>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
+      </div>
+    <% end %>
     <div class="card-footer d-flex gap-2">
       <%= form.submit_button %>
       <%= link_to t("actions.cancel"), merchant.persisted? ? admin_merchant_path(merchant) : admin_merchants_path, class: "btn btn-link" %>

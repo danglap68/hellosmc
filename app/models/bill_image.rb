@@ -30,11 +30,7 @@ class BillImage < ApplicationRecord
     telegram_message&.telegram_chat
   end
 
-  # Manual uploads carry the dealer and card type chosen by the uploader.
-  def manual_dealer_id
-    metadata["dealer_id"]
-  end
-
+  # Manual uploads carry the card type chosen by the uploader.
   def manual_card_type_key
     metadata["card_type_key"]
   end

@@ -187,7 +187,7 @@ Bảng trên `DS MB T10` (hàng 1 và hàng 39):
 | HKD AS CAFE | Anh Hùng | tid2 |
 | HKD AS CAFE | Chị Hồng | tid3 |
 
-Merchant trong app hiện có (`001_ HỘ KINH DOANH THIÊN KIM GV`, `HKD AS CAFE-CAFE 96-2`, …) map sang header bằng alias / `normalized_name`, không tạo bản ghi trùng nếu đã khớp.
+Merchant trong app hiện có (`001_ HỘ KINH DOANH THIÊN KIM GV`, `HKD AS CAFE-CAFE 96-2`, `CHERRY COFFE 2`, …) map sang header bằng alias / `normalized_name`, không tạo bản ghi trùng nếu đã khớp. Với merchant cũ có tên/code khác biệt (`CHERRY COFFE 2` vs `Cherry Coffee`), seed dùng `match_code` để khớp đúng merchant cũ (`002 CHERRY COFFE 2`, `099`) thay vì tạo trùng.
 
 `rd_agent_label` map tay trong seed khi tên R&D khác DS MB (`NamHai` vs `Hải`, `PCuong` vs `PHÙNG CUỜNG`, `HiêuSG` vs `Anh Hiếu`). Spec test bắt buộc có map cho Chương, Sơn, Hải / NamHai.
 
@@ -232,7 +232,9 @@ Số cộng dồn: `transaction_amount_vnd` (số trên bill), không dùng ti�
 
 ## 7. Ghi Google Sheet
 
-Nguồn sống: một spreadsheet native (đã File → Save as Google Sheets / convert khi upload). URL dạng `https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/edit`. Setting `hello_smc_spreadsheet_id`. Thiếu ID hoặc sheet chưa share cho service account → job fail, retry, không im lặng.
+Nguồn sống: một spreadsheet native (đã File → Save as Google Sheets / convert khi upload). URL dạng `https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/edit`. Setting `hello_smc_spreadsheet_id`. Thiếu ID (`ConfigurationError`) → job **discard + log error** (không retry vô ích, tránh flood retry queue). API 403/404/network (`Google::Apis::Error`) → job fail + retry 5 lần (polynomial backoff), không im lặng.
+
+Writer trả về các cờ skip (không ghi, không tạo entry): `:skipped_no_amount` (thiếu số tiền), `:skipped_failed` (giao dịch failed), `:skipped_no_date` (thiếu `transaction_at` — guard chống `nil.in_time_zone` crash), `:already_written` (đã có `workbook_entries`).
 
 **Auth.** Service account, scope `https://www.googleapis.com/auth/spreadsheets`. Share spreadsheet cho email service account, quyền Editor. Không dùng OAuth user cho job nền.
 
@@ -252,7 +254,7 @@ Không có sheet:
 
 1. `spreadsheets.batchUpdate` `DuplicateSheet` từ tab `DS MB T*` có số tháng lớn nhất.
 2. Đổi title thành `DS MB T{tháng mới}`.
-3. Đổi cột ngày thành 1…cuối tháng mới (timezone app).
+3. Đổi cột ngày thành 1…cuối tháng mới (timezone app). Ghi ngày dạng ISO string `YYYY-MM-DD` để Google (USER_ENTERED) parse thành date; đọc về là serial qua `UNFORMATTED_VALUE`. `date_of` chấp nhận cả serial lẫn ISO string để round-trip.
 4. Xóa số tiền các ô ngày (để trống), giữ công thức `=SUM`.
 
 Tìm bảng: hàng header có ô = `ds_sheet_anchor` của `merchant_dealers`. Trong các cột của bảng đó, header khớp `ds_header` (chuẩn hóa khoảng trắng). Hàng ngày = ô ngày cùng `transaction_at.to_date`. Đọc ngày **deterministic** (serial number qua `valueRenderOption=UNFORMATTED_VALUE` / `DATE_TIME`), so sánh theo `to_date`; không `Date.parse` chuỗi `dd/mm/yyyy` vì Ruby parse theo `mm/dd` sẽ lệch ngày.
@@ -315,6 +317,8 @@ Thiếu HKD hoặc tid: chỉ `Bill vô chủ`.
 8. **Tháng mới.** `DuplicateSheet`; sai header thì T11 hỏng. Test tạo T11 từ T10 (stub API).
 9. **Chị Huệ ba TID** (127/128/129) cùng người, ba cột. Không gộp.
 10. **Secret.** Không commit JSON service account. Không đưa spreadsheet ID vào spec hay git nếu coi là nội bộ — để ENV.
+11. **Thiếu `transaction_at`.** Giao dịch `needs_review` có thể không có giờ (OCR thiếu thời gian). Writer guard `:skipped_no_date`; Builder cũng không enqueue khi thiếu `transaction_at` — tránh crash `nil.in_time_zone`.
+12. **Thiếu `spreadsheet_id`.** `ConfigurationError` được `discard_on` + log error trong job (không retry 25 lần mặc định của Sidekiq → không flood queue).
 
 ## 11. Test case
 
@@ -372,9 +376,10 @@ Thiếu HKD hoặc tid: chỉ `Bill vô chủ`.
 
 ### 11.9 Builder / job
 
-- `Builder` enqueue `WriteHelloSmcWorkbookJob` sau khi tạo giao dịch có số tiền.
+- `Builder` enqueue `WriteHelloSmcWorkbookJob` sau khi tạo giao dịch có số tiền **và có `transaction_at`**.
 - OCR failed: không enqueue.
-- Thiếu `hello_smc_spreadsheet_id` hoặc API 403/404: job fail có log, giao dịch vẫn tồn tại, không có `workbook_entries`.
+- Thiếu `hello_smc_spreadsheet_id`: job discard + log error, giao dịch vẫn tồn tại, không có `workbook_entries`, không retry.
+- API 403/404: job fail + retry (Google::Apis::Error), giao dịch vẫn còn.
 - Client Sheets được stub; spec không gọi Google thật.
 
 ### 11.10 Parser TID
@@ -421,9 +426,10 @@ Thiếu HKD hoặc tid: chỉ `Bill vô chủ`.
 
 ### 11.17 Cấu hình thiếu / lỗi API
 
-- Thiếu `hello_smc_spreadsheet_id`: job **fail** (không im lặng), có log, không tạo entry — không phải `:skipped_unconfigured` bỏ qua.
+- Thiếu `hello_smc_spreadsheet_id`: job **discard + log error** (không im lặng, không retry), không tạo entry — không phải `:skipped_unconfigured` bỏ qua.
 - Thiếu credentials / chưa share service account (403): job fail + retry, giao dịch vẫn còn.
 - Sheets API 404 (sheet không tồn tại): fail, không tạo entry.
+- Thiếu `transaction_at`: writer trả `:skipped_no_date`, không ghi, không tạo entry.
 
 ### 11.18 Resolver — TID chỉ từ tên merchant
 
@@ -502,4 +508,4 @@ Làm riêng, chỉ sau khi pha 1 chạy ổn và có spec test cho fee rule. Khi
 - `Merchants::Resolver` bỏ disambiguation theo `dealer`; `Merchant.dealer_id` nullify rồi drop.
 - `TelegramChat.dealer_id` drop; `FeeRule#merchant_belongs_to_dealer` chuyển sang `merchant_dealers`.
 - Export/review/dashboard tự khớp agent (chỉ đổi nghĩa `transaction.dealer`, không đổi logic hiển thị).
-- Data migration: backfill `merchant_dealers` từ `merchants.dealer_id` cũ trước khi nullify.
+- Data migration: chỉ drop cột `dealer_id` cũ, **không backfill** `merchant_dealers` (tid1 tổng hợp sẽ xung đột unique `(merchant_id, tid_key)` với seed thật). Mapping thật do `Workbook::Seed` tạo từ DS MB.

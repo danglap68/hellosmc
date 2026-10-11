@@ -2,12 +2,20 @@ require "rails_helper"
 
 RSpec.describe MerchantDealer do
   describe "validations" do
-    it "requires tid_key and the display fields" do
-      md = build(:merchant_dealer, tid_key: nil, tid_label: nil, ds_sheet_anchor: nil,
-                 ds_header: nil, rd_agent_label: nil)
+    it "requires tid_key, ds_header and rd_agent_label" do
+      md = build(:merchant_dealer, tid_key: nil, ds_header: nil, rd_agent_label: nil)
       expect(md).not_to be_valid
       expect(md.errors[:tid_key]).to be_present
-      expect(md.errors[:ds_sheet_anchor]).to be_present
+      expect(md.errors[:ds_header]).to be_present
+      expect(md.errors[:rd_agent_label]).to be_present
+    end
+
+    it "defaults tid_label to tid_key and ds_sheet_anchor to the merchant name" do
+      merchant = create(:merchant, name: "Thiên Kim GV")
+      md = build(:merchant_dealer, merchant: merchant, tid_key: "tid1", tid_label: nil, ds_sheet_anchor: nil)
+      md.valid?
+      expect(md.tid_label).to eq("tid1")
+      expect(md.ds_sheet_anchor).to eq("Thiên Kim GV")
     end
 
     it "normalizes tid_key from 'TID 127' to 'tid127'" do

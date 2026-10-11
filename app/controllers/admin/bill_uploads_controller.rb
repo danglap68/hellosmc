@@ -21,7 +21,7 @@ module Admin
     private
 
     def upload_params
-      params.fetch(:bill_upload_form, {}).permit(:image, :dealer_id, :card_type_key, :note)
+      params.fetch(:bill_upload_form, {}).permit(:image, :card_type_key, :note)
     end
   end
 end

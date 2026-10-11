@@ -37,6 +37,13 @@ RSpec.describe Workbook::Seed do
     expect(Merchant.where(code: "001").count).to eq(1)
   end
 
+  it "matches existing merchants by match_code instead of creating duplicates" do
+    cherry = create(:merchant, code: "002 CHERRY COFFE 2", name: "CHERRY COFFE 2")
+    described_class.call
+    expect(Merchant.where(code: "CHERRY001")).not_to exist
+    expect(cherry.merchant_dealers).to be_present
+  end
+
   it "is idempotent for merchant_dealers" do
     described_class.call
     expect { described_class.call }.not_to change(MerchantDealer, :count)

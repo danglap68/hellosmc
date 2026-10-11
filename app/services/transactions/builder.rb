@@ -240,7 +240,7 @@ module Transactions
     end
 
     def enqueue_workbook(transaction)
-      return if transaction.failed? || transaction.transaction_amount_vnd.blank?
+      return if transaction.failed? || transaction.transaction_amount_vnd.blank? || transaction.transaction_at.blank?
 
       WriteHelloSmcWorkbookJob.perform_later(transaction.id)
     end

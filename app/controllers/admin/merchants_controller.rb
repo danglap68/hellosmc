@@ -36,7 +36,9 @@ module Admin
       end
     end
 
-    def edit; end
+    def edit
+      @merchant.merchant_dealers.build
+    end
 
     def update
       before = Audit::Snapshot.of(@merchant)
@@ -65,7 +67,8 @@ module Admin
     end
 
     def merchant_params
-      params.require(:merchant).permit(:name, :code, :default_card_type_id, :active)
+      params.require(:merchant).permit(:name, :code, :default_card_type_id, :active,
+        merchant_dealers_attributes: [ :id, :dealer_id, :tid_key, :tid_label, :ds_sheet_anchor, :ds_header, :rd_agent_label, :active, :_destroy ])
     end
   end
 end

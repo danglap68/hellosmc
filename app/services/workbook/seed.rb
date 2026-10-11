@@ -15,9 +15,9 @@ module Workbook
     HKD = [
       { code: "001", name: "001_ HỘ KINH DOANH THIÊN KIM GV", anchor: "Thiên Kim GV" },
       { code: "GTD001", name: "Gat Tan Day Coffe", anchor: "Gat Tan Day Coffe" },
-      { code: "CHERRY001", name: "Cherry Coffee", anchor: "Cherry Coffee" },
+      { code: "CHERRY001", name: "Cherry Coffee", anchor: "Cherry Coffee", match_code: "002 CHERRY COFFE 2" },
       { code: "MILO001", name: "HKD AS CAFE-CAFE MILO", anchor: "HKD AS CAFE-CAFE MILO" },
-      { code: "AS96001", name: "HKD AS CAFE-CAFE 96", anchor: "HKD AS CAFE-CAFE 96" },
+      { code: "AS96001", name: "HKD AS CAFE-CAFE 96", anchor: "HKD AS CAFE-CAFE 96", match_code: "099" },
       { code: "ASCAFE001", name: "HKD AS CAFE", anchor: "HKD AS CAFE" }
     ].freeze
 
@@ -26,20 +26,20 @@ module Workbook
       ["001", "Chương", "tid1", "tid1", "Chương (tid1)", "Chương"],
       ["001", "Sơn", "tid2", "tid2", "Sơn(tid2)", "Sơn"],
       ["001", "Hải", "tid3", "tid3", "Hải (tid3)", "NamHai"],
-      ["GTD001", "Cường Duyên", "tid1", "tid1", "Cường Duyên (tid1)", "Cường Duyên"],
-      ["GTD001", "Trân", "tid2", "tid2", "Trân (tid2)", "Trân"],
-      ["GTD001", "Thọ", "tid3", "tid3", "Thọ (tid3)", "Thọ"],
-      ["CHERRY001", "Cường Duyên", "tid2", "tid2", "Cường Duyên (tid2)", "Cường Duyên"],
-      ["CHERRY001", "Trân", "tid3", "tid3", "Trân (tid3)", "Trân"],
-      ["CHERRY001", "Nghĩa Nghiệp", "tid1", "tid1", "Nghĩa Nghiệp (tid1)", "Nghĩa Nghiệp"],
+      ["GTD001", "Cường Duyên", "tid1", "tid1", "Cường Duyên(tid1)", "CườngDuyen"],
+      ["GTD001", "Trân", "tid2", "tid2", "Trân(tid2)", "Trân"],
+      ["GTD001", "Thọ", "tid3", "tid3", "Thọ(tid3)", "Thọ"],
+      ["CHERRY001", "Cường Duyên", "tid2", "tid2", "Cường Duyên(tid2)", "CườngDuyen"],
+      ["CHERRY001", "Trân", "tid3", "tid3", "Trân ( tid3)", "Trân"],
+      ["CHERRY001", "Nghĩa Nghiệp", "tid1", "tid1", "Nghĩa Nghiệp (tid1)", "Nghĩa"],
       ["MILO001", "Chị Huệ", "tid127", "TID 127", "Chị Huệ (TID 127)", "Chị Huệ"],
       ["MILO001", "Chị Huệ", "tid128", "TID 128", "Chị Huệ (TID 128)", "Chị Huệ"],
       ["MILO001", "Chị Huệ", "tid129", "TID 129", "Chị Huệ (TID 129)", "Chị Huệ"],
-      ["AS96001", "PHÙNG CUỜNG", "tid1", "tid1", "PHÙNG CUỜNG (tid1)", "PCuong"],
-      ["AS96001", "Anh Hiếu", "tid2", "tid2", "Anh Hiếu (tid2)", "HiêuSG"],
-      ["ASCAFE001", "Anh Hải", "tid1", "tid1", "Anh Hải (tid1)", "Anh Hải"],
-      ["ASCAFE001", "Anh Hùng", "tid2", "tid2", "Anh Hùng (tid2)", "Anh Hùng"],
-      ["ASCAFE001", "Chị Hồng", "tid3", "tid3", "Chị Hồng (tid3)", "Chị Hồng"]
+      ["AS96001", "PHÙNG CUỜNG", "tid1", "TID 1", "PHÙNG CUỜNG(TID 1)", "PCuong"],
+      ["AS96001", "Anh Hiếu", "tid2", "TID 2", "Anh Hiếu (TID 2)", "HiêuSG"],
+      ["ASCAFE001", "Anh Hải", "tid1", "tid 1", "Anh Hải (tid 1)", "Anh Hải"],
+      ["ASCAFE001", "Anh Hùng", "tid2", "tid 2", "Anh Hùng (tid 2)", "Hùng"],
+      ["ASCAFE001", "Chị Hồng", "tid3", "tid 3", "Chị Hồng (tid 3)", "Hồng"]
     ].freeze
 
     module_function
@@ -74,7 +74,7 @@ module Workbook
     end
 
     def find_or_create_merchant(attrs)
-      merchant = Merchant.find_or_initialize_by(code: attrs[:code])
+      merchant = Merchant.find_by(code: attrs[:match_code]) || Merchant.find_or_initialize_by(code: attrs[:code])
       merchant.assign_attributes(name: attrs[:name]) if merchant.new_record?
       merchant.save!
       merchant.merchant_aliases.find_or_create_by!(alias_type: "receipt_name", alias: attrs[:anchor])
