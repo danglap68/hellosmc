@@ -52,6 +52,7 @@ vi:
     hold: "Tạm giữ"
     reject: "Từ chối"
     reprocess: "Xử lý lại"
+    include_excluded: "Đưa vào xử lý"
     review: "Kiểm tra"
     back: "Quay lại"
     new: "Thêm mới"
@@ -109,6 +110,7 @@ vi:
       cannot_approve_from: "Không thể duyệt giao dịch ở trạng thái hiện tại"
       invalid_transition: "Không thể chuyển trạng thái giao dịch"
       not_reprocessable: "Không thể chạy lại OCR cho giao dịch này"
+      not_excludable: "Bill này không ở trạng thái bỏ qua hoặc không còn dữ liệu để xử lý"
       fee_rule_ambiguous: "có nhiều quy tắc cùng mức ưu tiên – hãy chọn tay hoặc sửa cấu hình"
       fee_rule_not_found: "không có quy tắc phí phù hợp – hãy chọn tay hoặc thêm quy tắc"
       already_uploaded: "đã được tải lên trước đó (ảnh #%{id})"
@@ -182,6 +184,8 @@ vi:
       amount_min: "Số tiền từ"
       amount_max: "Số tiền đến"
       telegram_chat: "Nhóm Telegram"
+      tag: "Bill đã bỏ qua"
+      show_skipped: "Hiện cả bill đã bỏ qua"
     raw_ocr_name: "Tên đọc từ bill (OCR)"
     auto_approved: "Tự động duyệt"
     review_reasons_title: "Lý do cần kiểm tra"
@@ -189,6 +193,7 @@ vi:
     show:
       title: "Giao dịch #%{id}"
       bill_image: "Ảnh bill"
+      excluded: "Bill này được bỏ qua (%{tags}): không tính phí, không ghi sheet, không vào Excel. Bấm \"Đưa vào xử lý\" nếu cần đối soát hoặc ghi sổ."
       telegram_source: "Nguồn Telegram"
       telegram_chat: "Nhóm"
       message_edited: "Tin nhắn đã bị chỉnh sửa sau khi gửi. Hệ thống không tự xử lý lại – vui lòng kiểm tra."
@@ -229,7 +234,12 @@ vi:
       approve: "Duyệt giao dịch này?"
       reject: "Từ chối giao dịch này?"
       reprocess: "Chạy lại OCR cho bill này?"
+      include: "Đưa bill này vào xử lý? Hệ thống sẽ tính phí và đưa vào danh sách duyệt như bill thường."
+    tags:
+      smart_pos: "SmartPOS"
+      skip_merchant: "HKD bỏ qua bill"
     flash:
+      included: "Đã đưa bill vào xử lý."
       corrected: "Đã lưu chỉnh sửa và tính lại."
       approved: "Đã duyệt giao dịch."
       held: "Đã chuyển sang tạm giữ."
@@ -1163,6 +1173,7 @@ vi:
           hold: "Tạm giữ"
           exported: "Đã xuất Excel"
           failed: "Xử lý lỗi"
+          excluded: "Đã bỏ qua"
       bill_image:
         ocr_status:
           pending: "Đang chờ"

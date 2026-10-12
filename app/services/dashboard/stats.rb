@@ -13,7 +13,7 @@ module Dashboard
     end
 
     def processed_today
-      Transaction.where(created_at: @day).where.not(status: %w[pending processing]).count
+      Transaction.where(created_at: @day).where.not(status: %w[pending processing excluded]).count
     end
 
     def needs_review
@@ -29,7 +29,7 @@ module Dashboard
     end
 
     def total_amount_today
-      Transaction.where(transaction_at: @day).where.not(status: %w[rejected failed]).sum(:transaction_amount_vnd)
+      Transaction.where(transaction_at: @day).where.not(status: %w[rejected failed excluded]).sum(:transaction_amount_vnd)
     end
 
     def total_approved_amount_today
@@ -37,7 +37,7 @@ module Dashboard
     end
 
     def latest_transactions(limit = 8)
-      Transaction.includes(:dealer, :merchant, :card_type).recent_first.limit(limit)
+      Transaction.where.not(status: "excluded").includes(:dealer, :merchant, :card_type).recent_first.limit(limit)
     end
 
     def latest_review_items(limit = 6)
