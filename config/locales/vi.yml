@@ -905,7 +905,7 @@ vi:
       settlement_photo: "Ảnh là bill kết toán (mã trong tin nhắn bị hiểu nhầm), đã chuyển sang luồng giao dịch"
       not_a_transfer: "Ảnh không phải biên lai chuyển khoản (ví dụ máy tính, bill khác), đã bỏ qua"
     write_issues:
-      rd_sheet_missing: "Chưa có tab thu chi của ngày này. Tạo tab rồi bấm Ghi lại."
+      rd_sheet_missing: "Chưa có tab thu chi của ngày này, và cũng chưa có tab \"thu chi mẫu\" để tự tạo. Tạo tab (hoặc tab mẫu) rồi bấm Ghi lại."
       rd_agent_missing: "Tab %{sheet} không có khối của đại lý này (kiểm tra nhãn thu chi của đại lý)."
       rd_remitter_missing: "Tab %{sheet} không có cột của người đi tiền này."
       rd_total_missing: "Khối đại lý trong tab %{sheet} không có dòng TOTAL."

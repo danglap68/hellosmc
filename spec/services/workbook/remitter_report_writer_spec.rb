@@ -85,6 +85,32 @@ RSpec.describe Workbook::RemitterReportWriter do
     expect(client.cell("thu chi 1010", "I31")).to eq(29_274_000)
   end
 
+  describe "a day without a tab" do
+    let(:day_tabs) { { "thu chi 1010" => tab } }
+
+    it "makes the tab from the thu chi mẫu template and writes into it" do
+      client = Workbook::MemorySheet.new(day_tabs)
+      Workbook::ThuChiTemplate.build!(client: client)
+      record = transfer(at: Time.zone.local(2026, 10, 12, 16, 4))
+
+      expect(write(record, client)).to eq(:written)
+
+      expect(client.titles).to eq([ "thu chi mẫu", "thu chi 1210", "thu chi 1010" ])
+      expect(record.reload).to have_attributes(rd_sheet: "thu chi 1210", written_at: be_present)
+      expect(record.metadata).not_to include("write_issue")
+      expect(client.cell("thu chi 1210", record.rd_cell)).to eq(29_274_000)
+      expect(client.cell("thu chi mẫu", "J33")).to be_nil.or eq("")  # the template stays clean
+    end
+
+    it "keeps asking for a tab when there is no template either" do
+      client = Workbook::MemorySheet.new(day_tabs)
+      record = transfer(at: Time.zone.local(2026, 10, 12, 16, 4))
+
+      expect(write(record, client)).to eq(:rd_sheet_missing)
+      expect(client.titles).to eq([ "thu chi 1010" ])
+    end
+  end
+
   it "uses the tab of the day the transfer was sent" do
     client = Workbook::MemorySheet.new({ "thu chi 1010" => tab, "thu chi 1110" => tab })
 

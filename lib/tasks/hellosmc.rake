@@ -40,6 +40,16 @@ namespace :hellosmc do
     RetryFailedExtractionJob.perform_now
   end
 
+  desc "Build the clean \"thu chi mẫu\" tab from the newest day tab (SOURCE=\"thu chi 1110\" to pick one); day tabs are then made from it"
+  task build_thu_chi_template: :environment do
+    client = Workbook::GoogleSheetClient.new(spreadsheet_id: AppConfig.hello_smc_spreadsheet_id)
+    report = Workbook::ThuChiTemplate.build!(client: client, source: ENV["SOURCE"].presence)
+    puts "Created \"#{report.title}\" from \"#{report.source}\": #{report.amounts_cleared} amounts and " \
+         "#{report.notes_cleared} RT notes cleared. Check the manual accounting area at the bottom of the tab."
+  rescue Workbook::ThuChiTemplate::Error => e
+    abort e.message
+  end
+
   desc "Re-enqueue the Hello SMC sheet write for approved transactions that never reached the sheet (schedule every ~10 min)"
   task retry_workbook_writes: :environment do
     puts "Enqueued #{RetryWorkbookWritesJob.perform_now.to_i} sheet write(s)"
