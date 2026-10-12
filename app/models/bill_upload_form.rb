@@ -20,24 +20,26 @@ class BillUploadForm
     bytes = image_bytes
     sha256 = Digest::SHA256.hexdigest(bytes)
     width, height = FastImage.size(StringIO.new(bytes))
-    original = BillImage.analyzable.find_by(sha256: sha256)
-    if original
-      errors.add(:image, :already_uploaded, id: original.id)
-      return nil
-    end
+    BillImage.with_content_lock(sha256) do
+      original = BillImage.analyzable.find_by(sha256: sha256)
+      if original
+        errors.add(:image, :already_uploaded, id: original.id)
+        next nil
+      end
 
-    bill_image = BillImage.new(
-      source: "manual_upload", uploaded_by: user, sha256: sha256, mime_type: detected_mime_type,
-      file_size: bytes.bytesize, width: width, height: height, ocr_status: "pending",
-      metadata: { "card_type_key" => card_type_key.presence, "note" => note.presence }.compact
-    )
-    bill_image.image.attach(io: StringIO.new(bytes), filename: "upload-#{Time.current.to_i}.#{extension}",
-                            content_type: detected_mime_type, identify: false,
-                            key: "bills/#{Time.current.strftime('%Y/%m/%d')}/#{SecureRandom.uuid}.#{extension}")
-    bill_image.save!
-    AuditLogger.log!(actor: user, action: "bill_image.uploaded", auditable: bill_image,
-                     after_data: { "card_type_key" => card_type_key.presence, "sha256" => sha256 })
-    bill_image
+      bill_image = BillImage.new(
+        source: "manual_upload", uploaded_by: user, sha256: sha256, mime_type: detected_mime_type,
+        file_size: bytes.bytesize, width: width, height: height, ocr_status: "pending",
+        metadata: { "card_type_key" => card_type_key.presence, "note" => note.presence }.compact
+      )
+      bill_image.image.attach(io: StringIO.new(bytes), filename: "upload-#{Time.current.to_i}.#{extension}",
+                              content_type: detected_mime_type, identify: false,
+                              key: "bills/#{Time.current.strftime('%Y/%m/%d')}/#{SecureRandom.uuid}.#{extension}")
+      bill_image.save!
+      AuditLogger.log!(actor: user, action: "bill_image.uploaded", auditable: bill_image,
+                       after_data: { "card_type_key" => card_type_key.presence, "sha256" => sha256 })
+      bill_image
+    end
   end
 
   private

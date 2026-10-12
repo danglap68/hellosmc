@@ -56,3 +56,40 @@ RSpec.describe Telegram::AttachmentDownloader do
     expect(BillImage.count).to eq(0)
   end
 end
+
+# Real threads need committed rows, so this group runs outside the transaction
+# that wraps every other example and cleans up after itself. A plain object
+# stands in for the client: RSpec doubles would serialize the threads.
+RSpec.describe Telegram::AttachmentDownloader, "with identical photos arriving at the same moment" do
+  self.use_transactional_tests = false
+
+  it "keeps exactly one original" do
+    bytes = File.binread(bill_fixture_path("normal_settlement.jpg"))
+    client = Object.new
+    client.define_singleton_method(:get_file) { |_file_id| { "file_path" => "p.jpg" } }
+    client.define_singleton_method(:download_file) { |*_args, **_options| bytes }
+
+    10.times do
+      chat = create(:telegram_chat)
+      messages = Array.new(4) { create(:telegram_message, telegram_chat: chat) }
+      start = Queue.new
+      threads = messages.map do |message|
+        Thread.new do
+          start.pop
+          ActiveRecord::Base.connection_pool.with_connection { described_class.call(message, client: client) }
+        end
+      end
+      messages.size.times { start << true }
+
+      images = threads.map(&:value)
+
+      expect(images.count { |image| image.duplicate_of_id.nil? }).to eq(1)
+      expect(images.count(&:ocr_duplicate?)).to eq(3)
+    ensure
+      BillImage.where(telegram_message_id: messages.map(&:id)).find_each { |image| image.image.purge if image.image.attached? }
+      BillImage.where(telegram_message_id: messages.map(&:id)).delete_all
+      TelegramMessage.where(id: messages.map(&:id)).delete_all
+      chat&.destroy
+    end
+  end
+end

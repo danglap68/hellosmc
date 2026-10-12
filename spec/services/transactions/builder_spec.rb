@@ -519,6 +519,26 @@ RSpec.describe Transactions::Builder, "reprocessing a multi-settlement image" do
     expect(first.reload).to be_approved
   end
 
+  it "does not book an approved bill again when the rerun reads it a little differently" do
+    second = bill_image.transactions.find_by!(source_index: 1)
+    second.transition_to!("processing")
+    analyze(bill_image, [ thien_kim_doc.merge("transaction_time" => "09:01:00"), tran3_doc ])
+    described_class.call(bill_image: bill_image)
+
+    expect(bill_image.transactions.count).to eq(2)
+    expect(bill_image.transactions.find_by!(source_index: 0)).to be_approved
+    expect(second.reload.merchant).to eq(tran3)
+  end
+
+  it "does not book an approved bill again when the rerun cannot read its time" do
+    second = bill_image.transactions.find_by!(source_index: 1)
+    second.transition_to!("processing")
+    analyze(bill_image, [ thien_kim_doc.merge("transaction_time" => nil), tran3_doc ])
+    described_class.call(bill_image: bill_image)
+
+    expect(bill_image.transactions.count).to eq(2)
+  end
+
   it "never auto-approves settlements that only appear after a reprocess" do
     second = bill_image.transactions.find_by!(source_index: 1)
     second.transition_to!("processing")

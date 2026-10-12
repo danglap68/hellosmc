@@ -70,8 +70,11 @@ module Transactions
     def rebuild(processing_rows)
       decided_rows = @bill_image.transactions.where.not(status: "processing").to_a
       documents = @bill_image.documents.reject { |document| skippable_document?(document) }
-      # A settlement that already has a decided row is not booked twice.
-      available = documents.reject { |document| decided_rows.any? { |row| same_settlement?(row, document) } }
+      # A document another row already stands for is not booked twice. Rows
+      # left out of this rerun (still in review, approved, rejected) keep
+      # theirs: OCR reads a little differently each run, so an exact match is
+      # not required, only a better one than the rows being rebuilt.
+      available = documents.reject { |document| claimed_by_other_row?(document, decided_rows, processing_rows) }
       multi_settlement = @bill_image.documents.size > 1 || decided_rows.any? || processing_rows.size > 1
 
       assignments = {}
@@ -253,6 +256,16 @@ module Transactions
       amount = document["total_amount_vnd"]
       at = document["transaction_at"].presence && Time.zone.parse(document["transaction_at"])
       amount.present? && at.present? && row.transaction_amount_vnd == amount && row.transaction_at == at
+    end
+
+    def claimed_by_other_row?(document, other_rows, processing_rows)
+      return false if other_rows.empty?
+      return true if other_rows.any? { |row| same_settlement?(row, document) }
+
+      other = other_rows.map { |row| match_score(row, row.extraction, document) }.max
+      return false unless other.positive?
+
+      other >= processing_rows.map { |row| match_score(row, row.extraction, document) }.max.to_i
     end
 
     # Highest content score wins; without any signal, fall back to position.

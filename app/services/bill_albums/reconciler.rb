@@ -132,7 +132,9 @@ module BillAlbums
 
       total_amount = @total_count == 1 ? @total_amounts.first : nil
       total_image = @total_count == 1 ? @total_image : nil
-      metadata = @album.metadata
+      # A re-run starts from a clean slate: what an earlier run recorded about
+      # dropped child bills must not outlive it.
+      metadata = @album.metadata.except("children_dropped", "skipped_failed_image_ids")
       metadata = metadata.merge("total_amounts" => @total_amounts) if @total_count > 1
       metadata = metadata.merge("skip_reason" => @skip_reason) if @skip_reason.present?
       if @reconciliation_status == "settlement_complete"

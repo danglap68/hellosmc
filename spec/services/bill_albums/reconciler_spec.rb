@@ -98,6 +98,21 @@ RSpec.describe BillAlbums::Reconciler do
     expect(album.reconciliation_status).to eq("incomplete")
   end
 
+  it "forgets what an earlier run recorded when a re-run no longer finds the settlement complete" do
+    child_bill(600_000_000)
+    settlement = analyzed_image(raw_document("settlement", 600_000_000).merge("lot_number" => "000269", "terminal_or_merchant_id" => "000000123456"))
+    reconcile
+    expect(album.metadata["children_dropped"]).to be(true)
+
+    album.update!(status: "processing", reconciliation_status: nil)
+    incomplete = BillVision::Normalizer.call({ "documents" => [ raw_document("settlement", 600_000_000) ] }, provider: "openai", model: "gpt-test")
+    settlement.update!(normalized_extraction: incomplete)
+    reconcile
+
+    expect(album.reconciliation_status).to eq("matched")
+    expect(album.metadata).not_to include("children_dropped")
+  end
+
   it "keeps the child bills to fill in a settlement that is missing fields" do
     child_bill(600_000_000)
     analyzed_image(raw_document("settlement", 600_000_000))

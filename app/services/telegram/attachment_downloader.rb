@@ -35,11 +35,37 @@ module Telegram
       mime_type = detect_mime_type(bytes)
       width, height = FastImage.size(StringIO.new(bytes)) || [ attachment.width, attachment.height ]
 
-      if (original = BillImage.analyzable.where(sha256: sha256).order(:id).first)
-        return record_duplicate(attachment, original, reason: "sha256", sha256: sha256, mime_type: mime_type,
+      bill_image = BillImage.with_content_lock(sha256) do
+        if (original = BillImage.analyzable.where(sha256: sha256).order(:id).first)
+          next record_duplicate(attachment, original, reason: "sha256", sha256: sha256, mime_type: mime_type,
                                                       file_size: bytes.bytesize, width: width, height: height)
-      end
+        end
 
+        store_original(attachment, bytes, sha256, mime_type, width, height)
+      end
+      return bill_image if bill_image.ocr_duplicate?
+
+      StructuredLog.info("telegram.attachment_stored", telegram_chat_id: @message.telegram_chat.telegram_chat_id,
+                                                       telegram_message_id: @message.telegram_message_id,
+                                                       bill_image_id: bill_image.id, sha256: sha256, file_size: bytes.bytesize)
+      bill_image
+    rescue ActiveRecord::RecordNotUnique
+      existing = @message.bill_images.reload.first
+      return existing if existing
+
+      original = BillImage.find_by(telegram_file_unique_id: attachment.file_unique_id)
+      raise unless original
+
+      record_duplicate(attachment, original, reason: "telegram_file_unique_id")
+    end
+
+    private
+
+    def client
+      @client ||= BotClient.new
+    end
+
+    def store_original(attachment, bytes, sha256, mime_type, width, height)
       bill_image = BillImage.new(
         telegram_message: @message,
         bill_album: album_for_message,
@@ -61,25 +87,7 @@ module Telegram
         identify: false
       )
       bill_image.save!
-
-      StructuredLog.info("telegram.attachment_stored", telegram_chat_id: @message.telegram_chat.telegram_chat_id,
-                                                       telegram_message_id: @message.telegram_message_id,
-                                                       bill_image_id: bill_image.id, sha256: sha256, file_size: bytes.bytesize)
       bill_image
-    rescue ActiveRecord::RecordNotUnique
-      existing = @message.bill_images.reload.first
-      return existing if existing
-
-      original = BillImage.find_by(telegram_file_unique_id: attachment.file_unique_id)
-      raise unless original
-
-      record_duplicate(attachment, original, reason: "telegram_file_unique_id")
-    end
-
-    private
-
-    def client
-      @client ||= BotClient.new
     end
 
     def download(attachment)
