@@ -22,20 +22,80 @@ RSpec.describe BillVision::ResultComparator do
     expect(described_class.call(primary: normalize(primary), validator: normalize(validator)).differences).to include("document_count")
   end
 
-  it "treats conflicting MID/TID as disagreement even if names agree" do
-    primary = extraction_fixture("normal_settlement")
-    validator = primary.deep_dup
-    primary["documents"][0]["terminal_or_merchant_id"] = "0001-23"
-    validator["documents"][0]["terminal_or_merchant_id"] = "000124"
-    expect(described_class.call(primary: normalize(primary), validator: normalize(validator)).differences).to include("merchant_identity")
+  def compare(primary, validator)
+    described_class.call(primary: normalize(primary), validator: normalize(validator))
   end
 
-  it "does not mistake absent merchant names for matching identities" do
-    primary = extraction_fixture("normal_settlement")
-    primary["documents"][0].merge!("merchant_name" => nil, "terminal_or_merchant_id" => "MID001")
-    validator = primary.deep_dup
-    validator["documents"][0]["terminal_or_merchant_id"] = nil
-    expect(described_class.call(primary: normalize(primary), validator: normalize(validator)).differences).to include("merchant_identity")
+  describe "what blocks and what does not" do
+    it "blocks when the amount, date, time or document type differ" do
+      {
+        "total_amount_vnd" => 11_445_001, "transaction_date" => "2026-10-05", "transaction_time" => "10:57:26",
+        "document_type" => "child_receipt"
+      }.each do |field, value|
+        primary = extraction_fixture("normal_settlement")
+        validator = primary.deep_dup
+        validator["documents"][0][field] = value
+
+        comparison = compare(primary, validator)
+        expect(comparison.agreed).to be(false), "#{field} should block"
+        expect(comparison.differences).to include(field)
+      end
+    end
+
+    it "does not block when only the merchant name differs (TAN read as TAM)" do
+      primary = extraction_fixture("normal_settlement")
+      primary["documents"][0].merge!("merchant_name" => "GAT TAN DAY COFFEE 3", "terminal_or_merchant_id" => nil)
+      validator = primary.deep_dup
+      validator["documents"][0]["merchant_name"] = "GAT TAM DAY COFFEE 3"
+
+      comparison = compare(primary, validator)
+      expect(comparison.agreed).to be(true)
+      expect(comparison.differences).to be_empty
+      expect(comparison.soft_differences).to include("merchant_identity")
+    end
+
+    it "does not block when only the MID/TID conflicts, but records it" do
+      primary = extraction_fixture("normal_settlement")
+      validator = primary.deep_dup
+      primary["documents"][0]["terminal_or_merchant_id"] = "0001-23"
+      validator["documents"][0]["terminal_or_merchant_id"] = "000124"
+
+      comparison = compare(primary, validator)
+      expect(comparison.agreed).to be(true)
+      expect(comparison.soft_differences).to include("merchant_identity")
+    end
+
+    it "does not block when only the lot number differs, but records it" do
+      primary = extraction_fixture("normal_settlement")
+      validator = primary.deep_dup
+      validator["documents"][0]["lot_number"] = "000999"
+
+      comparison = compare(primary, validator)
+      expect(comparison.agreed).to be(true)
+      expect(comparison.soft_differences).to include("lot_number")
+    end
+
+    it "records a merchant that only one model found, without blocking" do
+      primary = extraction_fixture("normal_settlement")
+      primary["documents"][0].merge!("merchant_name" => nil, "terminal_or_merchant_id" => "MID001")
+      validator = primary.deep_dup
+      validator["documents"][0]["terminal_or_merchant_id"] = nil
+
+      comparison = compare(primary, validator)
+      expect(comparison.agreed).to be(true)
+      expect(comparison.soft_differences).to include("merchant_identity")
+    end
+
+    it "keeps a money difference blocking even when a soft one comes with it" do
+      primary = extraction_fixture("normal_settlement")
+      validator = primary.deep_dup
+      validator["documents"][0].merge!("total_amount_vnd" => 1, "lot_number" => "000999")
+
+      comparison = compare(primary, validator)
+      expect(comparison.agreed).to be(false)
+      expect(comparison.differences).to eq([ "total_amount_vnd" ])
+      expect(comparison.soft_differences).to include("lot_number")
+    end
   end
 
   it "does not call it a disagreement when neither model finds a merchant" do
@@ -43,7 +103,8 @@ RSpec.describe BillVision::ResultComparator do
     primary["documents"][0].merge!("merchant_name" => nil, "terminal_or_merchant_id" => nil)
     validator = primary.deep_dup
 
-    expect(described_class.call(primary: normalize(primary), validator: normalize(validator)).differences)
-      .not_to include("merchant_identity")
+    comparison = compare(primary, validator)
+    expect(comparison.differences).not_to include("merchant_identity")
+    expect(comparison.soft_differences).not_to include("merchant_identity")
   end
 end

@@ -294,6 +294,7 @@ vi:
       kinds:
         total: "Tổng kết"
         child: "Bill con"
+        child_unused: "Bill con · bỏ qua"
         unread: "Không đọc được"
 
   bill_uploads:

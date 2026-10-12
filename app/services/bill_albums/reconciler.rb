@@ -142,15 +142,18 @@ module BillAlbums
         metadata = metadata.merge("skipped_failed_image_ids" => @skipped_failed_image_ids) if @skipped_failed_image_ids.present?
       end
 
+      # Dropped child bills are not counted, summed or compared: nothing about
+      # them is stored for the album.
+      dropped = @reconciliation_status == "settlement_complete"
       @album.update!(
         status: @status,
         reconciliation_status: @reconciliation_status,
         transfer_bill_image: total_image,
         transfer_amount_vnd: total_amount,
-        child_total_vnd: @child_total,
-        child_count: @child_count,
+        child_total_vnd: dropped ? nil : @child_total,
+        child_count: dropped ? 0 : @child_count,
         transfer_count: @total_count,
-        match_difference_vnd: difference_vnd(total_amount),
+        match_difference_vnd: dropped ? nil : difference_vnd(total_amount),
         metadata: metadata
       )
 
