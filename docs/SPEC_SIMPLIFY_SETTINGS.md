@@ -69,6 +69,7 @@ Thứ tự lấy giá trị mỗi thông số:
 | Cạnh ngắn tối thiểu (px) | `OCR_ENHANCE_MIN_SHORT_SIDE` | `1000` |
 | Ngưỡng ảnh mờ | `OCR_ENHANCE_BLUR_THRESHOLD` | `100` |
 | Ngưỡng gợi ý HKD gần đúng | `MERCHANT_FUZZY_THRESHOLD` | `0.88` |
+| Điểm tự nhận HKD gần đúng (không cần xác nhận) | `MERCHANT_AUTO_ACCEPT_SCORE` | `0.90` |
 | Phút kiểm tra trùng | `DUPLICATE_WINDOW_MINUTES` | `10` |
 | Tuổi tối đa của bill (ngày) | `MAX_RECEIPT_AGE_DAYS` | `45` |
 | Chờ ảnh album (giây) | `ALBUM_COLLECT_WINDOW_SECONDS` | `15` |

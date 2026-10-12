@@ -3,9 +3,10 @@
 module VietnameseText
   module_function
 
-  # Legal-form prefixes that do not help identify a business.
+  # Legal-form prefixes that do not help identify a business, with the ways
+  # receipts abbreviate them ("HỘ KD", "H.K.D", "HKD"). Longest first.
   BUSINESS_PREFIXES = [
-    "ho kinh doanh ca the", "ho kinh doanh", "hkd",
+    "ho kinh doanh ca the", "ho kinh doanh", "ho kd ca the", "ho kd", "h k d", "hkd",
     "cong ty trach nhiem huu han", "cong ty tnhh mtv", "cong ty tnhh", "cty tnhh",
     "cong ty co phan", "cong ty cp", "cty cp", "cong ty", "cty",
     "doanh nghiep tu nhan", "dntn", "cua hang", "ch"

@@ -80,14 +80,40 @@ module ApplicationHelper
   def album_image_kind(album, image)
     types = (image.duplicate_of || image).documents.map { |doc| doc["document_type"] }
     return "total" if image.id == album.transfer_bill_image_id || types.intersect?(%w[settlement transfer])
-    return "child" if types.include?("child_receipt")
+    return album_children_dropped?(album) ? "child_unused" : "child" if types.include?("child_receipt")
 
-    "unread"
+    album_children_dropped?(album) ? "unused" : "unread"
   end
 
-  # Amounts OCR read on one album photo (a photo can hold several bills).
-  def album_image_amounts(image)
-    (image.duplicate_of || image).documents.filter_map { |doc| doc["total_amount_vnd"] }
+  # The label of a photo on the album pages: the settlement is the "Bill kết",
+  # a bank transfer total the "Hình chuyển tiền"; what the album does not use
+  # (child bills of a complete settlement, a calculator, a QR code) is "bỏ qua".
+  def album_image_label(album, image)
+    kind = album_image_kind(album, image)
+    return t("bill_images.album.kinds.#{kind}") unless kind == "total"
+
+    types = (image.duplicate_of || image).documents.map { |doc| doc["document_type"] }
+    t("bill_images.album.kinds.#{types.include?('settlement') ? 'settlement' : 'transfer'}")
+  end
+
+  # A photo the album skips has no OCR verdict worth showing (a calculator reads
+  # as "Cần kiểm tra"); a failed run or a duplicate still is.
+  def album_image_skipped?(album, image)
+    album_image_kind(album, image).in?(%w[child_unused unused]) && !image.ocr_failed? && !image.ocr_duplicate?
+  end
+
+  # The settlement printed everything, so the album's child bills were dropped.
+  def album_children_dropped?(album)
+    album.metadata["children_dropped"] == true
+  end
+
+  # Amounts OCR read on one album photo (a photo can hold several bills). With
+  # the child bills dropped only the settlement's own amount is shown, even when
+  # the child bills are on the same photo.
+  def album_image_amounts(image, album = nil)
+    documents = (image.duplicate_of || image).documents
+    documents = documents.select { |doc| doc["document_type"].in?(%w[settlement transfer]) } if album && album_children_dropped?(album)
+    documents.filter_map { |doc| doc["total_amount_vnd"] }
   end
 
   def reconciliation_status_badge(album)

@@ -105,7 +105,7 @@ module Transactions
     def check_merchant
       result = resolve_merchant
 
-      if result.exact?
+      if result.exact? || accepted_near_match?(result)
         source_field = result.method == :identifier ? "terminal_or_merchant_id" : "merchant_name"
         flag_confidence(source_field, "merchant")
       elsif result.fuzzy?
@@ -119,6 +119,11 @@ module Transactions
       end
 
       [ result.merchant, result ]
+    end
+
+    # A near name match this close is taken as the HKD; below it a person confirms.
+    def accepted_near_match?(result)
+      result.fuzzy? && result.score.to_f >= AppConfig.merchant_auto_accept_score
     end
 
     # Dash/tid suffix stripped first; if that is not an exact hit, also try the

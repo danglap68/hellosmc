@@ -72,6 +72,7 @@ RSpec.describe BillAlbums::Reconciler do
     expect(album.reconciliation_status).to eq("settlement_complete")
     expect(album.metadata["children_dropped"]).to be(true)
     expect(album.transactions.sole.review_reason_codes).not_to include("album_total_review", "album_total_mismatch")
+    expect(album).to have_attributes(child_count: 0, child_total_vnd: nil, match_difference_vnd: nil, transfer_amount_vnd: 600_000_000)
   end
 
   it "skips a child whose OCR failed when the settlement is complete" do

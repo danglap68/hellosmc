@@ -16,14 +16,18 @@
           <dd class="col-7"><%= album_status_badge(@bill_album) %></dd>
           <dt class="col-5"><%= BillAlbum.human_attribute_name(:reconciliation_status) %></dt>
           <dd class="col-7"><%= reconciliation_status_badge(@bill_album) %></dd>
-          <dt class="col-5"><%= BillAlbum.human_attribute_name(:child_count) %></dt>
-          <dd class="col-7"><%= @bill_album.child_count %></dd>
-          <dt class="col-5"><%= BillAlbum.human_attribute_name(:child_total_vnd) %></dt>
-          <dd class="col-7 money"><%= format_vnd(@bill_album.child_total_vnd) %></dd>
+          <% unless album_children_dropped?(@bill_album) %>
+            <dt class="col-5"><%= BillAlbum.human_attribute_name(:child_count) %></dt>
+            <dd class="col-7"><%= @bill_album.child_count %></dd>
+            <dt class="col-5"><%= BillAlbum.human_attribute_name(:child_total_vnd) %></dt>
+            <dd class="col-7 money"><%= format_vnd(@bill_album.child_total_vnd) %></dd>
+          <% end %>
           <dt class="col-5"><%= BillAlbum.human_attribute_name(:transfer_amount_vnd) %></dt>
           <dd class="col-7 money"><%= format_vnd(@bill_album.transfer_amount_vnd) %></dd>
-          <dt class="col-5"><%= BillAlbum.human_attribute_name(:match_difference_vnd) %></dt>
-          <dd class="col-7 money"><%= format_vnd(@bill_album.match_difference_vnd) %></dd>
+          <% unless album_children_dropped?(@bill_album) %>
+            <dt class="col-5"><%= BillAlbum.human_attribute_name(:match_difference_vnd) %></dt>
+            <dd class="col-7 money"><%= format_vnd(@bill_album.match_difference_vnd) %></dd>
+          <% end %>
         </dl>
         <% if @bill_album.skipped? %>
           <div class="alert alert-warning mt-3 mb-0"><%= icon("alert-triangle") %> <%= t("bill_albums.show.skipped_note") %></div>
@@ -45,12 +49,11 @@
                     <%= image_tag admin_bill_image_path(image), class: "img-fluid rounded", alt: "" %>
                   <% end %>
                   <div class="small mt-2">
-                    <% if image.id == @bill_album.transfer_bill_image_id %>
-                      <span class="badge bg-blue-lt"><%= t("bill_albums.show.transfer_image") %></span>
-                    <% else %>
-                      <span class="badge bg-secondary-lt"><%= t("bill_albums.show.bill_con") %></span>
+                    <% kind = album_image_kind(@bill_album, image) %>
+                    <span class="badge <%= kind == 'total' ? 'bg-blue-lt' : 'bg-secondary-lt' %>"><%= album_image_label(@bill_album, image) %></span>
+                    <% unless album_image_skipped?(@bill_album, image) %>
+                      <%= ocr_status_badge(image.ocr_status) %>
                     <% end %>
-                    <%= ocr_status_badge(image.ocr_status) %>
                   </div>
                 </div>
               </div>

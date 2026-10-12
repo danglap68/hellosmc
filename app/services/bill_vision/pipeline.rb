@@ -95,7 +95,8 @@ module BillVision
       else
         result = "unresolved"
       end
-      @budget.record!("validation_result" => result, "disagreement_fields" => comparison.differences)
+      @budget.record!("validation_result" => result, "disagreement_fields" => comparison.differences,
+                      "soft_disagreement_fields" => comparison.soft_differences)
       outcome(primary, normalized)
     rescue BudgetExhausted
       @review_reasons << "validation_budget_exhausted"

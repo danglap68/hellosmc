@@ -294,6 +294,10 @@ vi:
       kinds:
         total: "Tổng kết"
         child: "Bill con"
+        child_unused: "Bill con · bỏ qua"
+        unused: "Bỏ qua"
+        settlement: "Bill kết"
+        transfer: "Hình chuyển tiền"
         unread: "Không đọc được"
 
   bill_uploads:
@@ -668,6 +672,7 @@ vi:
       vision_timeout_seconds: "Thời gian chờ OCR"
       max_ocr_attempts: "Số lần chạy OCR tối đa"
       merchant_fuzzy_threshold: "Ngưỡng gợi ý hộ kinh doanh gần đúng"
+      merchant_auto_accept_score: "Điểm tự nhận hộ kinh doanh gần đúng"
       duplicate_window_minutes: "Khoảng thời gian kiểm tra trùng"
       max_receipt_age_days: "Tuổi tối đa của bill"
       telegram_auto_activate_chats: "Tự động kích hoạt nhóm Telegram mới"
@@ -688,7 +693,8 @@ vi:
       ocr_review_threshold: "Dưới ngưỡng này, giá trị được coi là không đọc được. Phải nhỏ hơn hoặc bằng ngưỡng tự động duyệt."
       vision_timeout_seconds: "Quá thời gian này, lần gọi OCR được thử lại."
       max_ocr_attempts: "Tối đa 3 lượt cho mỗi bill, tính cả thử lại khi lỗi và yêu cầu chạy lại. Mỗi lượt tối đa 2 lần gọi model."
-      merchant_fuzzy_threshold: "Tên gần giống từ mức này trở lên được gợi ý (luôn cần người xác nhận)."
+      merchant_fuzzy_threshold: "Tên gần giống từ mức này trở lên được gợi ý cho người xác nhận."
+      merchant_auto_accept_score: "Tên gần giống từ mức này trở lên được nhận luôn là hộ kinh doanh đó, không cần xác nhận."
       duplicate_window_minutes: "Cùng hộ kinh doanh và cùng số tiền trong khoảng này được đánh dấu có thể trùng."
       max_receipt_age_days: "Bill cũ hơn số ngày này phải kiểm tra thủ công."
       telegram_auto_activate_chats: "Khi bật, nhóm mới có bot sẽ được xử lý bill ngay. Khi tắt, nhóm mới phải được bật trong mục Nhóm Telegram trước."

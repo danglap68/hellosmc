@@ -14,10 +14,10 @@
       <% kind = album_image_kind(album, image) %>
       <button type="button" class="album-thumb <%= 'active' if image.id == bill_image.id %>"
               data-action="image-viewer#show" data-image-viewer-src-param="<%= admin_bill_image_path(image) %>"
-              title="<%= t("bill_images.album.kinds.#{kind}") %>">
+              title="<%= album_image_label(album, image) %>">
         <%= image_tag admin_bill_image_path(image), alt: "", loading: "lazy" %>
-        <span class="badge <%= kind == 'total' ? 'bg-blue-lt' : 'bg-secondary-lt' %>"><%= t("bill_images.album.kinds.#{kind}") %></span>
-        <% album_image_amounts(image).each do |amount| %>
+        <span class="badge <%= kind == 'total' ? 'bg-blue-lt' : 'bg-secondary-lt' %>"><%= album_image_label(album, image) %></span>
+        <% album_image_amounts(image, album).each do |amount| %>
           <span class="small money d-block"><%= format_vnd(amount) %></span>
         <% end %>
       </button>
@@ -25,11 +25,15 @@
   </div>
 
   <dl class="row small mt-2 mb-0">
-    <dt class="col-6"><%= t("bill_albums.show.child_total") %> (<%= album.child_count %>)</dt>
-    <dd class="col-6 text-end money mb-0"><%= format_vnd(album.child_total_vnd) %></dd>
+    <% unless album_children_dropped?(album) %>
+      <dt class="col-6"><%= t("bill_albums.show.child_total") %> (<%= album.child_count %>)</dt>
+      <dd class="col-6 text-end money mb-0"><%= format_vnd(album.child_total_vnd) %></dd>
+    <% end %>
     <dt class="col-6"><%= t("bill_images.album.total_amount") %></dt>
     <dd class="col-6 text-end money mb-0"><%= format_vnd(album.transfer_amount_vnd) %></dd>
-    <dt class="col-6"><%= t("bill_albums.show.difference") %></dt>
-    <dd class="col-6 text-end money mb-0 <%= 'text-red' if album.match_difference_vnd.to_i != 0 %>"><%= format_vnd(album.match_difference_vnd) %></dd>
+    <% unless album_children_dropped?(album) %>
+      <dt class="col-6"><%= t("bill_albums.show.difference") %></dt>
+      <dd class="col-6 text-end money mb-0 <%= 'text-red' if album.match_difference_vnd.to_i != 0 %>"><%= format_vnd(album.match_difference_vnd) %></dd>
+    <% end %>
   </dl>
 </div>

@@ -216,7 +216,54 @@ RSpec.describe Transactions::Builder do
     transaction = described_class.call(bill_image: image).sole
 
     expect(transaction.merchant).to eq(gat)
-    expect(transaction.review_reason_codes).to include("merchant_fuzzy_match")
+    expect(transaction.review_reason_codes).not_to include("merchant_fuzzy_match", "merchant_not_found")
+  end
+
+  describe "a near match of the HKD name" do
+    let!(:gat) do
+      create(:merchant, name: "Gat Tan Day Coffe", code: "GTD").tap do |merchant|
+        create(:merchant_dealer, merchant: merchant, dealer: create(:dealer, name: "Cường Duyên"), tid_key: "tid2")
+      end
+    end
+
+    def bill_named(name)
+      doc = { "document_type" => "settlement", "total_amount_vnd" => 52_023_000, "transaction_date" => "2026-10-10",
+              "transaction_time" => "20:44:23", "merchant_name" => name, "lot_number" => "003327", "terminal_or_merchant_id" => nil,
+              "confidence" => BillVision::Prompt::FIELDS.index_with { 0.97 } }
+      normalized = BillVision::Normalizer.call({ "documents" => [ doc ] }, provider: "openai", model: "gpt-test")
+      create(:bill_image, telegram_message: create(:telegram_message, telegram_chat: chat), normalized_extraction: normalized, ocr_status: "completed")
+    end
+
+    it "at 90% or more is taken as the HKD, so the bill can be approved without a person" do
+      transaction = described_class.call(bill_image: bill_named("GAT TAM DAY COFFEE 2")).sole
+
+      expect(transaction.merchant).to eq(gat)
+      expect(transaction.source_data.dig("merchant_resolution", "score").to_f).to be >= 0.9
+      expect(transaction.review_reason_codes).not_to include("merchant_fuzzy_match")
+    end
+
+    it "below 90% still needs a person to confirm" do
+      near = Merchants::Resolver::Result.new(merchant: gat, method: :fuzzy, candidates: [ gat ], score: 0.89)
+      allow(Merchants::Resolver).to receive(:call).and_return(near)
+
+      transaction = described_class.call(bill_image: bill_named("GAT TAM DAY COFFEE 2")).sole
+
+      expect(transaction.merchant).to eq(gat)
+      expect(transaction.review_reason_codes).to include("merchant_fuzzy_match")
+    end
+
+    it "at exactly 90% is taken as the HKD" do
+      near = Merchants::Resolver::Result.new(merchant: gat, method: :fuzzy, candidates: [ gat ], score: 0.9)
+      allow(Merchants::Resolver).to receive(:call).and_return(near)
+
+      expect(described_class.call(bill_image: bill_named("GAT TAM DAY COFFEE 2")).sole.review_reason_codes).not_to include("merchant_fuzzy_match")
+    end
+
+    it "follows the score set in the technical settings" do
+      ENV["MERCHANT_AUTO_ACCEPT_SCORE"] = "0.99"
+
+      expect(described_class.call(bill_image: bill_named("GAT TAM DAY COFFEE 2")).sole.review_reason_codes).to include("merchant_fuzzy_match")
+    end
   end
 
   it "inherits the non-truncated, highest-confidence merchant name" do
