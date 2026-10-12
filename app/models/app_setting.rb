@@ -1,5 +1,5 @@
-# Admin-editable settings (thresholds, OCR model, matching, Telegram, uploads,
-# email sender). One row per changed key; missing keys use the default.
+# Admin-editable settings: the few switches the client decides (see
+# DEFINITIONS). One row per changed key; missing keys use the default.
 # Secrets (API keys, tokens) never live here — they stay in ENV.
 class AppSetting < ApplicationRecord
   Definition = Data.define(:key, :type, :default, :group, :min, :max, :options, :allow_blank) do
@@ -27,29 +27,12 @@ class AppSetting < ApplicationRecord
     Definition.new(key:, type:, default:, group:, min:, max:, options:, allow_blank:)
   end
 
-  VISION_PROVIDERS = (Rails.env.production? ? %w[openai gemini] : %w[openai gemini fake]).freeze
-
+  # Only the decisions the client makes. Technical tuning lives in AppConfig
+  # (constants + ENV); rows stored for keys that used to be here stay in the
+  # table and are still read by AppConfig, so a deploy never changes behaviour.
   DEFINITIONS = [
-    define("vision_provider", :select, "openai", "ocr", options: VISION_PROVIDERS),
-    define("openai_vision_model", :string, "gpt-4.1", "ocr"),
-    define("primary_vision_model", :string, "gpt-6-luna", "ocr"),
-    define("validator_vision_model", :string, "gpt-6.1-sol", "ocr"),
-    define("vision_validation_enabled", :boolean, "true", "ocr"),
-    define("vision_validation_mode", :select, "risk_based", "ocr", options: %w[risk_based]),
-    define("gemini_vision_model", :string, "gemini-2.5-flash", "ocr"),
-    define("ocr_auto_approve_threshold", :percent, "0.92", "ocr", min: "0.5", max: "1"),
-    define("ocr_review_threshold", :percent, "0.70", "ocr", min: "0", max: "1"),
-    define("vision_timeout_seconds", :integer, "60", "ocr", min: "10", max: "300"),
-    define("max_ocr_attempts", :integer, "3", "ocr", min: "1", max: "3"),
-    define("merchant_fuzzy_threshold", :percent, "0.88", "matching", min: "0.5", max: "1"),
-    define("duplicate_window_minutes", :integer, "10", "matching", min: "0", max: "1440"),
-    define("max_receipt_age_days", :integer, "45", "matching", min: "1", max: "366"),
-    define("telegram_auto_activate_chats", :boolean, "false", "telegram"),
-    define("remitter_features_enabled", :boolean, "false", "telegram"),
-    define("album_collect_window_seconds", :integer, "15", "telegram", min: "3", max: "300"),
-    define("max_bill_image_mb", :integer, "20", "uploads", min: "1", max: "20"),
-    define("mailer_sender", :string, "no-reply@hellosmc.com", "email"),
-    define("hello_smc_spreadsheet_id", :string, "", "exports", allow_blank: true)
+    define("telegram_auto_activate_chats", :boolean, "false", "operations"),
+    define("remitter_features_enabled", :boolean, "false", "operations")
   ].index_by(&:key).freeze
 
   GROUPS = DEFINITIONS.values.map(&:group).uniq.freeze

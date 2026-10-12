@@ -69,6 +69,8 @@ RSpec.configure do |config|
       "R2_BUCKET" => nil,
       "R2_ENDPOINT" => nil
     }
+    # Technical tuning starts from its defaults; an example may set one.
+    AppConfig::TUNING.each_value { |spec| overrides[spec[:env]] = nil unless overrides.key?(spec[:env]) }
     original = overrides.keys.index_with { |key| ENV[key] }
     overrides.each { |key, value| value.nil? ? ENV.delete(key) : ENV[key] = value }
     example.run

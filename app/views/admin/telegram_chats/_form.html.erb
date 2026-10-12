@@ -2,7 +2,11 @@
   <div class="card">
     <div class="card-body">
       <%= form.error_summary %>
-      <%= form.field :telegram_chat_id, required: true, hint: t("telegram_chats.form.chat_id_hint") %>
+      <% if telegram_chat.persisted? %>
+        <%= form.field :telegram_chat_id, disabled: true, hint: t("telegram_chats.form.chat_id_auto_hint") %>
+      <% else %>
+        <%= form.field :telegram_chat_id, required: true, hint: t("telegram_chats.form.chat_id_hint") %>
+      <% end %>
       <%= form.field :name, hint: t("telegram_chats.form.name_hint") %>
       <%= render "admin/fee_rules/choice_dropdown",
             param_prefix: "telegram_chat",

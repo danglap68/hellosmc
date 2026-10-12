@@ -1,5 +1,6 @@
-# Admin form for AppSetting. Percent settings are edited as percentages
-# ("92") and stored as rates ("0.92"). Every change is audited.
+# Admin form for AppSetting (the client's switches). Percent settings are
+# edited as percentages ("92") and stored as rates ("0.92"). Keys that are no
+# longer settings are ignored. Every change is audited.
 class SettingsForm
   include ActiveModel::Model
 
@@ -7,12 +8,7 @@ class SettingsForm
 
   def initialize(params = nil)
     @values = AppSetting::DEFINITIONS.to_h do |key, definition|
-      value = case key
-      when "primary_vision_model" then AppConfig.primary_vision_model
-      when "max_ocr_attempts" then AppConfig.max_ocr_attempts
-      else AppSetting.get(key)
-      end
-      [ key, display_value(definition, value) ]
+      [ key, display_value(definition, AppSetting.get(key)) ]
     end
     params&.each { |key, value| @values[key.to_s] = value.to_s if @values.key?(key.to_s) }
   end
@@ -31,9 +27,6 @@ class SettingsForm
   end
 
   validate :values_within_bounds
-  validate :thresholds_ordered
-  validate :provider_has_api_key
-  validate :mailer_sender_format
 
   # Returns true when saved (or nothing changed).
   def save(actor:)
@@ -99,29 +92,5 @@ class SettingsForm
         errors.add(key, :blank) if @values[key].to_s.strip.empty? && !definition.allow_blank
       end
     end
-  end
-
-  def thresholds_ordered
-    auto = parsed(AppSetting::DEFINITIONS["ocr_auto_approve_threshold"])
-    review = parsed(AppSetting::DEFINITIONS["ocr_review_threshold"])
-    return unless auto && review && review > auto
-
-    errors.add(:ocr_review_threshold, :above_auto_threshold)
-  end
-
-  # Only when switching provider, so other settings stay editable before keys are set up.
-  def provider_has_api_key
-    key = { "openai" => AppConfig.openai_api_key, "gemini" => AppConfig.gemini_api_key }
-    provider = @values["vision_provider"]
-    return if provider == AppSetting.get("vision_provider")
-    return unless key.key?(provider) && key[provider].blank?
-
-    errors.add(:vision_provider, :api_key_missing, env: "#{provider.upcase}_API_KEY")
-  end
-
-  def mailer_sender_format
-    return if @values["mailer_sender"].to_s.match?(URI::MailTo::EMAIL_REGEXP)
-
-    errors.add(:mailer_sender, :invalid)
   end
 end

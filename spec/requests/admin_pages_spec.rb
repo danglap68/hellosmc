@@ -43,6 +43,14 @@ RSpec.describe "Admin pages" do
     end
   end
 
+  it "suggests Telegram senders on the remitter form" do
+    create(:telegram_message, telegram_chat: chat, telegram_sender_id: 777, sender_name: "Lập", telegram_username: "laplap")
+
+    get new_admin_remitter_path
+
+    expect(response.body).to include(%(list="telegram-senders"), %(<option value="777">Lập @laplap</option>))
+  end
+
   it "serves bill images only to signed-in users" do
     get admin_bill_image_path(approved.bill_image)
     expect(response).to have_http_status(:ok)

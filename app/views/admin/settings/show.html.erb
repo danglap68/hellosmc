@@ -2,6 +2,9 @@
 
 <div class="row row-cards">
   <div class="col-lg-8">
+    <% unless @services.fetch(AppConfig.vision_provider.to_sym, true) %>
+      <div class="alert alert-danger"><%= icon("alert-triangle") %> <%= t("settings.ocr_not_working") %></div>
+    <% end %>
     <%= form_with url: admin_settings_path, method: :patch, scope: :settings do |form| %>
       <% if @form.errors.any? %>
         <div class="alert alert-danger">
@@ -19,11 +22,8 @@
             </div>
           </div>
           <div class="card-body">
-            <% if group == "ocr" && !@services.fetch(AppConfig.vision_provider.to_sym, true) %>
-              <div class="alert alert-warning"><%= icon("alert-triangle") %> <%= t("settings.provider_key_missing", env: "#{AppConfig.vision_provider.upcase}_API_KEY") %></div>
-            <% end %>
             <div class="row">
-              <% AppSetting::DEFINITIONS.values.select { |definition| definition.group == group && definition.key != "openai_vision_model" }.each do |definition| %>
+              <% AppSetting::DEFINITIONS.values.select { |definition| definition.group == group }.each do |definition| %>
                 <div class="<%= definition.type == :boolean ? 'col-12' : 'col-md-6' %>">
                   <%= render "field", form: form, definition: definition %>
                 </div>
@@ -46,6 +46,26 @@
         </div>
       </div>
     <% end %>
+
+    <details class="card mt-3">
+      <summary class="card-header"><span class="card-title"><%= icon("adjustments") %> <%= t("settings.tuning.title") %></span></summary>
+      <div class="card-body small text-secondary"><%= t("settings.tuning.help") %></div>
+      <div class="table-responsive">
+        <table class="table card-table table-sm">
+          <thead><tr><th><%= t("settings.tuning.name") %></th><th><%= t("settings.tuning.env") %></th><th><%= t("settings.tuning.value") %></th><th><%= t("settings.tuning.source") %></th></tr></thead>
+          <tbody>
+            <% @tuning.each do |row| %>
+              <tr>
+                <td><%= t("settings.keys.#{row[:key]}", default: row[:key]) %></td>
+                <td><code><%= row[:env] %></code></td>
+                <td><code><%= row[:value].to_s.presence || "—" %></code></td>
+                <td><%= t("settings.tuning.sources.#{row[:source]}") %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </details>
   </div>
 
   <div class="col-lg-4">

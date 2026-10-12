@@ -1,5 +1,6 @@
 module Admin
-  # Business/operational settings (stored in the database, audited).
+  # The client's switches (stored in the database, audited) and a read-only
+  # view of the technical tuning (AppConfig::TUNING, set with ENV).
   # API keys stay in ENV and the page only shows whether they are set; the
   # Telegram bot token and webhook secret are managed here, encrypted (AppSecret).
   class SettingsController < BaseController
@@ -83,6 +84,10 @@ module Admin
       @storage_service = AppConfig.active_storage_service
       @card_types = CardType.ordered
       @last_change = AuditLog.where(action: "settings.updated").includes(:actor_user).recent_first.first
+      @tuning = AppConfig::TUNING.map do |key, spec|
+        value, source = AppConfig.tuning(key)
+        { key: key, env: spec[:env], value: value, source: source }
+      end
     end
   end
 end

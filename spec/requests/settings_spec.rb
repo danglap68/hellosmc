@@ -7,21 +7,26 @@ RSpec.describe "Settings" do
   context "as an admin" do
     before { sign_in create(:user, :admin) }
 
-    it "shows editable settings and which secrets are configured, without revealing them" do
+    it "shows only the client's switches, the services and a read-only technical table (S1, S4)" do
       get admin_settings_path
       expect(response).to have_http_status(:ok)
-      expect(response.body).to include("Ngưỡng tự động duyệt", "Kết nối dịch vụ", "OPENAI_API_KEY")
-      expect(response.body).not_to include("test-openai-key")
+      expect(response.body).to include("Tự động kích hoạt nhóm Telegram mới", "Bật xử lý người chuyển tiền",
+                                       "Kết nối dịch vụ", "OPENAI_API_KEY")
+      expect(response.body).not_to include("test-openai-key", %(name="settings[ocr_auto_approve_threshold]"))
+      expect(response.body).to include("Thông số kỹ thuật", "OCR_AUTO_APPROVE_THRESHOLD", "Mặc định")
     end
 
-    it "updates settings, which immediately change processing" do
-      patch admin_settings_path, params: { settings: SettingsForm.new.values.merge("ocr_auto_approve_threshold" => "99") }
+    it "warns plainly when OCR cannot work" do
+      ENV.delete("OPENAI_API_KEY")
+      get admin_settings_path
+      expect(response.body).to include("vui lòng liên hệ kỹ thuật")
+    end
+
+    it "saves a switch, which immediately changes processing" do
+      patch admin_settings_path, params: { settings: SettingsForm.new.values.merge("telegram_auto_activate_chats" => "1") }
       expect(response).to redirect_to(admin_settings_path)
       expect(flash[:notice]).to eq("Đã lưu cài đặt.")
-
-      transaction = Transactions::Builder.call(bill_image: analyzed_bill).sole
-      expect(transaction).to be_needs_review
-      expect(transaction.review_reason_codes).to include("amount_low_confidence")
+      expect(AppConfig.telegram_auto_activate_chats?).to be(true)
     end
 
     it "reports a working R2 connection" do
@@ -100,19 +105,16 @@ RSpec.describe "Settings" do
         expect(AuditLog.last.metadata).to eq("url" => "https://bill.example.com/webhooks/telegram")
       end
     end
-
-    it "re-renders with Vietnamese errors" do
-      patch admin_settings_path, params: { settings: SettingsForm.new.values.merge("ocr_review_threshold" => "95") }
-      expect(response).to have_http_status(:unprocessable_content)
-      expect(response.body).to include("phải nhỏ hơn hoặc bằng ngưỡng tự động duyệt")
-    end
   end
 
   it "is admin-only" do
+    # Check the real stored value: spec/support/remitter_feature_flag.rb stubs
+    # the flag on for the full-flow examples.
+    allow(AppConfig).to receive(:remitter_features_enabled?).and_call_original
     sign_in create(:user, :operator)
-    patch admin_settings_path, params: { settings: { "duplicate_window_minutes" => "60" } }
+    patch admin_settings_path, params: { settings: { "remitter_features_enabled" => "1" } }
     expect(response).to have_http_status(:forbidden)
-    expect(AppConfig.duplicate_window_minutes).to eq(10)
+    expect(AppConfig.remitter_features_enabled?).to be(false)
 
     expect(R2Check).not_to receive(:call)
     post check_r2_admin_settings_path

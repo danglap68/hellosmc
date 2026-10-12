@@ -274,7 +274,7 @@ RSpec.describe BillVision::Pipeline do
   end
 
   it "honors a lower configured run cap even for forced jobs" do
-    AppSetting.create!(key: "max_ocr_attempts", value: "1")
+    ENV["OCR_MAX_ATTEMPTS"] = "1"
     primary = stub_model("gpt-6-luna", data: blurry)
     validator = stub_model("gpt-6.1-sol")
     3.times { BillImages::Analyzer.call(bill_image, force: true) }
@@ -285,7 +285,7 @@ RSpec.describe BillVision::Pipeline do
   end
 
   it "retains Gemini extraction without calling OpenAI validation" do
-    AppSetting.create!(key: "vision_provider", value: "gemini")
+    ENV["OCR_PROVIDER"] = "gemini"
     ENV["GEMINI_API_KEY"] = "test-gemini-key"
     request = stub_request(:post, %r{generativelanguage.googleapis.com/v1beta/models/.*:generateContent}).to_return(body: {
       "candidates" => [ { "content" => { "parts" => [ { "text" => blurry.to_json } ] } } ], "modelVersion" => "gemini-test"
@@ -298,7 +298,7 @@ RSpec.describe BillVision::Pipeline do
   end
 
   it "honors disabling validation without changing Gemini or offline provider selection" do
-    AppSetting.create!(key: "vision_validation_enabled", value: "false")
+    ENV["OCR_VALIDATION_ENABLED"] = "false"
     primary = stub_model("gpt-6-luna", data: blurry)
     analyze
     expect(primary).to have_been_requested.once
