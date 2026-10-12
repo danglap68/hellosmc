@@ -75,7 +75,12 @@ RSpec.describe Merchants::Resolver do
       "GAT TAM DAY COFFEE 3" => "GTD001", "GẮT TẠM ĐÂY COFFEE 2" => "GTD001", "GAT TAN DAY COFEE 3" => "GTD001",
       "CHERY COFFE" => "CHERRY001", "CHERRY COFEE 2" => "CHERRY001",
       "HKD AS CAFE-CAFE MILO 127" => "MILO001",
-      "HỘ KD NGUYEN CAO TRI 3" => "NCT001", "H.K.D NGUYEN CAO TRI" => "NCT001", "HO KD CA THE NGUYEN CAO TRI 2" => "NCT001"
+      "HỘ KD NGUYEN CAO TRI 3" => "NCT001", "H.K.D NGUYEN CAO TRI" => "NCT001", "HO KD CA THE NGUYEN CAO TRI 2" => "NCT001",
+      # coffee spelled another way, words run together or split, words in another order, an address after the name
+      "GAT TAN DAY CAFE 3" => "GTD001", "GAT TAN DAY CF 2" => "GTD001", "GAT TAN DAY CAPHE" => "GTD001",
+      "CHERRY CAFE 2" => "CHERRY001", "CHERRY CF" => "CHERRY001", "GATTANDAY COFFEE" => "GTD001",
+      "THIENKIM GV 2" => "001", "COFFEE GAT TAN DAY" => "GTD001", "THIEN KIM GV GO VAP" => "001",
+      "HKD GAT TAN DAY COFFEE 3 - TP HCM" => "GTD001"
     }.each do |ocr, code|
       it "recognises #{ocr.inspect} as HKD #{code}" do
         result = resolve(ocr)
@@ -93,6 +98,17 @@ RSpec.describe Merchants::Resolver do
       expect(resolve("HKD AS CAFE").merchant.code).to eq("ASCAFE001")
       expect(resolve("HKD AS CAFE-CAFE 96").merchant.code).to eq("AS96001")
       expect(resolve("AS CAFE CAFE 96").merchant&.code).not_to eq("ASCAFE001")
+    end
+
+    it "does not read a name with a word of another HKD as the HKD without it" do
+      expect(resolve("HKD AS CAFE MILO").merchant&.code).not_to eq("ASCAFE001")
+      expect(resolve("HKD AS CAFE MILO").merchant&.code).not_to eq("AS96001")
+    end
+
+    it "does not match on one common word, whatever else the name says" do
+      [ "CAFE HOA MAI", "QUAN CAFE", "QUAN CAFE HOA MAI", "CAFE SACH" ].each do |name|
+        expect(resolve(name).merchant).to be_nil, "#{name} matched #{resolve(name).merchant&.name}"
+      end
     end
 
     it "does not read NCT and NCT MBV as one another" do
