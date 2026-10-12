@@ -72,7 +72,12 @@ RSpec.describe RemitterTransfers::CodeMatcher do
     end
   end
 
-  it "uses the configured table by default" do
+  it "uses the codes configured on the agent rows by default" do
+    Workbook::Seed.call
     expect(described_class.call("TK01").code).to eq("TK01")
+
+    MerchantDealer.find_by!(transfer_code: "TK01").update!(transfer_code: "TK91")
+    expect(described_class.call("TK01").issue).to eq("code_missing")
+    expect(described_class.call("chuyen TK91").code).to eq("TK91")
   end
 end

@@ -8,11 +8,10 @@ module RemitterTransfersHelper
     content_tag(:span, t("activerecord.enums.remitter_transfer.status.#{transfer.status}"), class: "badge bg-#{color}-lt")
   end
 
-  # "TK01 · Thiên Kim GV · Chương" for every code of the constant table.
+  # "TK01 · Thiên Kim GV · Chương" for every configured code.
   def remitter_transfer_code_options
-    RemitterTransfers::Codes.all.values.map do |entry|
-      hkd = Workbook::Seed::HKD.find { |attrs| attrs[:code] == entry.hkd }&.dig(:anchor) || entry.hkd
-      [ [ entry.code, hkd, entry.agent ].compact.join(" · "), entry.code ]
+    RemitterTransfers::Codes.all.map do |code, link|
+      [ [ code, link.ds_sheet_anchor.presence || link.merchant.name, link.dealer.name ].join(" · "), code ]
     end
   end
 

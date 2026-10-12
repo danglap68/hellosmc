@@ -1,17 +1,14 @@
 require "rails_helper"
 
 RSpec.describe RemitterTransfers::Codes do
-  it "loads a well-formed table without duplicate HKD + TID pairs" do
-    expect(described_class.codes).to all(match(described_class::FORMAT))
-    pairs = described_class.all.values.map { |entry| [ entry.hkd, entry.tid ] }
-    expect(pairs.uniq.size).to eq(pairs.size)
-  end
-
-  it "points every code at exactly one active agent row once the HKDs are seeded" do
+  it "seeds the 23 starting codes, each on exactly one agent row" do
     Workbook::Seed.call
 
+    expect(described_class.codes.size).to eq(23)
+    expect(described_class.codes).to all(match(described_class::FORMAT))
+    expect(described_class.codes.uniq.size).to eq(23)
     described_class.codes.each do |code|
-      expect(described_class.merchant_dealer_for(code)).to be_present, "#{code} has no merchant_dealers row"
+      expect(described_class.merchant_dealer_for(code)).to be_present, "#{code} has no active merchant_dealers row"
     end
   end
 
@@ -24,31 +21,32 @@ RSpec.describe RemitterTransfers::Codes do
     expect(link.dealer.name).to eq("Chương")
   end
 
-  it "finds an HKD stored under its older code (match_code)" do
-    create(:merchant, name: "Cherry Coffee", code: "002 CHERRY COFFE")
+  it "follows a code the client set on an agent row" do
+    Workbook::Seed.call
+    link = Merchant.find_by!(code: "001").merchant_dealers.find_by!(tid_key: "tid1")
+    link.update!(transfer_code: "tk 77")
 
-    expect(described_class.merchant_for("CHERRY001").code).to eq("002 CHERRY COFFE")
+    expect(described_class.merchant_dealer_for("TK77")).to eq(link)
+    expect(described_class.merchant_dealer_for("TK01")).to be_nil
+    expect(described_class.codes).to include("TK77")
+    expect(described_class.codes).not_to include("TK01")
   end
 
-  it "returns nil for an unknown code or an inactive agent row" do
+  it "returns nil for an unknown code or an inactive agent row, but still recognises the inactive one's code" do
     Workbook::Seed.call
     expect(described_class.merchant_dealer_for("ZZ99")).to be_nil
+    expect(described_class.merchant_dealer_for(nil)).to be_nil
 
     described_class.merchant_dealer_for("TK01").update!(active: false)
     expect(described_class.merchant_dealer_for("TK01")).to be_nil
+    expect(described_class.codes).to include("TK01")
   end
 
-  it "lists the codes of an agent row without a query per table entry" do
+  it "lists every configured code with its HKD and agent for display" do
     Workbook::Seed.call
-    link = MerchantDealer.includes(:merchant).find(described_class.merchant_dealer_for("NM03").id)
 
-    queries = 0
-    counter = ->(*, payload) { queries += 1 unless payload[:name].in?([ "SCHEMA", "TRANSACTION" ]) }
-    codes = ActiveSupport::Notifications.subscribed(counter, "sql.active_record") do
-      described_class.for_merchant_dealer(link)
-    end
-
-    expect(codes).to eq([ "NM03" ])
-    expect(queries).to eq(0)
+    link = described_class.all.fetch("NM03")
+    expect(link.merchant.code).to eq("NCTMBV001")
+    expect(link.dealer.name).to eq("Tuân")
   end
 end

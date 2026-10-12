@@ -26,6 +26,9 @@
               <% end %>
             </div>
           </div>
+          <div class="row">
+            <div class="col-md-5"><%= md.field :transfer_code, hint: t("merchants.form.transfer_code_hint") %></div>
+          </div>
           <details class="mb-3" <%= "open" if md.object.errors.any? %>>
             <summary class="small text-secondary"><%= t("merchants.form.sheet_names") %></summary>
             <div class="row mt-2">

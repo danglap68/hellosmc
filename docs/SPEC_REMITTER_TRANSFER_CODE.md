@@ -113,7 +113,7 @@ Quy tắc phụ:
 
 ### 4.3 Bảng mã chuyển tiền
 
-File `config/remitter_transfer_codes.json`, nạp một lần thành hằng số (`RemitterTransfers::Codes.all`, frozen). Quy ước **tiền tố HKD + số TID**:
+Mã là một trường của từng dòng đại lý (`merchant_dealers.transfer_code`), đặt ở trang sửa HKD, mục Đại lý, ô **Mã chuyển tiền**. Bảng dưới là bộ mã khởi tạo (`Workbook::Seed::TRANSFER_CODES`, và migration `AddTransferCodeToMerchantDealers` đã chép từ file JSON cũ vào DB). Quy ước **tiền tố HKD + số TID**:
 
 | Tiền tố | HKD (`hkd`) | Mã |
 |---|---|---|
@@ -127,9 +127,9 @@ File `config/remitter_transfer_codes.json`, nạp một lần thành hằng số
 | `NM` | HKD NCT MBV (`NCTMBV001`) | NM01 Sơn · NM02 Anh Thọ · NM03 Tuân |
 
 - Mã → `merchant_dealers` active theo (HKD, `tid`). HKD tra theo `match_code` của seed trước (prod có thể còn `002 CHERRY COFFE`, `099`), rồi `code`.
-- Bảng được nạp lần đầu khi dùng (rồi giữ trong bộ nhớ): mã phải dạng `[A-Z]+\d+`, không có hai mã trùng (HKD, tid); sai thì raise `Codes::InvalidTable`. Spec C1 bắt lỗi này trước khi deploy.
-- Trường `agent` chỉ để người đọc; đại lý thật lấy từ `merchant_dealers`.
-- Admin: trang HKD hiển thị mã của từng đại lý (chỉ đọc).
+- Mã (`MerchantDealer`): bỏ khoảng trắng, viết hoa, dạng `[A-Z]+\d+`, **không trùng** với mã khác (không phân biệt hoa thường, kể cả dòng đang tắt); để trống nếu đại lý không nhận chuyển tiền. Đổi mã có hiệu lực ngay, không cần deploy.
+- Mã của đại lý đang tắt vẫn được nhận ra và báo `code_dealer_inactive`.
+- Seed chỉ điền mã còn trống, không ghi đè mã khách đã sửa.
 
 ### 4.4 Dò mã trong tin nhắn (`RemitterTransfers::CodeMatcher`)
 
@@ -513,7 +513,7 @@ Rà lại sau khi trả bill kết toán của remitter về transaction và b�
 
 | Nhóm | File |
 |---|---|
-| Cấu hình | `config/remitter_transfer_codes.json`, `config/routes.rb`, `config/locales/vi.yml` |
+| Cấu hình | `merchant_dealers.transfer_code` (migration), `config/routes.rb`, `config/locales/vi.yml` |
 | DB | `db/migrate/20261011230000_create_remitter_transfers.rb`, `db/schema.rb` |
 | Model | `app/models/remitter_transfer.rb`, `remitter.rb`, `telegram_message.rb`, `permissions.rb` |
 | Service | `app/services/remitter_transfers/{codes,code_matcher,classifier,builder,reviewer}.rb`, `app/services/transactions/builder.rb` (§4.10) |

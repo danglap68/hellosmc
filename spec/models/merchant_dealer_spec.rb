@@ -80,4 +80,31 @@ RSpec.describe MerchantDealer do
       expect(build(:merchant_dealer, dealer: dealer, tid_key: "tid1")).to be_valid
     end
   end
+  describe "transfer code" do
+    it "is tidied up: spaces dropped, upper-cased, blank means none" do
+      expect(create(:merchant_dealer, transfer_code: " tk 05 ").transfer_code).to eq("TK05")
+      expect(create(:merchant_dealer, transfer_code: "  ").transfer_code).to be_nil
+    end
+
+    it "must be letters then digits" do
+      %w[TK 01 TK-01 TK01X].each do |bad|
+        link = build(:merchant_dealer, transfer_code: bad)
+        expect(link).not_to be_valid, "#{bad} should be refused"
+        expect(link.errors[:transfer_code]).to be_present
+      end
+    end
+
+    it "names exactly one agent row, whatever the case" do
+      create(:merchant_dealer, transfer_code: "TK01")
+
+      duplicate = build(:merchant_dealer, transfer_code: "tk01")
+      expect(duplicate).not_to be_valid
+      expect(duplicate.errors[:transfer_code]).to be_present
+    end
+
+    it "lets several rows have no code" do
+      create(:merchant_dealer, transfer_code: nil)
+      expect(build(:merchant_dealer, transfer_code: nil)).to be_valid
+    end
+  end
 end

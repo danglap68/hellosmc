@@ -382,6 +382,7 @@ vi:
       default_card_type_hint: "Dùng khi tin nhắn không ghi loại thẻ."
       agents: "Đại lý theo TID"
       tid_key_hint: "Ví dụ: tid1, tid127"
+      transfer_code_hint: "Tuỳ chọn. Mã người đi tiền ghi trong tin nhắn kèm ảnh, ví dụ TK01 (chữ rồi số, không trùng mã khác). Để trống nếu đại lý này không nhận chuyển tiền."
       ds_sheet_anchor_hint: "Đúng chữ ở ô góc trái bảng trong DS MB, ví dụ: Thiên Kim GV. Để trống sẽ lấy từ đại lý khác của hộ này."
       ds_header_hint: "Để trống sẽ tự điền \"Tên đại lý (tid)\", ví dụ: Chương (tid1)."
       rd_agent_label_hint: "Để trống sẽ dùng tên đại lý."
@@ -392,7 +393,7 @@ vi:
       title: "Sửa %{name}"
     show:
       transfer_codes: "Mã chuyển tiền"
-      transfer_codes_help: "Người đi tiền ghi mã này trong tin nhắn Telegram gửi kèm ảnh chuyển tiền. Bảng mã nằm trong config/remitter_transfer_codes.json."
+      transfer_codes_help: "Người đi tiền ghi mã này trong tin nhắn Telegram gửi kèm ảnh chuyển tiền. Đặt mã ở trang sửa hộ kinh doanh, mục Đại lý (ô Mã chuyển tiền)."
       aliases_help: "Thêm đúng tên in trên bill và MID/TID để hệ thống nhận diện chính xác. Hệ thống không bao giờ tự tạo hộ kinh doanh từ kết quả OCR."
 
   merchant_aliases:
@@ -1003,6 +1004,7 @@ vi:
         dealer: "Đại lý"
         dealer_id: "Đại lý"
         tid_key: "TID"
+        transfer_code: "Mã chuyển tiền"
         tid_label: "Nhãn TID"
         ds_sheet_anchor: "Tên HKD trong DS MB"
         ds_header: "Cột trong DS MB"

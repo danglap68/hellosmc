@@ -65,6 +65,34 @@ module Workbook
       ["NCTMBV001", "Tuân", "tid3", "tid3", "Tuân (tid3)", "Tuân"]
     ].freeze
 
+    # Starting transfer codes of a new install (HKD code, TID => code). Existing
+    # installs keep what was set on the HKD page: the seed only fills blanks.
+    TRANSFER_CODES = {
+      [ "001", "tid1" ] => "TK01",
+      [ "001", "tid2" ] => "TK02",
+      [ "001", "tid3" ] => "TK03",
+      [ "GTD001", "tid1" ] => "GT01",
+      [ "GTD001", "tid2" ] => "GT02",
+      [ "GTD001", "tid3" ] => "GT03",
+      [ "CHERRY001", "tid1" ] => "CH01",
+      [ "CHERRY001", "tid2" ] => "CH02",
+      [ "CHERRY001", "tid3" ] => "CH03",
+      [ "MILO001", "tid127" ] => "ML127",
+      [ "MILO001", "tid128" ] => "ML128",
+      [ "MILO001", "tid129" ] => "ML129",
+      [ "AS96001", "tid1" ] => "CF01",
+      [ "AS96001", "tid2" ] => "CF02",
+      [ "ASCAFE001", "tid1" ] => "AS01",
+      [ "ASCAFE001", "tid2" ] => "AS02",
+      [ "ASCAFE001", "tid3" ] => "AS03",
+      [ "NCT001", "tid1" ] => "NC01",
+      [ "NCT001", "tid2" ] => "NC02",
+      [ "NCT001", "tid3" ] => "NC03",
+      [ "NCTMBV001", "tid1" ] => "NM01",
+      [ "NCTMBV001", "tid2" ] => "NM02",
+      [ "NCTMBV001", "tid3" ] => "NM03"
+    }.freeze
+
     module_function
 
     def call
@@ -105,6 +133,7 @@ module Workbook
         link.assign_attributes(tid_label: tid_label, ds_sheet_anchor: merchant_anchor(code),
                                ds_header: ds_header, rd_agent_label: rd_label)
         link.active = true if link.new_record?
+        link.transfer_code ||= TRANSFER_CODES[[ code, tid_key ]]
         link.save!
       end
     end

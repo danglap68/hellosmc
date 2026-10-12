@@ -31,7 +31,7 @@
             <% links.each do |link| %>
               <tr>
                 <td><%= link.dealer.name %> <span class="text-secondary">(<%= link.tid_label %>)</span></td>
-                <td class="text-end"><%= safe_join(RemitterTransfers::Codes.for_merchant_dealer(link).map { |code| content_tag(:code, code) }, " ").presence || "—" %></td>
+                <td class="text-end"><%= link.transfer_code ? content_tag(:code, link.transfer_code) : "—" %></td>
               </tr>
             <% end %>
           </tbody>
