@@ -1,0 +1,49 @@
+<%# locals: (links:, without_code:, open: false) %>
+<%# Collapsed like the technical table; it opens again after a code was added, changed or cleared. %>
+<details class="card mb-3" id="transfer-codes" <%= "open" if open %>>
+  <summary class="card-header">
+    <span class="card-title"><%= icon("hash") %> <%= t("transfer_codes.index.title") %>
+      <span class="badge bg-secondary-lt ms-2"><%= links.size %></span>
+    </span>
+    <% if without_code.positive? %>
+      <span class="badge bg-yellow-lt ms-2"><%= t("transfer_codes.index.without_code", count: without_code) %></span>
+    <% end %>
+  </summary>
+  <div class="card-body border-bottom d-flex align-items-center gap-3">
+    <div class="text-secondary small"><%= t("transfer_codes.index.help") %></div>
+    <% if can?(:manage, :transfer_codes) %>
+      <%= link_to new_admin_transfer_code_path, class: "btn btn-primary btn-sm ms-auto text-nowrap" do %><%= icon("plus") %> <%= t("transfer_codes.index.new") %><% end %>
+    <% end %>
+  </div>
+  <% if links.any? %>
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table">
+        <thead>
+          <tr>
+            <th><%= MerchantDealer.human_attribute_name(:transfer_code) %></th>
+            <th><%= t("transfer_codes.merchant") %></th>
+            <th><%= t("transfer_codes.agent") %></th>
+            <th><%= MerchantDealer.human_attribute_name(:tid_key) %></th>
+            <th><%= MerchantDealer.human_attribute_name(:active) %></th>
+            <th class="w-1"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% links.each do |link| %>
+            <tr>
+              <td><code class="fs-4"><%= link.transfer_code %></code></td>
+              <td><%= link_to link.merchant.name, admin_merchant_path(link.merchant) %></td>
+              <td><%= link.dealer.name %></td>
+              <td><code><%= link.tid_key %></code></td>
+              <td><%= active_badge(link.active?) %></td>
+              <%= render "admin/shared/row_actions", resource: :transfer_codes, edit_path: edit_admin_transfer_code_path(link),
+                         delete_path: admin_transfer_code_path(link), confirm: t("transfer_codes.confirm_delete", code: link.transfer_code) %>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% else %>
+    <div class="card-body"><%= empty_state t("transfer_codes.index.empty") %></div>
+  <% end %>
+</details>

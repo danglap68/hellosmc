@@ -29,6 +29,7 @@ Rails.application.routes.draw do
 
     resources :dealers
     resources :remitters, except: [ :show ]
+    resources :transfer_codes, only: [ :new, :create, :edit, :update, :destroy ]
     resources :telegram_chats do
       member { post :process_stored }
     end

@@ -15,13 +15,15 @@ RSpec.describe "Row actions of the configuration tables" do
       "fee rules" => admin_fee_rules_path,
       "remitters" => admin_remitters_path,
       "Telegram groups" => admin_telegram_chats_path,
-      "users" => admin_users_path
+      "users" => admin_users_path,
+      "transfer codes (Cài đặt)" => admin_settings_path
     }
   end
 
   before do
     create(:user, :operator, name: "Người khác")
     create(:remitter, name: "Người thử")
+    create(:merchant_dealer, transfer_code: "TK01")
     create(:telegram_chat, name: "Nhóm thử")
     default_rule
   end

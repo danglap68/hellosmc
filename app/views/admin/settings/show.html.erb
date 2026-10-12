@@ -52,6 +52,8 @@
       </div>
     </div>
 
+    <%= render "admin/transfer_codes/card", links: @transfer_codes, without_code: @agents_without_code, open: params[:codes].present? %>
+
     <%= form_with url: admin_settings_path, method: :patch, scope: :settings do |form| %>
       <% if @form.errors.any? %>
         <div class="alert alert-danger">

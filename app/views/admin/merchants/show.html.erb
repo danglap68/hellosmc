@@ -37,7 +37,10 @@
           </tbody>
         </table>
       <% end %>
-      <div class="card-body text-secondary small"><%= t("merchants.show.transfer_codes_help") %></div>
+      <div class="card-body text-secondary small">
+        <%= t("merchants.show.transfer_codes_help") %>
+        <%= link_to t("transfer_codes.manage"), admin_settings_path(codes: 1, anchor: "transfer-codes") %>
+      </div>
     </div>
   </div>
   <div class="col-lg-8">
