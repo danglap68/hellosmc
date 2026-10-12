@@ -92,6 +92,28 @@ Thứ tự lấy giá trị mỗi thông số:
 | **Nhóm Telegram** | Chat ID chỉ hiển thị khi sửa (bot tự ghi). |
 | **Loại thẻ** | Mã (key) để trống → tự sinh từ tên; thứ tự tự xếp cuối. |
 
+### 3.5 Nhóm Telegram không còn gán HKD / đại lý (12/10/2026)
+
+Yêu cầu: *"Không cần gán default HKD cho nhóm Tele nữa, vì giờ không cần phụ thuộc group name nên cứ thả đi."*
+
+HKD và đại lý **chỉ đọc từ bill** (tên HKD do OCR đọc → `Merchants::Resolver`; đuôi TID "…GV-1" → dòng HKD → đại lý; người nhận chuyển khoản là gợi ý phụ). Nhóm Telegram chỉ còn: tên, bật/tắt.
+
+| Bỏ | Trước đây |
+|---|---|
+| Bảng `telegram_chat_merchants`, form chọn nhiều HKD, gợi ý HKD từ tên nhóm, lọc "Chưa gán đại lý" | Nhóm liệt kê các HKD nó phụ trách |
+| Lý do review `merchant_not_in_chat` | Bill của HKD ngoài danh sách nhóm → duyệt tay |
+| Đại lý theo tên nhóm `TenDaiLy-HKD1-HKD2` (`TelegramChat#group_dealer`, `Telegram::ChatNameParser`), lý do `dealer_group_mismatch` / `agent_group_mismatch` | Tên nhóm chọn/kiểm tra đại lý |
+| `Workbook::Resolver` lấy HKD duy nhất của nhóm khi bill không đọc được HKD | Đoán HKD theo nhóm |
+| "Xử lý ảnh đã lưu" bắt gán HKD | Chỉ cần nhóm đang hoạt động |
+
+Migration `20261012120000_drop_telegram_chat_merchants` (đảo được, dữ liệu gán cũ không khôi phục). Nhãn lý do cũ giữ trong bản dịch để transaction cũ vẫn hiển thị.
+
+Hệ quả cần biết:
+- Bill không in TID (không có đuôi "-1") của HKD có nhiều đại lý: trước đây tên nhóm có thể chọn đại lý; nay → `dealer_unmapped`, người duyệt chọn đại lý (trừ khi người nhận chuyển khoản chỉ ra đúng một đại lý).
+- Bill không đọc được HKD: trước đây nhóm chỉ có một HKD thì lấy HKD đó; nay → `merchant_missing`, người duyệt chọn.
+
+Test: `spec/services/dealers/resolver_spec.rb`, `spec/services/workbook/resolver_spec.rb`, `spec/services/transactions/builder_spec.rb` (bill tự duyệt bất kể tên nhóm), `spec/models/telegram_chat_spec.rb`, `spec/requests/telegram_chats_spec.rb`.
+
 ---
 
 ## 4. Phương án đã cân nhắc

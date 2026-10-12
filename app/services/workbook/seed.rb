@@ -72,20 +72,15 @@ module Workbook
       seed_merchant_dealers
     end
 
-    # Development only: one Telegram group per agent, named by the template
-    # "TenDaiLy-HKD1[-HKD2]" and serving that agent's HKDs. Chat ids are demo
-    # values; in production groups register themselves and are configured in
-    # the admin.
+    # Development only: one active Telegram group per agent. Chat ids are demo
+    # values; in production groups register themselves when the bot joins.
     def seed_telegram_chats
-      grouped = AGENTS.group_by { |(_code, dealer_name, *_rest)| dealer_name }
-      grouped.each_with_index do |(dealer_name, rows), index|
-        codes = rows.map(&:first).uniq
-        merchants = codes.filter_map { |code| Merchant.find_by(code: code) || Merchant.find_by(code: HKD.find { |h| h[:code] == code }[:match_code]) }
+      dealer_names = AGENTS.map { |(_code, dealer_name, *_rest)| dealer_name }.uniq
+      dealer_names.each_with_index do |dealer_name, index|
         chat = TelegramChat.find_or_initialize_by(telegram_chat_id: -1_002_000_000_000 - index)
-        chat.name = ([ dealer_name ] + codes.first(2).map { |code| merchant_anchor(code) }).join("-")
+        chat.name ||= "Bill #{dealer_name}"
         chat.chat_type ||= "supergroup"
         chat.active = true if chat.new_record?
-        chat.merchants = merchants
         chat.save!
       end
     end

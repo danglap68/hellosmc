@@ -77,13 +77,11 @@ RSpec.describe Workbook::Seed do
   end
 
   describe ".seed_telegram_chats" do
-    it "creates one chat per dealer with its HKDs, idempotently" do
+    it "creates one active chat per dealer, idempotently" do
       described_class.call
       expect { described_class.seed_telegram_chats }.to change(TelegramChat, :count).by(Dealer.count)
       expect { described_class.seed_telegram_chats }.not_to change(TelegramChat, :count)
-      chat = TelegramChat.find_by!("name LIKE ?", "Cường Duyên-%")
-      expect(chat.merchants.count).to eq(2)
-      expect(chat.group_dealer.name).to eq("Cường Duyên")
+      expect(TelegramChat.find_by!(name: "Bill Cường Duyên")).to be_active
     end
   end
 end

@@ -342,40 +342,30 @@ vi:
 
   telegram_chats:
     messages: "Tin nhắn"
-    unmapped: "Chưa gán đại lý"
-    unmapped_hkd: "Chưa gán hộ kinh doanh"
-    agent: "Đại lý (theo tên nhóm)"
-    agent_not_detected: "Chưa nhận diện"
     index:
       title: "Nhóm Telegram"
       new: "Thêm nhóm"
-      help: "Khi bot được thêm vào một nhóm, nhóm sẽ tự xuất hiện ở đây (mặc định ngừng hoạt động). Gán đại lý và bật hoạt động để bắt đầu xử lý bill."
+      help: "Khi bot được thêm vào một nhóm, nhóm sẽ tự xuất hiện ở đây. Bật hoạt động là nhóm bắt đầu được xử lý bill; hộ kinh doanh và đại lý được đọc từ chính bill, không cần gán cho nhóm."
       empty: "Chưa có nhóm Telegram"
       empty_hint: "Thêm bot vào nhóm và gửi một tin nhắn để nhóm xuất hiện."
     filters:
       all: "Tất cả"
-      unmapped: "Chưa gán đại lý"
       inactive: "Ngừng hoạt động"
     form:
       chat_id_hint: "ID số của nhóm, ví dụ -1001234567890. Thường không cần thêm tay: bot tự ghi nhóm khi được thêm vào."
       chat_id_auto_hint: "Bot tự ghi, không cần sửa."
-      dealer_hint: "Bill từ nhóm này được tính cho đại lý đã chọn."
-      name_hint: "Đặt tên nhóm theo mẫu TenĐạiLý-HKD1-HKD2 (HKD2 có thể bỏ), ví dụ: Anh Trân-Thiên Kim GV-Cherry Cofee. Hệ thống đọc tên đại lý từ phần đầu."
-      name_suggestion: "Tên nhóm đang nhắc tới: %{names}. Hãy tick các HKD này trong danh sách trên nếu đúng."
-      merchant_hint: "Các HKD nhóm này phụ trách (tick nhiều HKD). Bill của HKD ngoài danh sách sẽ chuyển sang duyệt tay; để trống nếu không giới hạn."
       active_hint: "Chỉ nhóm đang hoạt động mới được xử lý bill."
     new:
       title: "Thêm nhóm Telegram"
     edit:
       title: "Sửa nhóm %{name}"
     show:
-      name_differs: "Danh sách HKD của nhóm khác với HKD trong tên nhóm (%{names}). Kiểm tra lại cấu hình hoặc tên nhóm."
       recent_messages: "Tin nhắn gần đây"
       stored_images: "Có %{count} ảnh được gửi khi nhóm chưa hoạt động và chưa được xử lý."
       process_stored: "Xử lý các ảnh này"
       process_stored_confirm: "Xử lý %{count} ảnh đã lưu của nhóm này?"
     flash:
-      activate_first: "Hãy gán ít nhất một hộ kinh doanh và bật hoạt động cho nhóm trước."
+      activate_first: "Hãy bật hoạt động cho nhóm trước."
       processing_stored: "Đang xử lý %{count} ảnh đã lưu."
 
   merchants:
@@ -669,7 +659,7 @@ vi:
       merchant_fuzzy_threshold: "Tên gần giống từ mức này trở lên được gợi ý (luôn cần người xác nhận)."
       duplicate_window_minutes: "Cùng hộ kinh doanh và cùng số tiền trong khoảng này được đánh dấu có thể trùng."
       max_receipt_age_days: "Bill cũ hơn số ngày này phải kiểm tra thủ công."
-      telegram_auto_activate_chats: "Khi bật, nhóm mới có bot sẽ được xử lý bill ngay. Khi tắt, nhóm mới phải được gán hộ kinh doanh và bật trong mục Nhóm Telegram trước."
+      telegram_auto_activate_chats: "Khi bật, nhóm mới có bot sẽ được xử lý bill ngay. Khi tắt, nhóm mới phải được bật trong mục Nhóm Telegram trước."
       remitter_features_enabled: "Khi bật, ảnh chuyển khoản của người đi tiền (hoặc có mã như TK01 trong tin nhắn) được cộng vào báo cáo thu chi. Khi tắt, ảnh chuyển khoản bị bỏ qua. Bill kết toán luôn tạo giao dịch bình thường."
       album_collect_window_seconds: "Chờ thêm ảnh của cùng một album trước khi chốt (bill con bổ sung thông tin còn thiếu của bill kết)."
       max_bill_image_mb: "Telegram giới hạn tải file của bot ở 20 MB."

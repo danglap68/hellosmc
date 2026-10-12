@@ -95,7 +95,7 @@ module Transactions
       return Dealers::Resolver::Result.new(dealer: nil, merchant_dealer: nil, source: nil, issue: nil) if merchant.nil?
 
       result = Dealers::Resolver.call(merchant: merchant, merchant_name: @doc["merchant_name"],
-                                      chat: @bill_image.telegram_chat, recipient_name: @doc["recipient_name"])
+                                      recipient_name: @doc["recipient_name"])
       @reasons << result.issue if result.issue
       # A name match alone never approves a bill: a person confirms the agent.
       @reasons << "dealer_from_recipient" if result.source == "recipient" && result.issue.nil?
@@ -104,7 +104,6 @@ module Transactions
 
     def check_merchant
       result = resolve_merchant
-      check_merchant_in_chat(result.merchant)
 
       if result.exact?
         source_field = result.method == :identifier ? "terminal_or_merchant_id" : "merchant_name"
@@ -120,16 +119,6 @@ module Transactions
       end
 
       [ result.merchant, result ]
-    end
-
-    # A group lists the HKDs it serves; a bill for any other HKD is suspicious.
-    # Groups with no HKD configured are not restricted.
-    def check_merchant_in_chat(merchant)
-      chat = @bill_image.telegram_chat
-      return if merchant.nil? || chat.nil?
-
-      ids = chat.merchant_ids
-      @reasons << "merchant_not_in_chat" if ids.any? && !ids.include?(merchant.id)
     end
 
     # Dash/tid suffix stripped first; if that is not an exact hit, also try the

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_11_230000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_12_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -310,16 +310,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_230000) do
     t.index ["telegram_username"], name: "index_remitters_on_telegram_username", unique: true, where: "(telegram_username IS NOT NULL)"
   end
 
-  create_table "telegram_chat_merchants", force: :cascade do |t|
-    t.bigint "telegram_chat_id", null: false
-    t.bigint "merchant_id", null: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["merchant_id"], name: "index_telegram_chat_merchants_on_merchant_id"
-    t.index ["telegram_chat_id", "merchant_id"], name: "index_telegram_chat_merchants_on_chat_and_merchant", unique: true
-    t.index ["telegram_chat_id"], name: "index_telegram_chat_merchants_on_telegram_chat_id"
-  end
-
   create_table "telegram_chats", force: :cascade do |t|
     t.bigint "telegram_chat_id", null: false
     t.string "name"
@@ -485,8 +475,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_11_230000) do
   add_foreign_key "remitter_transfers", "remitters"
   add_foreign_key "remitter_transfers", "telegram_messages"
   add_foreign_key "remitter_transfers", "users", column: "reviewed_by_id"
-  add_foreign_key "telegram_chat_merchants", "merchants"
-  add_foreign_key "telegram_chat_merchants", "telegram_chats"
   add_foreign_key "telegram_messages", "telegram_chats"
   add_foreign_key "transaction_reviews", "transactions"
   add_foreign_key "transaction_reviews", "users", column: "reviewed_by_id"
