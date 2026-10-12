@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_12_150000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_12_180000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -242,10 +242,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_12_150000) do
     t.boolean "active", default: true, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "transfer_code"
     t.index ["dealer_id"], name: "index_merchant_dealers_on_dealer_id"
     t.index ["merchant_id", "dealer_id", "tid_key"], name: "index_merchant_dealers_on_trio", unique: true
     t.index ["merchant_id", "tid_key"], name: "index_merchant_dealers_on_merchant_tid", unique: true, where: "(active = true)"
     t.index ["merchant_id"], name: "index_merchant_dealers_on_merchant_id"
+    t.index ["transfer_code"], name: "index_merchant_dealers_on_transfer_code", unique: true, where: "(transfer_code IS NOT NULL)"
   end
 
   create_table "merchants", force: :cascade do |t|

@@ -44,10 +44,77 @@ RSpec.describe RemitterTransfers::Builder do
     expect(WriteRemitterReportJob).not_to have_been_enqueued
   end
 
-  it "does not care about the receipt's date, recipient or document type" do
-    transfer = described_class.call(remitter_transfer: transfer_with(document_type: "unknown"))
+  it "does not care about the receipt's date or recipient" do
+    transfer = described_class.call(remitter_transfer: transfer_with)
 
     expect(transfer).to be_approved
+  end
+
+  describe "a photo that is not a bank transfer" do
+    it "is skipped: rejected with a reason, the message ignored, nothing written" do
+      transfer = described_class.call(remitter_transfer: transfer_with(document_type: "unknown"))
+
+      expect(transfer).to be_rejected
+      expect(transfer.review_reasons).to eq([ "not_a_transfer" ])
+      expect(transfer.telegram_message.reload.processing_status).to eq("ignored")
+      expect(WriteRemitterReportJob).not_to have_been_enqueued
+      expect(AuditLog.where(auditable: transfer, action: "remitter_transfer.evaluated")).to exist
+    end
+
+    it "is skipped when the image is a QR code to be paid, even if OCR called it a transfer" do
+      transfer = transfer_with
+      data = extraction_fixture("transfer")
+      data["documents"][0].merge!("shows_qr_code" => true, "shows_success_message" => true)
+      normalized = BillVision::Normalizer.call(data, provider: "openai", model: "gpt-test")
+      transfer.telegram_message.bill_images.first.update!(normalized_extraction: normalized)
+
+      expect(described_class.call(remitter_transfer: transfer)).to be_rejected
+    end
+
+    it "is skipped when the slip does not say the transfer succeeded" do
+      transfer = transfer_with
+      data = extraction_fixture("transfer")
+      data["documents"][0].merge!("shows_qr_code" => false, "shows_success_message" => false)
+      normalized = BillVision::Normalizer.call(data, provider: "openai", model: "gpt-test")
+      transfer.telegram_message.bill_images.first.update!(normalized_extraction: normalized)
+
+      expect(described_class.call(remitter_transfer: transfer)).to be_rejected
+    end
+
+    it "is skipped when it is a sale slip" do
+      expect(described_class.call(remitter_transfer: transfer_with(document_type: "child_receipt"))).to be_rejected
+    end
+
+    it "is skipped when OCR found no receipt at all (a calculator)" do
+      transfer = transfer_with
+      empty = BillVision::Normalizer.call({ "documents" => [] }, provider: "openai", model: "gpt-test")
+      transfer.telegram_message.bill_images.first.update!(normalized_extraction: empty)
+
+      expect(described_class.call(remitter_transfer: transfer)).to be_rejected
+    end
+
+    it "is not skipped when OCR itself went wrong: the usual checks decide" do
+      transfer = transfer_with(document_type: "unknown")
+      normalized = transfer.telegram_message.bill_images.first.normalized_extraction
+      normalized["documents"][0]["vision_review_reasons"] = [ "primary_output_truncated" ]
+      transfer.telegram_message.bill_images.first.update!(normalized_extraction: normalized, ocr_status: "needs_review")
+
+      expect(described_class.call(remitter_transfer: transfer)).not_to be_rejected
+    end
+
+    it "is not skipped while OCR has not finished" do
+      transfer = transfer_with(document_type: "unknown")
+      transfer.telegram_message.bill_images.first.update!(ocr_status: "pending")
+
+      expect(described_class.call(remitter_transfer: transfer)).to be_processing
+    end
+
+    it "stays skipped when the caption is edited later" do
+      transfer = described_class.call(remitter_transfer: transfer_with(document_type: "unknown"))
+      transfer.telegram_message.update!(message_text: "Lap chuyen tien TK02")
+
+      expect(described_class.call(remitter_transfer: transfer.reload)).to be_rejected
+    end
   end
 
   it "reports a missing, ambiguous or unmapped code" do

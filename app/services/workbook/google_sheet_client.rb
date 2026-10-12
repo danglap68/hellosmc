@@ -48,9 +48,28 @@ module Workbook
       @service.batch_update_values(@spreadsheet_id, request)
     end
 
-    def duplicate_sheet(source_title:, dest_title:)
+    # index: position of the copy among the tabs (0-based); nil puts it last.
+    def duplicate_sheet(source_title:, dest_title:, index: nil)
       source = sheet_properties(source_title)
-      structural_update(duplicate_sheet: { source_sheet_id: source.sheet_id, new_sheet_name: dest_title })
+      request = { source_sheet_id: source.sheet_id, new_sheet_name: dest_title }
+      request[:insert_sheet_index] = index if index
+      structural_update(duplicate_sheet: request)
+    end
+
+    # Removes the note of each cell ([row, col], 0-based) in one request.
+    def clear_notes(title, cells)
+      return if cells.empty?
+
+      id = sheet_properties(title).sheet_id
+      structural_updates(cells.map do |row, col|
+        Google::Apis::SheetsV4::Request.new(
+          repeat_cell: Google::Apis::SheetsV4::RepeatCellRequest.new(
+            range: Google::Apis::SheetsV4::GridRange.new(sheet_id: id, start_row_index: row, end_row_index: row + 1,
+                                                         start_column_index: col, end_column_index: col + 1),
+            cell: Google::Apis::SheetsV4::CellData.new(note: ""), fields: "note"
+          )
+        )
+      end)
     end
 
     def rename_sheet(from:, to:)

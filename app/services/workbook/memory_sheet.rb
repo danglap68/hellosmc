@@ -66,12 +66,22 @@ module Workbook
       updates.each { |update| update(update[:sheet], update[:range], update[:rows]) }
     end
 
-    def duplicate_sheet(source_title:, dest_title:)
-      @sheets[dest_title] = @sheets.fetch(source_title).map(&:dup)
+    # Like the real API a copy keeps the notes; index puts it among the tabs.
+    def duplicate_sheet(source_title:, dest_title:, index: nil)
+      copy = @sheets.fetch(source_title).map(&:dup)
+      @notes[dest_title] = (@notes[source_title] || {}).dup
       @row_limits[dest_title] = @row_limits[source_title] if @row_limits.key?(source_title)
+      titles = @sheets.keys
+      titles.insert(index || titles.size, dest_title)
+      @sheets = titles.to_h { |title| [ title, title == dest_title ? copy : @sheets.fetch(title) ] }
+    end
+
+    def clear_notes(title, cells)
+      cells.each { |row, col| @notes.dig(title)&.delete([ row, col ]) }
     end
 
     def rename_sheet(from:, to:)
+      @notes[to] = @notes.delete(from) if @notes.key?(from)
       @sheets = @sheets.to_h { |title, rows| [ title == from ? to : title, rows ] }
       @row_limits[to] = @row_limits.delete(from) if @row_limits.key?(from)
     end
@@ -115,6 +125,10 @@ module Workbook
       grid = @sheets.fetch(title)
       r1, c1, r2, c2 = parse_range(range, grid)
       (r1..r2).map { |r| (c1..c2).map { |c| @notes.dig(title, [ r, c ]) } }
+    end
+
+    def set_note(sheet, a1, text)
+      (@notes[sheet] ||= {})[[ row_index(a1), col_index(a1) ]] = text
     end
 
     def note(sheet, a1)

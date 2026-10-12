@@ -24,12 +24,9 @@ module RemitterTransfers
 
         before = snapshot
         attributes, reasons = evaluate
-        status = if attributes[:status] == "failed" then "failed"
-                 elsif reasons.empty? then "approved"
-                 else "needs_review"
-                 end
+        status = decided_status(attributes, reasons)
         @transfer.update!(attributes.except(:status).merge(status: status, review_reasons: reasons))
-        @transfer.telegram_message.update!(processing_status: "processed")
+        @transfer.telegram_message.update!(processing_status: status == "rejected" ? "ignored" : "processed")
         AuditLogger.log!(action: "remitter_transfer.evaluated", auditable: @transfer,
                          before_data: before, after_data: snapshot)
         approved = @transfer.approved?
@@ -39,6 +36,12 @@ module RemitterTransfers
     end
 
     private
+
+    def decided_status(attributes, reasons)
+      return attributes[:status] if attributes[:status].in?(%w[failed rejected])
+
+      reasons.empty? ? "approved" : "needs_review"
+    end
 
     # The photo is still being downloaded or read (e.g. a caption edit arrived first).
     def ocr_pending?
@@ -52,6 +55,8 @@ module RemitterTransfers
       source = image&.duplicate_of || image
       return [ { status: "failed" }, [ "image_missing" ] ] unless source
       return [ { status: "failed", bill_image: image }, [ "ocr_failed" ] ] if source.ocr_failed?
+      # A calculator, a sale slip, any photo that is not a bank transfer: skipped, nobody has to look.
+      return [ { status: "rejected", bill_image: image }, [ "not_a_transfer" ] ] if not_a_transfer?(source)
 
       reasons = []
       amount, confidence, amount_issue = amount_reading(source)
@@ -79,6 +84,19 @@ module RemitterTransfers
         merchant: link&.merchant
       }
       [ attributes, reasons.uniq ]
+    end
+
+    # OCR read the photo and found no bank transfer (and no settlement bill,
+    # which AnalyzeBillImageJob hands to the transaction flow). A run that went
+    # wrong (malformed, truncated…) says nothing about the photo, so it is not
+    # skipped: the usual checks (amount, code, sender) decide.
+    def not_a_transfer?(image)
+      return false unless image.ocr_completed? || image.ocr_needs_review?
+
+      image.documents.none? do |doc|
+        doc["document_type"].in?(%w[transfer settlement]) ||
+          (Array(doc["vision_review_reasons"]) & Transactions::Builder::OCR_PROBLEM_REASONS).any?
+      end
     end
 
     # Only the amount matters on a transfer photo. Transfer documents win over

@@ -1,0 +1,28 @@
+<%# locals: (link:, candidates: nil) %>
+<%= tabler_form_with model: link, scope: :merchant_dealer, url: (link.persisted? ? admin_transfer_code_path(link) : admin_transfer_codes_path),
+                     method: (link.persisted? ? :patch : :post) do |form| %>
+  <div class="card">
+    <div class="card-body">
+      <%= form.error_summary %>
+      <% if link.persisted? %>
+        <div class="mb-3">
+          <div class="form-label"><%= t("transfer_codes.agent_row") %></div>
+          <div><%= link.merchant.name %> · <%= link.dealer.name %> <code><%= link.tid_key %></code></div>
+        </div>
+      <% else %>
+        <div class="mb-3">
+          <label class="form-label required" for="merchant_dealer_id"><%= t("transfer_codes.agent_row") %></label>
+          <%= select_tag "merchant_dealer[id]",
+                options_for_select(candidates.map { |row| [ "#{row.merchant.name} · #{row.dealer.name} (#{row.tid_key})", row.id ] }, params.dig(:merchant_dealer, :id)),
+                include_blank: t("reviews.choose"), id: "merchant_dealer_id", class: "form-select", required: true %>
+          <small class="form-hint"><%= t("transfer_codes.agent_row_hint") %></small>
+        </div>
+      <% end %>
+      <%= form.field :transfer_code, required: true, hint: t("transfer_codes.code_hint"), autocomplete: "off" %>
+    </div>
+    <div class="card-footer d-flex gap-2">
+      <%= form.submit_button %>
+      <%= link_to t("actions.cancel"), admin_settings_path(codes: 1, anchor: "transfer-codes"), class: "btn btn-link" %>
+    </div>
+  </div>
+<% end %>

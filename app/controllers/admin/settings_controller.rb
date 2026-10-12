@@ -95,6 +95,8 @@ module Admin
         webhook_url: Telegram::Connection.webhook_url
       }
       @spreadsheet = { id: AppConfig.hello_smc_spreadsheet_id, source: spreadsheet_source }
+      @transfer_codes = MerchantDealer.where.not(transfer_code: nil).includes(:merchant, :dealer).order(:transfer_code)
+      @agents_without_code = MerchantDealer.active.where(transfer_code: nil).count
       @services = {
         openai: AppConfig.openai_api_key.present?,
         gemini: AppConfig.gemini_api_key.present?,

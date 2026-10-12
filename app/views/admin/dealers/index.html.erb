@@ -35,9 +35,8 @@
               <td><%= @merchant_counts[dealer.id].to_i %></td>
               <td><%= dealer.default_card_type&.name || "—" %></td>
               <td><%= active_badge(dealer.active?) %></td>
-              <td class="text-nowrap">
-                <% if can?(:manage, :dealers) %><%= link_to t("actions.edit"), edit_admin_dealer_path(dealer), class: "btn btn-sm" %><% end %>
-              </td>
+              <%= render "admin/shared/row_actions", resource: :dealers, edit_path: edit_admin_dealer_path(dealer),
+                         delete_path: admin_dealer_path(dealer) %>
             </tr>
           <% end %>
         </tbody>

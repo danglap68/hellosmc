@@ -9,6 +9,10 @@ module BillVision
     # the money. Not a critical field and has no confidence of its own; it only
     # hints at the agent (Dealers::Resolver) and never decides alone.
     RECIPIENT_FIELD = "recipient_name".freeze
+    # Two facts read from the image that decide whether a "transfer" really is a
+    # completed bank transfer (Normalizer): the wording that says it succeeded,
+    # and a QR code (a request to be paid, never a transfer).
+    TRANSFER_FLAGS = %w[shows_success_message shows_qr_code].freeze
 
     SYSTEM = <<~PROMPT.freeze
       You are reading a photo of Vietnamese card-payment terminal (POS) receipts.
@@ -20,7 +24,10 @@ module BillVision
         TỔNG KẾT, BATCH TOTAL, together with a TOTAL / TỔNG amount for the batch.
       - "child_receipt": a single sale slip for one card payment (SALE, THANH TOÁN, BÁN HÀNG, VOID, REFUND).
       - "transfer": ONLY a bank transfer confirmation — a bank app screenshot or a bank slip that shows
-        CHUYỂN TIỀN / CHUYỂN KHOẢN / ỦY NHIỆM CHI / LỆNH CHUYỂN TIỀN and a bank, sender or receiver.
+        CHUYỂN TIỀN / CHUYỂN KHOẢN / ỦY NHIỆM CHI / LỆNH CHUYỂN TIỀN and a bank, sender or receiver,
+        and says the transfer went through (CHUYỂN TIỀN THÀNH CÔNG, CHUYỂN KHOẢN THÀNH CÔNG, CHUYỂN THÀNH CÔNG).
+        A page that only shows a QR code to scan (QUÉT ĐỂ THANH TOÁN, a receiving-account or payment-request
+        QR) is NOT a transfer, whatever amount or account it shows: classify it as "unknown".
         total_amount_vnd is the transferred amount; transaction_date/transaction_time are the transfer
         date/time. merchant_name, lot_number and terminal_or_merchant_id are null for transfers.
       - "unknown": anything else, or when you cannot tell.
@@ -49,6 +56,11 @@ module BillVision
       - recipient_name: only for "transfer": the receiving account holder name (ĐẾN TÀI KHOẢN / NGƯỜI NHẬN /
         TÊN NGƯỜI THỤ HƯỞNG) exactly as printed. Null for every other document type or when not visible.
 
+      - shows_success_message: true only for a "transfer" whose image literally prints a wording saying the
+        transfer succeeded (CHUYỂN TIỀN THÀNH CÔNG, CHUYỂN KHOẢN THÀNH CÔNG, CHUYỂN THÀNH CÔNG, GIAO DỊCH THÀNH CÔNG);
+        false when the image prints none of them. Null for every other document type.
+      - shows_qr_code: true when a QR code is visible anywhere in the image, otherwise false.
+
       For every field also return a confidence between 0 and 1: how certain you are that the value is
       exactly correct. A null value must have confidence 0.
 
@@ -70,7 +82,7 @@ module BillVision
           items: {
             type: "object",
             additionalProperties: false,
-            required: FIELDS + [ RECIPIENT_FIELD, "confidence" ],
+            required: FIELDS + [ RECIPIENT_FIELD ] + TRANSFER_FLAGS + [ "confidence" ],
             properties: {
               document_type: { type: "string", enum: DOCUMENT_TYPES },
               total_amount_vnd: { type: %w[integer null] },
@@ -80,6 +92,8 @@ module BillVision
               merchant_name: { type: %w[string null] },
               terminal_or_merchant_id: { type: %w[string null] },
               recipient_name: { type: %w[string null] },
+              shows_success_message: { type: %w[boolean null] },
+              shows_qr_code: { type: %w[boolean null] },
               confidence: {
                 type: "object",
                 additionalProperties: false,

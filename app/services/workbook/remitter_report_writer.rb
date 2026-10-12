@@ -94,7 +94,9 @@ module Workbook
     def sheet_title(client)
       time = @transfer.transferred_at.in_time_zone
       wanted = "#{SHEET_PREFIX} #{time.day}#{time.month}"
-      client.titles.find { |title| same_text?(title, wanted) }
+      found = client.titles.find { |title| same_text?(title, wanted) }
+      # No tab for the day yet: make it from the "thu chi mẫu" template when there is one.
+      found || ThuChiTemplate.instantiate!(client: client, title: wanted)
     end
 
     def read_grid(client, title)

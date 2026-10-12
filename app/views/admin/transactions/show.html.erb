@@ -62,29 +62,7 @@
       </div>
     </div>
 
-    <div class="card">
-      <div class="card-header"><h3 class="card-title"><%= icon("brand-telegram") %> <%= t("transactions.show.telegram_source") %></h3></div>
-      <div class="card-body">
-        <% if (message = @transaction.telegram_message) %>
-          <dl class="row mb-0">
-            <dt class="col-5"><%= t("transactions.show.telegram_chat") %></dt>
-            <dd class="col-7"><%= can?(:read, :telegram_chats) ? link_to(message.telegram_chat.display_name, admin_telegram_chat_path(message.telegram_chat)) : message.telegram_chat.display_name %></dd>
-            <dt class="col-5"><%= TelegramMessage.human_attribute_name(:telegram_message_id) %></dt><dd class="col-7"><%= message.telegram_message_id %></dd>
-            <dt class="col-5"><%= TelegramMessage.human_attribute_name(:sender_name) %></dt><dd class="col-7"><%= message.sender_name || "—" %></dd>
-            <dt class="col-5"><%= TelegramMessage.human_attribute_name(:sent_at) %></dt><dd class="col-7"><%= format_datetime(message.sent_at) %></dd>
-            <dt class="col-5"><%= TelegramMessage.human_attribute_name(:message_text) %></dt>
-            <dd class="col-7"><%= message.effective_text.present? ? content_tag(:code, message.effective_text) : "—" %></dd>
-          </dl>
-          <% if Array(message.raw_payload["edits"]).any? %>
-            <div class="alert alert-info mt-3 mb-0"><%= t("transactions.show.message_edited") %></div>
-          <% end %>
-        <% elsif @transaction.bill_image&.manual_upload? %>
-          <p class="mb-0"><%= t("transactions.show.manual_upload", user: @transaction.bill_image.uploaded_by&.display_name || "—") %></p>
-        <% else %>
-          <p class="text-secondary mb-0"><%= t("common.no_data") %></p>
-        <% end %>
-      </div>
-    </div>
+    <%= render "admin/shared/telegram_source", message: @transaction.telegram_message, bill_image: @transaction.bill_image %>
   </div>
 
   <div class="col-lg-7">

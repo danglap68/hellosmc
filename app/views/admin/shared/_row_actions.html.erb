@@ -1,0 +1,14 @@
+<%# locals: (resource:, edit_path:, delete_path: nil, confirm: nil, extra: nil) %>
+<%# The last cell of every configuration table: same actions, same look, same permission. %>
+<td class="text-nowrap text-end">
+  <% if can?(:manage, resource) %>
+    <div class="btn-list justify-content-end flex-nowrap">
+      <%= link_to t("actions.edit"), edit_path, class: "btn btn-sm" %>
+      <%= extra %>
+      <% if delete_path %>
+        <%= button_to t("actions.delete"), delete_path, method: :delete, class: "btn btn-sm btn-ghost-danger", form_class: "d-inline",
+              form: { data: { turbo_confirm: confirm || t("actions.confirm_delete") } } %>
+      <% end %>
+    </div>
+  <% end %>
+</td>

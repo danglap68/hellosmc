@@ -12,6 +12,7 @@
           <th><%= t("fee_rules.validity") %></th>
           <th><%= FeeRule.human_attribute_name(:priority) %></th>
           <th><%= FeeRule.human_attribute_name(:active) %></th>
+          <th class="w-1"></th>
         </tr>
       </thead>
       <tbody>
@@ -32,6 +33,8 @@
             </td>
             <td><%= rule.priority %></td>
             <td><%= active_badge(rule.active?) %></td>
+            <%= render "admin/shared/row_actions", resource: :fee_rules, edit_path: edit_admin_fee_rule_path(rule),
+                       delete_path: admin_fee_rule_path(rule) %>
           </tr>
         <% end %>
       </tbody>

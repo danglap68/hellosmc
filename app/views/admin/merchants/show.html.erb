@@ -31,13 +31,16 @@
             <% links.each do |link| %>
               <tr>
                 <td><%= link.dealer.name %> <span class="text-secondary">(<%= link.tid_label %>)</span></td>
-                <td class="text-end"><%= safe_join(RemitterTransfers::Codes.for_merchant_dealer(link).map { |code| content_tag(:code, code) }, " ").presence || "—" %></td>
+                <td class="text-end"><%= link.transfer_code ? content_tag(:code, link.transfer_code) : "—" %></td>
               </tr>
             <% end %>
           </tbody>
         </table>
       <% end %>
-      <div class="card-body text-secondary small"><%= t("merchants.show.transfer_codes_help") %></div>
+      <div class="card-body text-secondary small">
+        <%= t("merchants.show.transfer_codes_help") %>
+        <%= link_to t("transfer_codes.manage"), admin_settings_path(codes: 1, anchor: "transfer-codes") %>
+      </div>
     </div>
   </div>
   <div class="col-lg-8">

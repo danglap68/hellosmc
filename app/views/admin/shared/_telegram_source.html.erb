@@ -1,0 +1,54 @@
+<%# locals: (message:, bill_image: nil) %>
+<%# Where a bill came from: the group, who sent it, when, and what they wrote. Shared by the transaction and the transfer pages. %>
+<div class="card">
+  <div class="card-header"><h3 class="card-title"><%= icon("brand-telegram") %> <%= t("transactions.show.telegram_source") %></h3></div>
+  <div class="card-body">
+    <% if message %>
+      <% chat = message.telegram_chat %>
+      <dl class="row mb-0">
+        <dt class="col-5"><%= t("transactions.show.telegram_chat") %></dt>
+        <dd class="col-7">
+          <%= can?(:read, :telegram_chats) ? link_to(chat.display_name, admin_telegram_chat_path(chat)) : chat.display_name %>
+          <div class="small text-secondary"><%= t("telegram_source.chat_id") %> <code><%= chat.telegram_chat_id %></code></div>
+        </dd>
+        <dt class="col-5"><%= TelegramMessage.human_attribute_name(:sender_name) %></dt>
+        <dd class="col-7">
+          <%= message.sender_name.presence || "—" %>
+          <% if message.telegram_username.present? %><code>@<%= message.telegram_username %></code><% end %>
+          <% if message.telegram_sender_id %>
+            <div class="small text-secondary"><%= t("telegram_source.user_id") %> <code><%= message.telegram_sender_id %></code></div>
+          <% end %>
+        </dd>
+        <dt class="col-5"><%= TelegramMessage.human_attribute_name(:sent_at) %></dt>
+        <dd class="col-7"><%= format_datetime(message.sent_at) %></dd>
+        <dt class="col-5"><%= TelegramMessage.human_attribute_name(:telegram_message_id) %></dt>
+        <dd class="col-7"><code><%= message.telegram_message_id %></code></dd>
+        <% if message.media_group_id.present? %>
+          <dt class="col-5"><%= t("telegram_source.album") %></dt>
+          <dd class="col-7">
+            <%= t("telegram_source.album_photos", count: TelegramMessage.where(telegram_chat_id: message.telegram_chat_id, media_group_id: message.media_group_id).count) %>
+            <div class="small text-secondary"><%= TelegramMessage.human_attribute_name(:media_group_id) %> <code><%= message.media_group_id %></code></div>
+          </dd>
+        <% end %>
+        <dt class="col-5"><%= TelegramMessage.human_attribute_name(:message_text) %></dt>
+        <dd class="col-7">
+          <% if (text = message.effective_text).present? %>
+            <code class="text-wrap"><%= text %></code>
+            <% if message.message_text.blank? %><div class="small text-secondary"><%= t("telegram_source.text_from_album") %></div><% end %>
+          <% else %>
+            —
+          <% end %>
+        </dd>
+        <dt class="col-5"><%= TelegramMessage.human_attribute_name(:processing_status) %></dt>
+        <dd class="col-7"><%= enum_label(:telegram_message, :processing_status, message.processing_status) %></dd>
+      </dl>
+      <% if Array(message.raw_payload["edits"]).any? %>
+        <div class="alert alert-info mt-3 mb-0"><%= t("transactions.show.message_edited") %></div>
+      <% end %>
+    <% elsif bill_image&.manual_upload? %>
+      <p class="mb-0"><%= t("transactions.show.manual_upload", user: bill_image.uploaded_by&.display_name || "—") %></p>
+    <% else %>
+      <p class="text-secondary mb-0"><%= t("common.no_data") %></p>
+    <% end %>
+  </div>
+</div>

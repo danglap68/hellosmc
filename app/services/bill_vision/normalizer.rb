@@ -52,6 +52,8 @@ module BillVision
 
     def normalize_document(doc, index)
       document_type = Prompt::DOCUMENT_TYPES.include?(doc["document_type"]) ? doc["document_type"] : "unknown"
+      downgraded_from = document_type if transfer_not_confirmed?(document_type, doc)
+      document_type = "unknown" if downgraded_from
       document_type = "child_receipt" if transfer_misread?(document_type, doc)
       amount = parse_amount(doc["total_amount_vnd"])
       date = parse_date(doc["transaction_date"])
@@ -77,6 +79,9 @@ module BillVision
       values.merge(
         "index" => index,
         "recipient_name" => recipient_name,
+        "shows_success_message" => flag(doc, "shows_success_message"),
+        "shows_qr_code" => flag(doc, "shows_qr_code"),
+        "downgraded_from" => downgraded_from,
         "transaction_at" => (date && time) ? Time.zone.local(date.year, date.month, date.day, *time).iso8601 : nil,
         "merchant_name_normalized" => VietnameseText.normalize(merchant_name).presence,
         "confidence" => confidence,
@@ -84,6 +89,18 @@ module BillVision
         "low_confidence_fields" => low_fields,
         "requires_review" => requires_review?(document_type, low_fields)
       )
+    end
+
+    # A "transfer" that shows a QR code is a request to be paid, not money sent;
+    # one that prints no success wording is not a confirmation. Either way the
+    # photo is not a transfer: it becomes "unknown" and is skipped. A run that
+    # does not report the flags (older output) keeps its type.
+    def transfer_not_confirmed?(document_type, doc)
+      document_type == "transfer" && (flag(doc, "shows_qr_code") == true || flag(doc, "shows_success_message") == false)
+    end
+
+    def flag(doc, name)
+      doc[name] if [ true, false ].include?(doc[name])
     end
 
     # A bank transfer never prints a POS batch/lot or terminal number. When the

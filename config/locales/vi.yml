@@ -326,6 +326,38 @@ vi:
       map_group: "Gán nhóm Telegram"
       no_groups: "Chưa gán nhóm Telegram nào."
 
+  telegram_source:
+    chat_id: "ID nhóm"
+    user_id: "Telegram ID"
+    album: "Album"
+    album_photos: "%{count} ảnh gửi cùng lúc"
+    text_from_album: "Lấy từ tin nhắn đầu của album (chỉ tin đó có chữ)."
+
+  transfer_codes:
+    manage: "Quản lý mã chuyển tiền (Cài đặt)"
+    merchant: "Hộ kinh doanh"
+    agent: "Đại lý"
+    agent_row: "Đại lý của hộ kinh doanh"
+    agent_row_hint: "Chỉ hiện các đại lý đang hoạt động chưa có mã. Thêm đại lý ở trang sửa hộ kinh doanh."
+    code_hint: "Người đi tiền ghi mã này trong tin nhắn kèm ảnh chuyển tiền, ví dụ TK01 (chữ rồi số, không trùng mã khác)."
+    confirm_delete: "Xoá mã %{code}? Người đi tiền không dùng được mã này nữa; đại lý vẫn giữ nguyên."
+    index:
+      title: "Mã chuyển tiền"
+      new: "Thêm mã"
+      help: "Mỗi mã chỉ một đại lý của một hộ kinh doanh. Người đi tiền ghi mã trong tin nhắn gửi kèm ảnh chuyển tiền để hệ thống biết tiền đi cho đại lý nào."
+      without_code: "%{count} đại lý đang hoạt động chưa có mã."
+      empty: "Chưa có mã chuyển tiền"
+    new:
+      title: "Thêm mã chuyển tiền"
+    edit:
+      title: "Sửa mã chuyển tiền"
+    flash:
+      created: "Đã thêm mã %{code}."
+      updated: "Đã lưu mã %{code}."
+      destroyed: "Đã xoá mã %{code}."
+    errors:
+      pick_agent: "Hãy chọn đại lý chưa có mã."
+
   remitters:
     index:
       title: "Người đi tiền"
@@ -392,7 +424,7 @@ vi:
       title: "Sửa %{name}"
     show:
       transfer_codes: "Mã chuyển tiền"
-      transfer_codes_help: "Người đi tiền ghi mã này trong tin nhắn Telegram gửi kèm ảnh chuyển tiền. Bảng mã nằm trong config/remitter_transfer_codes.json."
+      transfer_codes_help: "Người đi tiền ghi mã này trong tin nhắn Telegram gửi kèm ảnh chuyển tiền. Đặt mã ở trang sửa hộ kinh doanh, mục Đại lý (ô Mã chuyển tiền)."
       aliases_help: "Thêm đúng tên in trên bill và MID/TID để hệ thống nhận diện chính xác. Hệ thống không bao giờ tự tạo hộ kinh doanh từ kết quả OCR."
 
   merchant_aliases:
@@ -878,8 +910,9 @@ vi:
       image_missing: "Không tải được ảnh"
       ocr_failed: "OCR xử lý lỗi"
       settlement_photo: "Ảnh là bill kết toán (mã trong tin nhắn bị hiểu nhầm), đã chuyển sang luồng giao dịch"
+      not_a_transfer: "Ảnh không phải biên lai chuyển khoản (ví dụ máy tính, bill khác), đã bỏ qua"
     write_issues:
-      rd_sheet_missing: "Chưa có tab thu chi của ngày này. Tạo tab rồi bấm Ghi lại."
+      rd_sheet_missing: "Chưa có tab thu chi của ngày này, và cũng chưa có tab \"thu chi mẫu\" để tự tạo. Tạo tab (hoặc tab mẫu) rồi bấm Ghi lại."
       rd_agent_missing: "Tab %{sheet} không có khối của đại lý này (kiểm tra nhãn thu chi của đại lý)."
       rd_remitter_missing: "Tab %{sheet} không có cột của người đi tiền này."
       rd_total_missing: "Khối đại lý trong tab %{sheet} không có dòng TOTAL."
@@ -988,6 +1021,7 @@ vi:
         dealer: "Đại lý"
         amount_vnd: "Số tiền"
         transferred_at: "Gửi lúc"
+        slip_at: "Ngày giờ chuyển khoản"
         status: "Trạng thái"
         rd_cell: "Ô trên tab thu chi"
         reviewed_by: "Người duyệt"
@@ -1001,6 +1035,7 @@ vi:
         dealer: "Đại lý"
         dealer_id: "Đại lý"
         tid_key: "TID"
+        transfer_code: "Mã chuyển tiền"
         tid_label: "Nhãn TID"
         ds_sheet_anchor: "Tên HKD trong DS MB"
         ds_header: "Cột trong DS MB"

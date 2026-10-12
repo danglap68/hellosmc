@@ -35,13 +35,8 @@
               <td><code><%= remitter.telegram_user_id %></code></td>
               <td><code><%= remitter.telegram_username %></code></td>
               <td><%= active_badge(remitter.active?) %></td>
-              <td class="text-nowrap">
-                <% if can?(:manage, :remitters) %>
-                  <%= link_to t("actions.edit"), edit_admin_remitter_path(remitter), class: "btn btn-sm" %>
-                  <%= link_to t("actions.destroy"), admin_remitter_path(remitter), class: "btn btn-sm text-danger",
-                              data: { turbo_method: :delete, turbo_confirm: t("actions.confirm_destroy") } %>
-                <% end %>
-              </td>
+              <%= render "admin/shared/row_actions", resource: :remitters, edit_path: edit_admin_remitter_path(remitter),
+                         delete_path: admin_remitter_path(remitter) %>
             </tr>
           <% end %>
         </tbody>

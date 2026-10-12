@@ -8,12 +8,19 @@ module RemitterTransfersHelper
     content_tag(:span, t("activerecord.enums.remitter_transfer.status.#{transfer.status}"), class: "badge bg-#{color}-lt")
   end
 
-  # "TK01 · Thiên Kim GV · Chương" for every code of the constant table.
+  # "TK01 · Thiên Kim GV · Chương" for every configured code.
   def remitter_transfer_code_options
-    RemitterTransfers::Codes.all.values.map do |entry|
-      hkd = Workbook::Seed::HKD.find { |attrs| attrs[:code] == entry.hkd }&.dig(:anchor) || entry.hkd
-      [ [ entry.code, hkd, entry.agent ].compact.join(" · "), entry.code ]
+    RemitterTransfers::Codes.all.map do |code, link|
+      [ [ code, link.ds_sheet_anchor.presence || link.merchant.name, link.dealer.name ].join(" · "), code ]
     end
+  end
+
+  # Date and time printed on the bank slip; "—" when OCR read none.
+  def remitter_slip_datetime(transfer)
+    slip_at = transfer.slip_at
+    return content_tag(:span, "—", class: "text-secondary") unless slip_at
+
+    slip_at.is_a?(Date) ? l(slip_at) : format_datetime(slip_at)
   end
 
   def remitter_transfer_reason(code)

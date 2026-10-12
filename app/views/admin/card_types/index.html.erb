@@ -26,12 +26,8 @@
             <td><%= card_type.match_tokens.map { |token| content_tag(:code, token) }.join(" ").html_safe %></td>
             <td><%= card_type.position %></td>
             <td><%= active_badge(card_type.active?) %></td>
-            <td class="text-nowrap">
-              <% if can?(:manage, :card_types) %>
-                <%= link_to t("actions.edit"), edit_admin_card_type_path(card_type), class: "btn btn-sm" %>
-                <%= button_to t("actions.delete"), admin_card_type_path(card_type), method: :delete, class: "btn btn-sm btn-ghost-danger", form_class: "d-inline", form: { data: { turbo_confirm: t("actions.confirm_delete") } } %>
-              <% end %>
-            </td>
+            <%= render "admin/shared/row_actions", resource: :card_types, edit_path: edit_admin_card_type_path(card_type),
+                       delete_path: admin_card_type_path(card_type) %>
           </tr>
         <% end %>
       </tbody>

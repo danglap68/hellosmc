@@ -6,6 +6,10 @@ class MerchantDealer < ApplicationRecord
 
   validates :tid_key, :tid_label, :ds_sheet_anchor, :ds_header, :rd_agent_label, presence: true
   validates :tid_key, uniqueness: { scope: :merchant_id }, if: :active?
+  # "TK01": letters then digits (the digits let the matcher tell TK01 from TK010).
+  # Unique across every agent row: a code names exactly one HKD + TID.
+  validates :transfer_code, format: { with: RemitterTransfers::Codes::FORMAT }, allow_nil: true
+  validates :transfer_code, uniqueness: { case_sensitive: false }, allow_nil: true
 
   scope :active, -> { where(active: true) }
 
@@ -13,6 +17,7 @@ class MerchantDealer < ApplicationRecord
 
   def normalize_fields
     self.tid_key = normalize_tid_key(tid_key)
+    self.transfer_code = transfer_code.to_s.gsub(/\s+/, "").upcase.presence
     forget_names_of_previous_agent
     self.tid_label = tid_label.to_s.strip.presence || self.tid_key
     # Names on the Google Sheet, filled when left blank (the client does not

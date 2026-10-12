@@ -5,7 +5,10 @@ RSpec.describe Telegram::UpdateReceiver, "remitter transfers" do
   let(:update) { telegram_fixture("photo_update") } # sender id 4242, caption "MB"
   let!(:chat) { create(:telegram_chat, telegram_chat_id: -1001234567890, active: true) }
 
-  before { allow(AppConfig).to receive(:remitter_features_enabled?).and_return(true) }
+  before do
+    allow(AppConfig).to receive(:remitter_features_enabled?).and_return(true)
+    Workbook::Seed.call
+  end
 
   it "routes a remitter matched by Telegram user id to the transfer flow" do
     lap = create(:remitter, name: "Lập", telegram_user_id: 4242)

@@ -17,7 +17,7 @@ module Admin
     def index
       @queue = QUEUES.key?(params[:queue]) ? params[:queue] : "needs_review"
       @counts = QUEUES.transform_values { |scope| scope.call.count }
-      scope = QUEUES.fetch(@queue).call.includes(:remitter, :telegram_message, merchant_dealer: %i[dealer merchant])
+      scope = QUEUES.fetch(@queue).call.includes(:remitter, :telegram_message, bill_image: :duplicate_of, merchant_dealer: %i[dealer merchant])
       @pagy, @transfers = pagy(scope.recent_first)
     end
 
