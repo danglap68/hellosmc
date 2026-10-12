@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_12_180000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_13_100000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -259,6 +259,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_12_180000) do
     t.jsonb "metadata", default: {}, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.boolean "skip_bills", default: false, null: false
     t.index ["code"], name: "index_merchants_on_code", unique: true
     t.index ["default_card_type_id"], name: "index_merchants_on_default_card_type_id"
     t.index ["normalized_name"], name: "index_merchants_on_normalized_name"
@@ -296,7 +297,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_12_180000) do
     t.index ["status"], name: "index_remitter_transfers_on_status"
     t.index ["telegram_message_id"], name: "index_remitter_transfers_on_telegram_message_id", unique: true
     t.check_constraint "amount_vnd IS NULL OR amount_vnd > 0", name: "remitter_transfers_amount_positive"
-    t.check_constraint "status::text = ANY (ARRAY['processing'::character varying, 'needs_review'::character varying, 'approved'::character varying, 'rejected'::character varying, 'failed'::character varying]::text[])", name: "remitter_transfers_status_check"
+    t.check_constraint "status::text = ANY (ARRAY['processing'::character varying::text, 'needs_review'::character varying::text, 'approved'::character varying::text, 'rejected'::character varying::text, 'failed'::character varying::text])", name: "remitter_transfers_status_check"
   end
 
   create_table "remitters", force: :cascade do |t|

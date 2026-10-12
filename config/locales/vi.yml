@@ -414,6 +414,7 @@ vi:
     form:
       name_hint: "Tên dùng trong báo cáo và Excel, ví dụ: 001_ HỘ KINH DOANH THIÊN KIM GV"
       no_dealer: "Không thuộc đại lý nào"
+      skip_bills_hint: "Bật nếu hộ này tính giá khác: bill của hộ này (Telegram) bị bỏ qua, không tạo giao dịch."
       no_default_card_type: "Không có"
       default_card_type_hint: "Dùng khi tin nhắn không ghi loại thẻ."
       agents: "Đại lý theo TID"
@@ -1014,6 +1015,7 @@ vi:
         default_card_type_id: "Loại thẻ mặc định"
         normalized_name: "Tên chuẩn hoá"
         active: "Hoạt động"
+        skip_bills: "Bỏ qua bill"
       merchant_alias:
         alias: "Alias"
         alias_type: "Loại alias"

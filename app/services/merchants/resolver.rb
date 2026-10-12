@@ -26,6 +26,20 @@ module Merchants
       new(merchant_name:, merchant_identifier:).call
     end
 
+    # Dash/tid suffix stripped first; if that is not an exact hit, also try the
+    # name without a bare trailing number ("CHERRY COFFE 2" → "CHERRY COFFE").
+    # Prefer the strongest match across attempts: exact → fuzzy → ambiguous →
+    # the first attempt (none). This keeps a fuzzy hit from the stripped name
+    # ("GẮT TẠM ĐÂY COFFEE 2" → "Gat Tan Day Coffe") instead of discarding it.
+    def self.for_document(document)
+      name = document["merchant_name"]
+      names = [ Workbook::TidParser.strip(name), Workbook::TidParser.strip_bare_number(name) ].uniq
+      results = names.map do |candidate|
+        call(merchant_name: candidate, merchant_identifier: document["terminal_or_merchant_id"])
+      end
+      results.find(&:exact?) || results.find(&:fuzzy?) || results.find(&:ambiguous?) || results.first
+    end
+
     def initialize(merchant_name:, merchant_identifier:)
       @merchant_name = merchant_name
       @merchant_identifier = merchant_identifier

@@ -67,7 +67,7 @@ module Admin
     end
 
     def merchant_params
-      params.require(:merchant).permit(:name, :code, :default_card_type_id, :active,
+      params.require(:merchant).permit(:name, :code, :default_card_type_id, :active, :skip_bills,
         merchant_dealers_attributes: [ :id, :dealer_id, :tid_key, :tid_label, :ds_sheet_anchor, :ds_header, :rd_agent_label, :active, :_destroy ])
     end
   end

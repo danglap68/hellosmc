@@ -14,7 +14,7 @@ module Transactions
     MATCH_SCORES = { amount: 2, time: 2, lot: 1, merchant: 1 }.freeze
     # OCR itself went wrong (not "the photo is not a settlement"): the photo
     # must still reach a person even when it reads as unknown.
-    OCR_PROBLEM_REASONS = %w[malformed_primary_extraction primary_output_truncated primary_refused
+    OCR_PROBLEM_REASONS =%w[malformed_primary_extraction primary_output_truncated primary_refused
                              validation_budget_exhausted validator_failed].freeze
 
     def self.call(bill_image:)
@@ -60,6 +60,7 @@ module Transactions
         index = document.fetch("index")
         if skippable_document?(document)
           record_skipped(index) if document["document_type"] == "child_receipt"
+          record_other_fee_calculation if other_fee_calculation?(document)
           next
         end
 
@@ -231,6 +232,8 @@ module Transactions
     # * outside an album (single image) only settlements are built.
     def skippable_document?(document)
       type = document["document_type"]
+      return true if other_fee_calculation?(document)
+
       # A single photo only becomes a row when it is a settlement: transfers go
       # to RemitterTransfer, unknown photos and child receipts are skipped
       # instead of cluttering review. An OCR problem (failed run, malformed,
@@ -389,6 +392,28 @@ module Transactions
       # the worker could read the row still `processing` and skip it for good.
       id = transaction.id
       ActiveRecord.after_all_transactions_commit { WriteHelloSmcWorkbookJob.perform_later(id) }
+    end
+
+    # Sales that use another fee calculation (SmartPOS terminals, an HKD with
+    # "Bỏ qua bill" on) are not booked here. A photo uploaded by hand is always
+    # built: a person chose it.
+    def other_fee_calculation?(document)
+      return false unless @bill_image.telegram?
+
+      document["shows_smart_pos"] == true || skipped_merchant?(document)
+    end
+
+    def skipped_merchant?(document)
+      result = Merchants::Resolver.for_document(document)
+      return false unless result.merchant&.skip_bills?
+
+      result.exact? || (result.fuzzy? && result.score.to_f >= AppConfig.merchant_auto_accept_score)
+    end
+
+    def record_other_fee_calculation
+      return if @bill_image.metadata["skipped_reason"] == "other_fee_calculation"
+
+      @bill_image.update!(metadata: @bill_image.metadata.merge("skipped_reason" => "other_fee_calculation"))
     end
 
     def record_skipped(index)
