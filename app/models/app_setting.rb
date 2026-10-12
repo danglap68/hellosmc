@@ -37,12 +37,16 @@ class AppSetting < ApplicationRecord
 
   GROUPS = DEFINITIONS.values.map(&:group).uniq.freeze
 
+  # Stored here but edited on the Kết nối card (checked before saving), not
+  # through the switches form.
+  CONNECTION_KEYS = %w[hello_smc_spreadsheet_id].freeze
+
   # Web and worker processes pick up changes within this delay.
   CACHE_TTL = 30
 
   belongs_to :updated_by, class_name: "User", optional: true
 
-  validates :key, presence: true, uniqueness: true, inclusion: { in: DEFINITIONS.keys }
+  validates :key, presence: true, uniqueness: true, inclusion: { in: DEFINITIONS.keys + CONNECTION_KEYS }
   validates :value, presence: true, unless: -> { DEFINITIONS[key]&.type == :string }
 
   after_commit { self.class.reset_cache! }

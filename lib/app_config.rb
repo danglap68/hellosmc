@@ -36,8 +36,7 @@ module AppConfig
     "max_receipt_age_days" => { env: "MAX_RECEIPT_AGE_DAYS", default: "45", type: :integer },
     "album_collect_window_seconds" => { env: "ALBUM_COLLECT_WINDOW_SECONDS", default: "15", type: :integer },
     "max_bill_image_mb" => { env: "MAX_BILL_IMAGE_MB", default: "20", type: :integer },
-    "mailer_sender" => { env: "MAILER_SENDER", default: "no-reply@hellosmc.com", type: :string },
-    "hello_smc_spreadsheet_id" => { env: "HELLO_SMC_SPREADSHEET_ID", default: "", type: :string }
+    "mailer_sender" => { env: "MAILER_SENDER", default: "no-reply@hellosmc.com", type: :string }
   }.freeze
 
   # [value, source] with source :env, :stored or :default.
@@ -110,7 +109,11 @@ module AppConfig
   def r2_configured? = r2_missing_env.empty?
   def smtp_configured? = ENV["SMTP_ADDRESS"].present?
 
-  def hello_smc_spreadsheet_id = tuned("hello_smc_spreadsheet_id").presence
+  # Set under Cài đặt → Kết nối (AppSetting) so a new Google Sheet can be
+  # switched to without a deploy; ENV is the fallback.
+  def hello_smc_spreadsheet_id
+    AppSetting.stored_values["hello_smc_spreadsheet_id"].presence || ENV["HELLO_SMC_SPREADSHEET_ID"].presence
+  end
 
   def google_sheets_credentials_path = ENV["GOOGLE_SHEETS_CREDENTIALS_PATH"].presence
   def google_sheets_credentials_json = ENV["GOOGLE_SHEETS_CREDENTIALS_JSON"].presence

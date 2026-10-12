@@ -41,7 +41,9 @@ Yêu cầu:
 | Mục | Ai quyết | Xử lý |
 |---|---|---|
 | Tự động nhận nhóm Telegram mới, Bật đi tiền | Khách | **Giữ** trên trang Cài đặt |
-| Token bot Telegram, đăng ký webhook | Khách (một lần) | Giữ (đã có) |
+| Token bot Telegram | Khách (khi đổi bot) | Thẻ **Kết nối** đầu trang Cài đặt; kiểm tra với Telegram trước khi lưu |
+| Google Sheet Hello SMC (Spreadsheet ID) | Khách (khi đổi sheet) | Thẻ **Kết nối**; nhận link hoặc ID, mở thử sheet bằng tài khoản Google của hệ thống trước khi lưu |
+| Đăng ký webhook | Khách (một lần) | Giữ (đã có), cột phải |
 | 22 mục còn lại | Dev | **Bỏ khỏi giao diện** → `AppConfig` |
 
 ### 3.2 `AppConfig`: giá trị kỹ thuật
@@ -72,7 +74,7 @@ Thứ tự lấy giá trị mỗi thông số:
 | Chờ ảnh album (giây) | `ALBUM_COLLECT_WINDOW_SECONDS` | `15` |
 | Dung lượng ảnh tối đa (MB) | `MAX_BILL_IMAGE_MB` | `20` |
 | Email người gửi | `MAILER_SENDER` | `no-reply@hellosmc.com` |
-| Spreadsheet Hello SMC | `HELLO_SMC_SPREADSHEET_ID` | (trống) — đã có từ trước |
+| Spreadsheet Hello SMC | `HELLO_SMC_SPREADSHEET_ID` | (trống). Giá trị lưu ở thẻ Kết nối **thắng** biến môi trường (ngược với các mục khác); env chỉ là dự phòng |
 
 `vision_validation_mode` chỉ có một giá trị (`risk_based`) → hằng số.
 

@@ -2,7 +2,8 @@ module Admin
   # The client's switches (stored in the database, audited) and a read-only
   # view of the technical tuning (AppConfig::TUNING, set with ENV).
   # API keys stay in ENV and the page only shows whether they are set; the
-  # Telegram bot token and webhook secret are managed here, encrypted (AppSecret).
+  # Telegram bot token and webhook secret (encrypted, AppSecret) and the Google
+  # Sheet ID are managed here, on the Kết nối card.
   class SettingsController < BaseController
     permission :settings
 
@@ -45,6 +46,16 @@ module Admin
       redirect_to admin_settings_path, alert: [ saved, e.message ].compact.join(" ")
     end
 
+    # Stores the Google Sheet ID (or the sheet's address) once the sheet opens
+    # with the server's Google account; new rows go there from then on.
+    def spreadsheet
+      saved = Workbook::Connection.save_spreadsheet!(params[:spreadsheet_id], actor: current_user)
+      notice = t(saved.checked ? "settings.spreadsheet.saved" : "settings.spreadsheet.saved_unchecked", tabs: saved.tab_count)
+      redirect_to admin_settings_path, notice: notice
+    rescue Workbook::Connection::Error => e
+      redirect_to admin_settings_path, alert: e.message
+    end
+
     def telegram_webhook
       url = Telegram::Connection.register_webhook!(actor: current_user)
       redirect_to admin_settings_path, notice: t("settings.telegram.webhook_registered", url: url)
@@ -63,6 +74,14 @@ module Admin
       end
     end
 
+    def spreadsheet_source
+      if AppSetting.stored_values[Workbook::Connection::KEY].present?
+        :settings
+      elsif ENV["HELLO_SMC_SPREADSHEET_ID"].present?
+        :env
+      end
+    end
+
     def r2_failure_message(step)
       hint = step.hint && t("settings.r2_check.hints.#{step.hint}", keys: step.error.message)
       t("settings.r2_check.failed", step: t("settings.r2_check.steps.#{step.name}"), hint: hint,
@@ -75,6 +94,7 @@ module Admin
         webhook: secret_source("telegram_webhook_secret", "TELEGRAM_WEBHOOK_SECRET"),
         webhook_url: Telegram::Connection.webhook_url
       }
+      @spreadsheet = { id: AppConfig.hello_smc_spreadsheet_id, source: spreadsheet_source }
       @services = {
         openai: AppConfig.openai_api_key.present?,
         gemini: AppConfig.gemini_api_key.present?,

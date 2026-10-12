@@ -698,8 +698,26 @@ vi:
         gemini: "GEMINI_API_KEY"
         r2: "R2_*"
         smtp: "SMTP_*"
+    connections:
+      title: "Kết nối"
+      help: "Đổi bot Telegram hoặc Google Sheet ở đây khi cần; hệ thống kiểm tra trước khi lưu, không cần nhờ kỹ thuật."
+    spreadsheet:
+      label: "Google Sheet Hello SMC"
+      placeholder: "Dán link Google Sheet hoặc Spreadsheet ID"
+      hint: "Chia sẻ sheet với tài khoản Google của hệ thống (quyền Chỉnh sửa) trước khi lưu. Bill mới ghi vào sheet này; các dòng đã ghi vẫn nằm ở sheet cũ."
+      checking: "Đang kiểm tra…"
+      open: "Mở sheet"
+      saved: "Đã lưu Google Sheet (mở được, %{tabs} tab). Bill mới sẽ ghi vào sheet này."
+      saved_unchecked: "Đã lưu Google Sheet. Chưa kiểm tra được vì máy chủ chưa cấu hình tài khoản Google."
+      sources:
+        settings: "Đã cấu hình"
+        env: "Từ biến môi trường"
+        missing: "Chưa cấu hình"
+      errors:
+        invalid: "Không đọc được Spreadsheet ID. Hãy dán link Google Sheet hoặc đúng ID (chuỗi dài giữa /d/ và /edit)."
+        cannot_open: "Không mở được Google Sheet này: %{error} Kiểm tra lại ID và việc chia sẻ sheet cho tài khoản Google của hệ thống."
     telegram:
-      title: "Kết nối Telegram"
+      title: "Webhook Telegram"
       help: "Token và mã bí mật webhook được mã hoá trong hệ thống và không bao giờ hiển thị lại."
       token: "Token bot"
       token_placeholder: "Dán token từ @BotFather"

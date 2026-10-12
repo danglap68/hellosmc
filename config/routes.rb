@@ -47,6 +47,7 @@ Rails.application.routes.draw do
     resource :settings, only: [ :show, :update ] do
       post :check_r2
       patch :telegram_token
+      patch :spreadsheet
       post :telegram_webhook
     end
 
