@@ -49,14 +49,11 @@
                     <%= image_tag admin_bill_image_path(image), class: "img-fluid rounded", alt: "" %>
                   <% end %>
                   <div class="small mt-2">
-                    <% if image.id == @bill_album.transfer_bill_image_id %>
-                      <span class="badge bg-blue-lt"><%= t("bill_albums.show.transfer_image") %></span>
-                    <% elsif album_children_dropped?(@bill_album) %>
-                      <span class="badge bg-secondary-lt"><%= t("bill_images.album.kinds.child_unused") %></span>
-                    <% else %>
-                      <span class="badge bg-secondary-lt"><%= t("bill_albums.show.bill_con") %></span>
+                    <% kind = album_image_kind(@bill_album, image) %>
+                    <span class="badge <%= kind == 'total' ? 'bg-blue-lt' : 'bg-secondary-lt' %>"><%= album_image_label(@bill_album, image) %></span>
+                    <% unless album_image_skipped?(@bill_album, image) %>
+                      <%= ocr_status_badge(image.ocr_status) %>
                     <% end %>
-                    <%= ocr_status_badge(image.ocr_status) %>
                   </div>
                 </div>
               </div>

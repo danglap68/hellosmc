@@ -295,6 +295,9 @@ vi:
         total: "Tổng kết"
         child: "Bill con"
         child_unused: "Bill con · bỏ qua"
+        unused: "Bỏ qua"
+        settlement: "Bill kết"
+        transfer: "Hình chuyển tiền"
         unread: "Không đọc được"
 
   bill_uploads:
