@@ -81,6 +81,7 @@ module BillVision
         "recipient_name" => recipient_name,
         "shows_success_message" => flag(doc, "shows_success_message"),
         "shows_qr_code" => flag(doc, "shows_qr_code"),
+        "shows_smart_pos" => flag(doc, Prompt::SMART_POS_FLAG),
         "downgraded_from" => downgraded_from,
         "transaction_at" => (date && time) ? Time.zone.local(date.year, date.month, date.day, *time).iso8601 : nil,
         "merchant_name_normalized" => VietnameseText.normalize(merchant_name).presence,

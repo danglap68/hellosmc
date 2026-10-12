@@ -13,6 +13,10 @@ module BillVision
     # completed bank transfer (Normalizer): the wording that says it succeeded,
     # and a QR code (a request to be paid, never a transfer).
     TRANSFER_FLAGS = %w[shows_success_message shows_qr_code].freeze
+    # SmartPOS visible anywhere in the photo (logo on the terminal, screen, slip): those sales use another fee calculation,
+    # so Transactions::Builder leaves them out.
+    SMART_POS_FLAG = "shows_smart_pos".freeze
+    FLAGS = (TRANSFER_FLAGS + [ SMART_POS_FLAG ]).freeze
 
     SYSTEM = <<~PROMPT.freeze
       You are reading a photo of Vietnamese card-payment terminal (POS) receipts.
@@ -60,6 +64,8 @@ module BillVision
         transfer succeeded (CHUYỂN TIỀN THÀNH CÔNG, CHUYỂN KHOẢN THÀNH CÔNG, CHUYỂN THÀNH CÔNG, GIAO DỊCH THÀNH CÔNG);
         false when the image prints none of them. Null for every other document type.
       - shows_qr_code: true when a QR code is visible anywhere in the image, otherwise false.
+      - shows_smart_pos: true when the name SmartPOS / Smart POS is visible anywhere in the image: the logo on
+        the terminal, its screen or the receipt (also when written as one word). Otherwise false.
 
       For every field also return a confidence between 0 and 1: how certain you are that the value is
       exactly correct. A null value must have confidence 0.
@@ -82,7 +88,7 @@ module BillVision
           items: {
             type: "object",
             additionalProperties: false,
-            required: FIELDS + [ RECIPIENT_FIELD ] + TRANSFER_FLAGS + [ "confidence" ],
+            required: FIELDS + [ RECIPIENT_FIELD ] + FLAGS + [ "confidence" ],
             properties: {
               document_type: { type: "string", enum: DOCUMENT_TYPES },
               total_amount_vnd: { type: %w[integer null] },
@@ -94,6 +100,7 @@ module BillVision
               recipient_name: { type: %w[string null] },
               shows_success_message: { type: %w[boolean null] },
               shows_qr_code: { type: %w[boolean null] },
+              shows_smart_pos: { type: %w[boolean null] },
               confidence: {
                 type: "object",
                 additionalProperties: false,

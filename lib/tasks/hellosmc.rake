@@ -164,4 +164,28 @@ namespace :hellosmc do
     puts "\nDeleted. Files removed from storage: #{blob_keys.size - failed}/#{blob_keys.size}."
     puts "#{failed} file(s) are left in the bucket (orphans, harmless; delete them in Cloudflare if needed)." if failed.positive?
   end
+  # Takes excluded bills (SmartPOS, HKD "Bỏ qua bill") into the accounting flow, e.g. for a
+  # reconciliation or after a rule changed. Lists first; CONFIRM=yes books them.
+  #
+  #   bin/rails hellosmc:include_excluded TAG=smart_pos FROM=2026-10-01 TO=2026-10-31
+  #   CONFIRM=yes bin/rails hellosmc:include_excluded TAG=skip_merchant FROM=2026-10-01
+  desc "Book excluded bills. TAG=smart_pos|skip_merchant (optional), FROM/TO=YYYY-MM-DD (optional), CONFIRM=yes to run"
+  task include_excluded: :environment do
+    scope = Transaction.where(status: "excluded")
+    scope = scope.where("transactions.tags @> ARRAY[?]::varchar[]", ENV["TAG"]) if ENV["TAG"].present?
+    scope = scope.where(transaction_at: Time.zone.parse(ENV["FROM"])..) if ENV["FROM"].present?
+    scope = scope.where(transaction_at: ..Time.zone.parse(ENV["TO"]).end_of_day) if ENV["TO"].present?
+
+    puts "#{scope.count} excluded bill(s) match."
+    unless ENV["CONFIRM"] == "yes"
+      puts "Nothing changed. Re-run with CONFIRM=yes to book them."
+      next
+    end
+
+    done = failed = 0
+    scope.find_each do |transaction|
+      Transactions::Includer.call(transaction: transaction) ? done += 1 : failed += 1
+    end
+    puts "Booked #{done}, failed #{failed}."
+  end
 end

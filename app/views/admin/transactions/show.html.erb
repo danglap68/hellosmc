@@ -17,12 +17,18 @@
     <% if @transaction.can_transition_to?("rejected") %>
       <%= button_to reject_admin_transaction_path(@transaction), class: "btn btn-outline-danger", form: { data: { turbo_confirm: t("transactions.confirm.reject") } } do %><%= icon("x") %> <%= t("actions.reject") %><% end %>
     <% end %>
+    <% if @transaction.excluded? %>
+      <%= button_to include_excluded_admin_transaction_path(@transaction), class: "btn btn-primary", form: { data: { turbo_confirm: t("transactions.confirm.include") } } do %><%= icon("arrow-back-up") %> <%= t("actions.include_excluded") %><% end %>
+    <% end %>
     <% if @transaction.reprocessable? %>
       <%= button_to reprocess_admin_transaction_path(@transaction), class: "btn btn-outline-secondary", form: { data: { turbo_confirm: t("transactions.confirm.reprocess") } } do %><%= icon("refresh") %> <%= t("actions.reprocess") %><% end %>
     <% end %>
   <% end %>
 <% end %>
 
+<% if @transaction.excluded? %>
+  <div class="alert alert-secondary"><%= icon("ban") %> <%= t("transactions.show.excluded", tags: (@transaction.tags & Transaction::SKIP_TAGS).map { |tag| t("transactions.tags.#{tag}") }.to_sentence) %></div>
+<% end %>
 <%= render "admin/transactions/review_reasons", transaction: @transaction %>
 
 <div class="card mb-3">

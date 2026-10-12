@@ -9,6 +9,7 @@
       <%= form.select_field :default_card_type_id, card_type_options, { include_blank: t("merchants.form.no_default_card_type") },
             hint: t("merchants.form.default_card_type_hint") %>
       <%= form.switch_field :active %>
+      <%= form.switch_field :skip_bills, hint: t("merchants.form.skip_bills_hint") %>
     </div>
     <% if merchant.persisted? %>
       <div class="card-body border-top">

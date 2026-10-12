@@ -10,6 +10,7 @@ Rails.application.routes.draw do
 
     resources :transactions, only: [ :index, :show, :edit, :update ] do
       member do
+        post :include_excluded
         post :approve
         post :hold
         post :reject

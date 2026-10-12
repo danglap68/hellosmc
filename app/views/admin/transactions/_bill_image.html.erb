@@ -12,7 +12,8 @@
     <div class="bill-viewer" style="<%= large ? '' : 'max-height: 32rem;' %>">
       <%= image_tag admin_bill_image_path(bill_image), alt: t("bill_images.alt"), data: { image_viewer_target: "image" } %>
     </div>
-    <%= render "admin/transactions/album_images", bill_image: bill_image if bill_image.bill_album %>
+    <%# A complete settlement stands alone: the album's other photos are not shown with it (they stay on the album page). %>
+    <%= render "admin/transactions/album_images", bill_image: bill_image if bill_image.bill_album && !album_children_dropped?(bill_image.bill_album) %>
   </div>
 <% else %>
   <%= empty_state t("bill_images.missing"), nil, icon_name: "photo-off" %>

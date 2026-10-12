@@ -45,6 +45,14 @@ module Admin
       change_status("reject", t("transactions.flash.rejected"))
     end
 
+    def include_excluded
+      if Transactions::Includer.call(transaction: @transaction, actor: current_user)
+        redirect_to admin_transaction_path(@transaction), notice: t("transactions.flash.included")
+      else
+        redirect_to admin_transaction_path(@transaction), alert: error_message
+      end
+    end
+
     def reprocess
       if Transactions::Reprocessor.call(transaction: @transaction, actor: current_user)
         redirect_to admin_transaction_path(@transaction), notice: t("transactions.flash.reprocessing")

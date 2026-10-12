@@ -47,10 +47,10 @@ RSpec.describe "Album with photos that are not bills" do
       expect(response.body).not_to include("Hình chuyển tiền", "Cần kiểm tra")
     end
 
-    it "uses the same labels on the transaction page" do
-      get admin_transaction_path(album.transactions.sole)
+    it "shows only the settlement photo on the transaction page" do
+    get admin_transaction_path(album.transactions.sole)
 
-      expect(response.body).to include("Bill kết", "Bỏ qua")
-      expect(response.body).not_to include("Hình chuyển tiền")
-    end
+    expect(Nokogiri::HTML(response.body).css(".album-strip")).to be_empty
+    expect(response.body).not_to include("Album #", "Bỏ qua", "Hình chuyển tiền")
+  end
 end

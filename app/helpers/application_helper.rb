@@ -9,7 +9,8 @@ module ApplicationHelper
     "rejected" => "red",
     "hold" => "orange",
     "exported" => "teal",
-    "failed" => "red"
+    "failed" => "red",
+    "excluded" => "secondary"
   }.freeze
 
   OCR_STATUS_COLORS = {
@@ -58,6 +59,13 @@ module ApplicationHelper
   def status_badge(status)
     color = STATUS_COLORS.fetch(status.to_s, "secondary")
     content_tag(:span, t("activerecord.enums.transaction.status.#{status}"), class: "badge bg-#{color}-lt")
+  end
+
+  # "SmartPOS" / "HKD bỏ qua bill" next to the status of an excluded bill.
+  def skip_tag_badges(transaction)
+    safe_join((transaction.tags & Transaction::SKIP_TAGS).map do |tag|
+      content_tag(:span, t("transactions.tags.#{tag}"), class: "badge bg-secondary-lt ms-1")
+    end)
   end
 
   def ocr_status_badge(status)

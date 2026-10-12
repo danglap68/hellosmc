@@ -23,7 +23,7 @@ module Transactions
       t = @transaction
       return Result.new(possible_duplicate_ids: []) unless t.merchant_id && t.transaction_amount_vnd && t.transaction_at
 
-      scope = Transaction.not_rejected
+      scope = Transaction.not_rejected.where.not(status: "excluded")
         .where(merchant_id: t.merchant_id, transaction_amount_vnd: t.transaction_amount_vnd)
       scope = scope.where.not(id: t.id) if t.persisted?
 

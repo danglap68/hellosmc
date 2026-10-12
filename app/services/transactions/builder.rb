@@ -14,7 +14,7 @@ module Transactions
     MATCH_SCORES = { amount: 2, time: 2, lot: 1, merchant: 1 }.freeze
     # OCR itself went wrong (not "the photo is not a settlement"): the photo
     # must still reach a person even when it reads as unknown.
-    OCR_PROBLEM_REASONS = %w[malformed_primary_extraction primary_output_truncated primary_refused
+    OCR_PROBLEM_REASONS =%w[malformed_primary_extraction primary_output_truncated primary_refused
                              validation_budget_exhausted validator_failed].freeze
 
     def self.call(bill_image:)
@@ -104,10 +104,16 @@ module Transactions
       with_transaction_row(index) do |transaction, creating|
         before = creating ? nil : transaction.audit_snapshot
         document = inherit_album_fields(document)
+        forced = transaction.source_data["force_include"] == true
+        tag = skip_tag(document) unless forced
+        next exclude(transaction, document, tag, before: before, creating: creating) if tag
+
         evaluation = Evaluator.call(document: document, bill_image: @bill_image)
 
         transaction.assign_attributes(evaluation.attributes)
         transaction.source_data = evaluation.source_data
+        # A person asked for this bill to be booked: it is not excluded again on a rerun.
+        transaction.source_data = transaction.source_data.merge("force_include" => true) if forced
         lock_duplicate_scope(transaction)
         transaction.save!
 
@@ -389,6 +395,56 @@ module Transactions
       # the worker could read the row still `processing` and skip it for good.
       id = transaction.id
       ActiveRecord.after_all_transactions_commit { WriteHelloSmcWorkbookJob.perform_later(id) }
+    end
+
+    # Sales that use another fee calculation (SmartPOS terminals, an HKD with
+    # "Bỏ qua bill" on) are kept as an excluded row with a tag instead of being
+    # booked: a person can still find them and book them later
+    # (Transactions::Includer). A photo uploaded by hand is always built: a
+    # person chose it.
+    def skip_tag(document)
+      return unless @bill_image.telegram?
+      return "smart_pos" if document["shows_smart_pos"] == true
+
+      "skip_merchant" if skipped_merchant?(document)
+    end
+
+    def skipped_merchant?(document)
+      result = Merchants::Resolver.for_document(document)
+      return false unless result.merchant&.skip_bills?
+
+      result.exact? || (result.fuzzy? && result.score.to_f >= AppConfig.merchant_auto_accept_score)
+    end
+
+    # What the bill says, nothing calculated: no dealer, card type, fee, review,
+    # duplicate check, sheet or Excel row.
+    def exclude(transaction, document, tag, before:, creating:)
+      merchant = excluded_merchant(document)
+      transaction.assign_attributes(
+        merchant: merchant,
+        lot_number: document["lot_number"],
+        transaction_at: document["transaction_at"].presence && Time.zone.parse(document["transaction_at"]),
+        transaction_amount_vnd: document["total_amount_vnd"],
+        confidence_score: document["critical_confidence"],
+        tags: [ tag ],
+        source_data: {
+          "extraction" => document, "message_text" => @bill_image.message_text,
+          "ocr_provider" => @bill_image.ocr_provider, "ocr_model" => @bill_image.ocr_model,
+          "review_reasons" => [], "excluded_reason" => tag
+        }
+      )
+      transaction.save!
+      transaction.transition_to!("excluded")
+      AuditLogger.log!(action: creating ? "transaction.created" : "transaction.rebuilt", auditable: transaction,
+                       before_data: before, after_data: transaction.audit_snapshot,
+                       metadata: { "bill_image_id" => @bill_image.id, "excluded_reason" => tag })
+      StructuredLog.info("transaction.excluded", transaction_id: transaction.id, bill_image_id: @bill_image.id, tag: tag)
+      transaction
+    end
+
+    def excluded_merchant(document)
+      result = Merchants::Resolver.for_document(document)
+      result.merchant if result.exact? || (result.fuzzy? && result.score.to_f >= AppConfig.merchant_auto_accept_score)
     end
 
     def record_skipped(index)

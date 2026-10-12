@@ -34,16 +34,16 @@ RSpec.describe "Album with its child bills dropped" do
     expect(album).to have_attributes(child_count: 0, child_total_vnd: nil, match_difference_vnd: nil, transfer_amount_vnd: 77_678_000)
   end
 
-  it "shows only the settlement's amount on the transaction page, and no child total or difference" do
+  it "shows the settlement photo alone on the transaction page: no album strip, no child total, no other photo" do
     transaction = album.transactions.sole
 
     get admin_transaction_path(transaction)
 
     body = response.body
-    expect(body).to include("77.678.000")
-    expect(body).not_to include("49.981.000", "27.697.000", "12.000.000")
-    expect(body).not_to include("Tổng bill con", "Chênh lệch")
-    expect(body).to include("Bill con · bỏ qua")
+    expect(body).to include("Ảnh bill", "77.678.000")
+    expect(body).not_to include("Album #", "Bill con", "Bỏ qua", "Tổng bill con", "Chênh lệch", "49.981.000", "27.697.000", "12.000.000")
+    expect(Nokogiri::HTML(body).css(".album-strip")).to be_empty
+    expect(Nokogiri::HTML(body).css(".bill-viewer img").size).to eq(1)
   end
 
   it "shows the same on the album page" do

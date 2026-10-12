@@ -1,16 +1,21 @@
 class Transaction < ApplicationRecord
-  STATUSES = %w[pending processing needs_review approved rejected hold exported failed].freeze
+  STATUSES = %w[pending processing needs_review approved rejected hold exported failed excluded].freeze
+
+  # Why a bill was taken out of the accounting flow (status "excluded"). Hidden from
+  # the transaction list by default, see Transactions::Filter.
+  SKIP_TAGS = %w[smart_pos skip_merchant].freeze
 
   # Explicit state machine. Anything not listed here is refused.
   TRANSITIONS = {
     "pending" => %w[processing],
-    "processing" => %w[approved needs_review failed],
+    "processing" => %w[approved needs_review failed excluded],
     "needs_review" => %w[approved rejected hold processing],
     "approved" => %w[exported hold],
     "hold" => %w[approved needs_review rejected processing],
     "exported" => %w[hold],
     "failed" => %w[processing needs_review],
-    "rejected" => []
+    "rejected" => [],
+    "excluded" => %w[processing]
   }.freeze
 
   # Statuses whose rows must carry complete, calculated accounting values.
@@ -49,6 +54,7 @@ class Transaction < ApplicationRecord
   scope :recent_first, -> { order(created_at: :desc, id: :desc) }
   scope :review_queue, -> { where(status: "needs_review") }
   scope :not_rejected, -> { where.not(status: "rejected") }
+  scope :with_skip_tag, -> { where("transactions.tags && ARRAY[?]::varchar[]", SKIP_TAGS) }
   scope :on_business_date, ->(date) {
     zone = Time.zone
     where(transaction_at: zone.local(date.year, date.month, date.day).all_day)

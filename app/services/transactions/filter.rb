@@ -1,7 +1,7 @@
 module Transactions
   # Search and filters for the transaction list.
   class Filter
-    KEYS = %i[q dealer_id merchant_id status card_type_id date_from date_to amount_min amount_max telegram_chat_id].freeze
+    KEYS = %i[q dealer_id merchant_id status card_type_id date_from date_to amount_min amount_max telegram_chat_id tag show_skipped].freeze
 
     def initialize(params)
       raw = params.respond_to?(:permit) ? params.permit(*KEYS).to_h : params.to_h
@@ -25,6 +25,7 @@ module Transactions
       scope = scope.where(merchant_id: self[:merchant_id]) if self[:merchant_id]
       scope = scope.where(card_type_id: self[:card_type_id]) if self[:card_type_id]
       scope = scope.where(status: self[:status]) if self[:status].in?(Transaction::STATUSES)
+      scope = apply_skip_tags(scope)
       scope = apply_dates(scope)
       scope = apply_amounts(scope)
       if self[:telegram_chat_id]
@@ -34,6 +35,15 @@ module Transactions
     end
 
     private
+
+    # Bills taken out of the accounting flow (SmartPOS, HKD "Bỏ qua bill") stay out of the
+    # list unless asked for: by tag, by the "excluded" status or with "show skipped".
+    def apply_skip_tags(scope)
+      return scope.where("transactions.tags @> ARRAY[?]::varchar[]", self[:tag]) if self[:tag].in?(Transaction::SKIP_TAGS)
+      return scope if self[:status] == "excluded" || self[:show_skipped] == "1"
+
+      scope.where.not("transactions.tags && ARRAY[?]::varchar[]", Transaction::SKIP_TAGS)
+    end
 
     def apply_dates(scope)
       from = parse_date(self[:date_from])

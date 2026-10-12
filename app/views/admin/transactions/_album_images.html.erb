@@ -1,6 +1,7 @@
 <%# locals: (bill_image:) %>
 <%# Every photo of the Telegram album (bill con + tổng kết), so the reviewer can
-    check the total against the child bills. Clicking a photo shows it above. %>
+    check the total against the child bills. Clicking a photo shows it above.
+    Not rendered for a complete settlement (see _bill_image). %>
 <% album = bill_image.bill_album %>
 <div class="mt-3">
   <div class="d-flex align-items-center flex-wrap gap-2 mb-2">
@@ -25,15 +26,11 @@
   </div>
 
   <dl class="row small mt-2 mb-0">
-    <% unless album_children_dropped?(album) %>
-      <dt class="col-6"><%= t("bill_albums.show.child_total") %> (<%= album.child_count %>)</dt>
-      <dd class="col-6 text-end money mb-0"><%= format_vnd(album.child_total_vnd) %></dd>
-    <% end %>
+    <dt class="col-6"><%= t("bill_albums.show.child_total") %> (<%= album.child_count %>)</dt>
+    <dd class="col-6 text-end money mb-0"><%= format_vnd(album.child_total_vnd) %></dd>
     <dt class="col-6"><%= t("bill_images.album.total_amount") %></dt>
     <dd class="col-6 text-end money mb-0"><%= format_vnd(album.transfer_amount_vnd) %></dd>
-    <% unless album_children_dropped?(album) %>
-      <dt class="col-6"><%= t("bill_albums.show.difference") %></dt>
-      <dd class="col-6 text-end money mb-0 <%= 'text-red' if album.match_difference_vnd.to_i != 0 %>"><%= format_vnd(album.match_difference_vnd) %></dd>
-    <% end %>
+    <dt class="col-6"><%= t("bill_albums.show.difference") %></dt>
+    <dd class="col-6 text-end money mb-0 <%= 'text-red' if album.match_difference_vnd.to_i != 0 %>"><%= format_vnd(album.match_difference_vnd) %></dd>
   </dl>
 </div>

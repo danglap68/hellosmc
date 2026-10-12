@@ -126,18 +126,8 @@ module Transactions
       result.fuzzy? && result.score.to_f >= AppConfig.merchant_auto_accept_score
     end
 
-    # Dash/tid suffix stripped first; if that is not an exact hit, also try the
-    # name without a bare trailing number ("CHERRY COFFE 2" → "CHERRY COFFE").
-    # Prefer the strongest match across attempts: exact → fuzzy → ambiguous →
-    # the first attempt (none). This keeps a fuzzy hit from the stripped name
-    # ("GẮT TẠM ĐÂY COFFEE 2" → "Gat Tan Day Coffe") instead of discarding it.
     def resolve_merchant
-      name = @doc["merchant_name"]
-      names = [ Workbook::TidParser.strip(name), Workbook::TidParser.strip_bare_number(name) ].uniq
-      results = names.map do |candidate|
-        Merchants::Resolver.call(merchant_name: candidate, merchant_identifier: @doc["terminal_or_merchant_id"])
-      end
-      results.find(&:exact?) || results.find(&:fuzzy?) || results.find(&:ambiguous?) || results.first
+      Merchants::Resolver.for_document(@doc)
     end
 
     def check_card_type(merchant, dealer)

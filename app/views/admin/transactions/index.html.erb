@@ -44,6 +44,16 @@
           <label class="form-label" for="telegram_chat_id"><%= t("transactions.filters.telegram_chat") %></label>
           <%= select_tag :telegram_chat_id, options_for_select(TelegramChat.ordered.map { |chat| [chat.display_name, chat.id] }, @filter[:telegram_chat_id]), include_blank: t("common.all"), class: "form-select" %>
         </div>
+        <div class="col-md-6 col-lg-2">
+          <label class="form-label" for="tag"><%= t("transactions.filters.tag") %></label>
+          <%= select_tag :tag, options_for_select(Transaction::SKIP_TAGS.map { |tag| [t("transactions.tags.#{tag}"), tag] }, @filter[:tag]), include_blank: t("common.all"), class: "form-select" %>
+        </div>
+        <div class="col-md-6 col-lg-3 d-flex align-items-end">
+          <label class="form-check mb-2">
+            <%= check_box_tag :show_skipped, "1", @filter[:show_skipped] == "1", class: "form-check-input" %>
+            <span class="form-check-label"><%= t("transactions.filters.show_skipped") %></span>
+          </label>
+        </div>
         <div class="col-md-6 col-lg-2 d-flex align-items-end gap-2">
           <button type="submit" class="btn btn-primary w-100"><%= icon("filter") %> <%= t("actions.filter") %></button>
           <% if @filter.active? %>
@@ -97,7 +107,7 @@
               <td class="text-end money"><%= format_vnd(transaction.transaction_amount_vnd) %></td>
               <td class="text-end text-nowrap"><%= format_rate(transaction.base_fee_rate_used) %></td>
               <td class="text-end money"><%= format_vnd(transaction.amount_after_base_fee_vnd) %></td>
-              <td class="text-nowrap"><%= status_badge(transaction.status) %></td>
+              <td class="text-nowrap"><%= status_badge(transaction.status) %><%= skip_tag_badges(transaction) %></td>
               <td class="text-center"><%= confidence_badge(transaction.confidence_score) %></td>
               <td><%= render "admin/transactions/row_actions", transaction: transaction %></td>
             </tr>
