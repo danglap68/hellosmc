@@ -76,7 +76,10 @@ module Merchants
 
       scored = active_merchants.includes(:merchant_aliases).map do |merchant|
         names = [ merchant.name ] + merchant.merchant_aliases.select { |a| a.active? && !a.identifier? }.map(&:alias)
-        best = names.map { |name| VietnameseText.similarity(core, VietnameseText.core_name(name)) }.max
+        best = names.map do |name|
+          other = VietnameseText.core_name(name)
+          [ VietnameseText.similarity(core, other), token_similarity(core, other) ].max
+        end.max
         [ merchant, best ]
       end
       scored.sort_by! { |(_merchant, score)| -score }
@@ -94,6 +97,43 @@ module Merchants
 
     def none
       Result.new(merchant: nil, method: :none, candidates: [], score: nil)
+    end
+
+    # How well the distinctive words of two names line up, for names a whole-string
+    # comparison misses because OCR garbled the tail ("THIEN KIM GUI" for
+    # "THIEN KIM GV"). Each word of the configured name has to be found in the OCR
+    # name, allowing one misread letter (two in a long word); words of one or two
+    # letters and numbers (the agent's TID) are optional. Extra words on the OCR
+    # side cost a little (half a letter each for a short one), so "AS CAFE MILO"
+    # never reads as "AS CAFE". Always a suggestion: it needs a person to confirm.
+    def token_similarity(ocr, configured)
+      ocr_words = significant_words(ocr, minimum: 1)
+      words = significant_words(configured, minimum: 3)
+      return 0.0 if words.empty? || ocr_words.empty?
+
+      remaining = ocr_words.dup
+      matched = words.select do |word|
+        found = remaining.index { |candidate| same_word?(word, candidate) }
+        found && remaining.delete_at(found)
+      end
+      return 0.0 if matched.empty?
+
+      recall = matched.sum(&:length).to_f / words.sum(&:length)
+      extra = remaining.sum { |word| word.length <= 3 ? word.length / 2.0 : word.length }
+      precision = matched.sum(&:length).to_f / (matched.sum(&:length) + extra)
+      # Never a perfect score: a perfect one is an exact name, which this is not.
+      [ (2 * precision * recall) / (precision + recall), 0.99 ].min
+    end
+
+    def significant_words(text, minimum:)
+      text.to_s.split.reject { |word| word.match?(/\A\d+\z/) || word.length < minimum }
+    end
+
+    def same_word?(left, right)
+      return true if left == right
+
+      allowed = [ left.length, right.length ].min >= 7 ? 2 : 1
+      [ left.length, right.length ].min >= 3 && VietnameseText.levenshtein(left, right) <= allowed
     end
 
     # One match resolves; several matches are ambiguous (no dealer to narrow).
