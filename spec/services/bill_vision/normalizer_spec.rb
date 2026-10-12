@@ -5,6 +5,44 @@ RSpec.describe BillVision::Normalizer do
     described_class.call(data, provider: "openai", model: "gpt-test")
   end
 
+  describe "a transfer that is not a confirmed transfer" do
+    def transfer(**flags)
+      data = extraction_fixture("transfer")
+      data["documents"].first.merge!(flags.stringify_keys)
+      normalize(data)["documents"].first
+    end
+
+    it "keeps a transfer that says it succeeded and shows no QR code" do
+      expect(transfer(shows_success_message: true, shows_qr_code: false)).to include(
+        "document_type" => "transfer", "downgraded_from" => nil, "shows_success_message" => true
+      )
+    end
+
+    it "becomes unknown (skipped) when the image shows a QR code" do
+      document = transfer(shows_success_message: true, shows_qr_code: true)
+
+      expect(document).to include("document_type" => "unknown", "downgraded_from" => "transfer", "shows_qr_code" => true)
+    end
+
+    it "becomes unknown (skipped) when no success wording is printed" do
+      expect(transfer(shows_success_message: false, shows_qr_code: false)).to include(
+        "document_type" => "unknown", "downgraded_from" => "transfer"
+      )
+    end
+
+    it "keeps its type when the run does not report the flags (older output, null)" do
+      expect(transfer["document_type"]).to eq("transfer")
+      expect(transfer(shows_success_message: nil, shows_qr_code: nil)["document_type"]).to eq("transfer")
+    end
+
+    it "never touches a settlement, whatever the flags say" do
+      data = extraction_fixture("normal_settlement")
+      data["documents"].first.merge!("shows_qr_code" => true, "shows_success_message" => false)
+
+      expect(normalize(data)["documents"].first["document_type"]).to eq("settlement")
+    end
+  end
+
   it "normalizes a confident settlement" do
     result = normalize(extraction_fixture("normal_settlement"))
     document = result["documents"].first

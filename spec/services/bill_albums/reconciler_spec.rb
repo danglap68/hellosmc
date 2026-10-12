@@ -124,6 +124,17 @@ RSpec.describe BillAlbums::Reconciler do
     expect(album.transactions.sole.review_reason_codes).to include("album_total_review")
   end
 
+  it "skips an album of a calculator and a payment QR code: neither is a transaction or a transfer" do
+    analyzed_image(raw_document("unknown", nil))
+    analyzed_image(raw_document("transfer", 95_064_990).merge("shows_qr_code" => true, "shows_success_message" => false))
+
+    reconcile
+
+    expect(album.status).to eq("skipped")
+    expect(album.reconciliation_status).to eq("no_transfer")
+    expect(album.transactions).to be_empty
+  end
+
   it "flags a mismatch and records the difference" do
     child_bill(100_000_000)
     child_bill(200_000_000)

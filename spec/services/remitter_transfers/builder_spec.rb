@@ -61,6 +61,26 @@ RSpec.describe RemitterTransfers::Builder do
       expect(AuditLog.where(auditable: transfer, action: "remitter_transfer.evaluated")).to exist
     end
 
+    it "is skipped when the image is a QR code to be paid, even if OCR called it a transfer" do
+      transfer = transfer_with
+      data = extraction_fixture("transfer")
+      data["documents"][0].merge!("shows_qr_code" => true, "shows_success_message" => true)
+      normalized = BillVision::Normalizer.call(data, provider: "openai", model: "gpt-test")
+      transfer.telegram_message.bill_images.first.update!(normalized_extraction: normalized)
+
+      expect(described_class.call(remitter_transfer: transfer)).to be_rejected
+    end
+
+    it "is skipped when the slip does not say the transfer succeeded" do
+      transfer = transfer_with
+      data = extraction_fixture("transfer")
+      data["documents"][0].merge!("shows_qr_code" => false, "shows_success_message" => false)
+      normalized = BillVision::Normalizer.call(data, provider: "openai", model: "gpt-test")
+      transfer.telegram_message.bill_images.first.update!(normalized_extraction: normalized)
+
+      expect(described_class.call(remitter_transfer: transfer)).to be_rejected
+    end
+
     it "is skipped when it is a sale slip" do
       expect(described_class.call(remitter_transfer: transfer_with(document_type: "child_receipt"))).to be_rejected
     end

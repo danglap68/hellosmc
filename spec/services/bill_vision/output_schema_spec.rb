@@ -12,6 +12,17 @@ RSpec.describe BillVision::OutputSchema do
     expect(described_class.valid?(data)).to be(false)
   end
 
+  it "accepts the QR and success flags as true, false or null, and nothing else" do
+    data = extraction_fixture("transfer")
+    [ [ true, false ], [ false, true ], [ nil, nil ] ].each do |success, qr|
+      data["documents"].first.merge!("shows_success_message" => success, "shows_qr_code" => qr)
+      expect(described_class.valid?(data)).to be(true)
+    end
+
+    data["documents"].first["shows_qr_code"] = "yes"
+    expect(described_class.valid?(data)).to be(false)
+  end
+
   it "still rejects unknown extra keys" do
     data = extraction_fixture("transfer")
     data["documents"].first["beneficiary"] = "x"
