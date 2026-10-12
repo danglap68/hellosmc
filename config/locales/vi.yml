@@ -254,7 +254,7 @@ vi:
       message_text: "Nội dung tin nhắn"
       multiple_settlements: "Ảnh này có %{count} bill kết toán. Đây là bill thứ %{position}."
       fields: "Thông tin cần xác nhận"
-      calculation_preview_hint: "Theo dữ liệu đã lưu gần nhất. Hệ thống tính lại khi duyệt."
+      calculation_preview_hint: "Tự tính lại khi bạn sửa số tiền, theo mức phí đã lưu. Nếu đổi hộ kinh doanh, đại lý, loại thẻ hoặc bảng phí thì hệ thống tính lại khi lưu."
       not_reviewable: "Giao dịch này không còn trong hàng chờ kiểm tra"
       current_status_html: "Trạng thái hiện tại: %{status}"
     field: "Trường"
