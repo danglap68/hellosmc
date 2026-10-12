@@ -36,7 +36,8 @@
       <%= tabler_form_with model: @transaction, url: admin_review_path(@transaction), method: :patch do |form| %>
         <div class="card">
           <div class="card-header"><h3 class="card-title"><%= t("reviews.show.fields") %></h3></div>
-          <div class="card-body">
+          <div class="card-body" data-controller="fee-preview" data-fee-preview-base-rate-value="<%= @transaction.base_fee_rate_used&.to_s("F") %>"
+               data-fee-preview-dealer-rate-value="<%= @transaction.applied_dealer_rate&.to_s("F") %>">
             <%= form.error_summary %>
             <%= render "admin/transactions/correction_fields", form: form, transaction: @transaction %>
 
@@ -45,8 +46,14 @@
                 <div class="card-body">
                   <div class="row">
                     <div class="col"><div class="text-secondary small"><%= Transaction.human_attribute_name(:applied_base_fee_rate) %></div><strong><%= format_rate(@transaction.base_fee_rate_used) %></strong></div>
-                    <div class="col"><div class="text-secondary small"><%= Transaction.human_attribute_name(:amount_after_base_fee_vnd) %></div><strong class="money"><%= format_vnd(@transaction.amount_after_base_fee_vnd) %></strong></div>
+                    <div class="col"><div class="text-secondary small"><%= Transaction.human_attribute_name(:amount_after_base_fee_vnd) %></div><strong class="money" data-fee-preview-target="afterBaseFee"><%= format_vnd(@transaction.amount_after_base_fee_vnd) %></strong></div>
                   </div>
+                  <% if @transaction.applied_dealer_rate %>
+                    <div class="row mt-2">
+                      <div class="col"><div class="text-secondary small"><%= Transaction.human_attribute_name(:dealer_amount_vnd) %> (<%= format_rate(@transaction.applied_dealer_rate) %>)</div><strong class="money" data-fee-preview-target="dealerAmount"><%= format_vnd(@transaction.dealer_amount_vnd) %></strong></div>
+                      <div class="col"><div class="text-secondary small"><%= Transaction.human_attribute_name(:profit_amount_vnd) %></div><strong class="money" data-fee-preview-target="profit"><%= format_vnd(@transaction.profit_amount_vnd) %></strong></div>
+                    </div>
+                  <% end %>
                   <div class="small text-secondary mt-1"><%= t("reviews.show.calculation_preview_hint") %></div>
                 </div>
               </div>

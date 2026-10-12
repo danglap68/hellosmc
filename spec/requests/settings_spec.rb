@@ -7,21 +7,26 @@ RSpec.describe "Settings" do
   context "as an admin" do
     before { sign_in create(:user, :admin) }
 
-    it "shows editable settings and which secrets are configured, without revealing them" do
+    it "shows only the client's switches, the services and a read-only technical table (S1, S4)" do
       get admin_settings_path
       expect(response).to have_http_status(:ok)
-      expect(response.body).to include("Ngưỡng tự động duyệt", "Kết nối dịch vụ", "OPENAI_API_KEY")
-      expect(response.body).not_to include("test-openai-key")
+      expect(response.body).to include("Tự động kích hoạt nhóm Telegram mới", "Bật xử lý người chuyển tiền",
+                                       "Kết nối dịch vụ", "OPENAI_API_KEY")
+      expect(response.body).not_to include("test-openai-key", %(name="settings[ocr_auto_approve_threshold]"))
+      expect(response.body).to include("Thông số kỹ thuật", "OCR_AUTO_APPROVE_THRESHOLD", "Mặc định")
     end
 
-    it "updates settings, which immediately change processing" do
-      patch admin_settings_path, params: { settings: SettingsForm.new.values.merge("ocr_auto_approve_threshold" => "99") }
+    it "warns plainly when OCR cannot work" do
+      ENV.delete("OPENAI_API_KEY")
+      get admin_settings_path
+      expect(response.body).to include("vui lòng liên hệ kỹ thuật")
+    end
+
+    it "saves a switch, which immediately changes processing" do
+      patch admin_settings_path, params: { settings: SettingsForm.new.values.merge("telegram_auto_activate_chats" => "1") }
       expect(response).to redirect_to(admin_settings_path)
       expect(flash[:notice]).to eq("Đã lưu cài đặt.")
-
-      transaction = Transactions::Builder.call(bill_image: analyzed_bill).sole
-      expect(transaction).to be_needs_review
-      expect(transaction.review_reason_codes).to include("amount_low_confidence")
+      expect(AppConfig.telegram_auto_activate_chats?).to be(true)
     end
 
     it "reports a working R2 connection" do
@@ -100,19 +105,87 @@ RSpec.describe "Settings" do
         expect(AuditLog.last.metadata).to eq("url" => "https://bill.example.com/webhooks/telegram")
       end
     end
+  end
 
-    it "re-renders with Vietnamese errors" do
-      patch admin_settings_path, params: { settings: SettingsForm.new.values.merge("ocr_review_threshold" => "95") }
-      expect(response).to have_http_status(:unprocessable_content)
-      expect(response.body).to include("phải nhỏ hơn hoặc bằng ngưỡng tự động duyệt")
+  describe "Google Sheet connection" do
+    let(:sheet_id) { "1AbCdEfGhIjKlMnOpQrStUvWxYz0123456789_-aBc" }
+    let(:sheet) { instance_double(Workbook::GoogleSheetClient, titles: [ "DS MB", "thu chi" ]) }
+
+    before do
+      sign_in create(:user, :admin)
+      ENV["GOOGLE_SHEETS_CREDENTIALS_PATH"] = "/tmp/credentials.json"
+      allow(Workbook::GoogleSheetClient).to receive(:new).and_return(sheet)
+    end
+
+    it "shows the bot token and the sheet on one Kết nối card" do
+      get admin_settings_path
+      expect(response.body).to include("Kết nối", "Token bot", "Google Sheet Hello SMC", %(name="spreadsheet_id"),
+                                       %(name="telegram_bot_token"))
+    end
+
+    it "stores the ID after the sheet opens, and bill writes use it right away" do
+      patch spreadsheet_admin_settings_path, params: { spreadsheet_id: " #{sheet_id} " }
+
+      expect(response).to redirect_to(admin_settings_path)
+      expect(flash[:notice]).to eq("Đã lưu Google Sheet (mở được, 2 tab). Bill mới sẽ ghi vào sheet này.")
+      expect(Workbook::GoogleSheetClient).to have_received(:new).with(spreadsheet_id: sheet_id)
+      expect(AppConfig.hello_smc_spreadsheet_id).to eq(sheet_id)
+      log = AuditLog.find_by!(action: "settings.spreadsheet_updated")
+      expect(log.after_data).to eq("hello_smc_spreadsheet_id" => sheet_id)
+    end
+
+    it "takes the ID out of the address copied from the browser" do
+      patch spreadsheet_admin_settings_path, params: { spreadsheet_id: "https://docs.google.com/spreadsheets/d/#{sheet_id}/edit#gid=0" }
+
+      expect(AppConfig.hello_smc_spreadsheet_id).to eq(sheet_id)
+    end
+
+    it "prefers the value saved here over the environment" do
+      ENV["HELLO_SMC_SPREADSHEET_ID"] = "ENV_SHEET_ID_THAT_IS_LONG_ENOUGH"
+      expect(AppConfig.hello_smc_spreadsheet_id).to eq("ENV_SHEET_ID_THAT_IS_LONG_ENOUGH")
+
+      patch spreadsheet_admin_settings_path, params: { spreadsheet_id: sheet_id }
+
+      expect(AppConfig.hello_smc_spreadsheet_id).to eq(sheet_id)
+    end
+
+    it "keeps the current sheet when the new one cannot be opened" do
+      AppSetting.create!(key: "hello_smc_spreadsheet_id", value: "CURRENT_SHEET_ID_THAT_IS_LONG_ENOUGH")
+      allow(sheet).to receive(:titles).and_raise(StandardError, "The caller does not have permission")
+
+      patch spreadsheet_admin_settings_path, params: { spreadsheet_id: sheet_id }
+
+      expect(flash[:alert]).to include("Không mở được Google Sheet này", "does not have permission")
+      expect(AppConfig.hello_smc_spreadsheet_id).to eq("CURRENT_SHEET_ID_THAT_IS_LONG_ENOUGH")
+      expect(AuditLog.where(action: "settings.spreadsheet_updated")).to be_empty
+    end
+
+    it "rejects text that is not a sheet ID without calling Google" do
+      patch spreadsheet_admin_settings_path, params: { spreadsheet_id: "hello world" }
+
+      expect(flash[:alert]).to include("Không đọc được Spreadsheet ID")
+      expect(Workbook::GoogleSheetClient).not_to have_received(:new)
+    end
+
+    it "saves without a check when the server has no Google account (local)" do
+      ENV.delete("GOOGLE_SHEETS_CREDENTIALS_PATH")
+      ENV.delete("GOOGLE_SHEETS_CREDENTIALS_JSON")
+
+      patch spreadsheet_admin_settings_path, params: { spreadsheet_id: sheet_id }
+
+      expect(flash[:notice]).to include("Chưa kiểm tra được")
+      expect(AppConfig.hello_smc_spreadsheet_id).to eq(sheet_id)
     end
   end
 
   it "is admin-only" do
+    # Check the real stored value: spec/support/remitter_feature_flag.rb stubs
+    # the flag on for the full-flow examples.
+    allow(AppConfig).to receive(:remitter_features_enabled?).and_call_original
     sign_in create(:user, :operator)
-    patch admin_settings_path, params: { settings: { "duplicate_window_minutes" => "60" } }
+    patch admin_settings_path, params: { settings: { "remitter_features_enabled" => "1" } }
     expect(response).to have_http_status(:forbidden)
-    expect(AppConfig.duplicate_window_minutes).to eq(10)
+    expect(AppConfig.remitter_features_enabled?).to be(false)
 
     expect(R2Check).not_to receive(:call)
     post check_r2_admin_settings_path
@@ -123,5 +196,9 @@ RSpec.describe "Settings" do
     post telegram_webhook_admin_settings_path
     expect(response).to have_http_status(:forbidden)
     expect(AppSecret.count).to eq(0)
+
+    patch spreadsheet_admin_settings_path, params: { spreadsheet_id: "1AbCdEfGhIjKlMnOpQrStUvWxYz0123456789_-aBc" }
+    expect(response).to have_http_status(:forbidden)
+    expect(AppSetting.where(key: "hello_smc_spreadsheet_id")).to be_empty
   end
 end

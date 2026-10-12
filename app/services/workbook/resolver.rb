@@ -23,20 +23,16 @@ module Workbook
     end
 
     def call
-      chat = @transaction.bill_image&.telegram_chat
-      merchant = @transaction.merchant || sole_chat_merchant(chat)
+      merchant = @transaction.merchant
       return unidentified("merchant_missing", merchant) unless merchant
 
       # Agent TID comes only from the OCR merchant name; terminal_or_merchant_id
       # is a merchant identifier (MID) and does not tell which agent to use.
-      # The Telegram group title may name the agent too; Dealers::Resolver
-      # applies both hints and rejects a disagreement.
       tid_key = TidParser.call(ocr_merchant_name)
-      dealer_result = Dealers::Resolver.call(merchant:, merchant_name: ocr_merchant_name, chat:,
+      dealer_result = Dealers::Resolver.call(merchant:, merchant_name: ocr_merchant_name,
                                                   recipient_name: @transaction.extraction["recipient_name"])
       link = dealer_result.merchant_dealer
       unless link
-        return unidentified("agent_group_mismatch", merchant) if dealer_result.issue == "dealer_group_mismatch"
         return unidentified("agent_recipient_mismatch", merchant) if dealer_result.issue == "dealer_recipient_mismatch"
         return unidentified("agent_tid_missing", merchant) if tid_key.blank?
 
@@ -47,12 +43,6 @@ module Workbook
     end
 
     private
-
-    # With several HKDs in the group the fallback would be a guess.
-    def sole_chat_merchant(chat)
-      merchants = chat&.merchants&.limit(2).to_a
-      merchants.one? ? merchants.first : nil
-    end
 
     def unidentified(issue, merchant)
       Result.new(status: :unidentified, merchant:, merchant_dealer: nil, issue:)

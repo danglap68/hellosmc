@@ -7,18 +7,11 @@ RSpec.describe BillVision::ValidationPolicy do
     described_class.call(normalized: bill.normalized_extraction, bill_image: bill)
   end
 
-  it "treats an HKD outside the group's list as a configuration problem" do
-    chat.merchants << create(:merchant)
+  it "treats an unmapped agent as a configuration problem, without rereading" do
+    merchant_dealer_link.destroy!
     decision = decision_for(analyzed_bill)
-    expect(decision.deterministic_business_review_reasons).to include("merchant_not_in_chat")
+    expect(decision.deterministic_business_review_reasons).to include("dealer_unmapped")
     expect(decision).not_to be_validate
-  end
-
-  it "treats an agent mismatch between title and TID as a configuration problem" do
-    other = create(:dealer, name: "Chị Lan")
-    chat.update!(name: "Chị Lan-Thiên Kim GV")
-    create(:merchant_dealer, merchant: merchant, dealer: other, tid_key: "tid2")
-    expect(decision_for(analyzed_bill).deterministic_business_review_reasons).to include("dealer_group_mismatch")
   end
 
   it "does not reread a bank transfer for the merchant or time it never prints" do
@@ -48,8 +41,8 @@ RSpec.describe BillVision::ValidationPolicy do
       .to include("merchant_unreadable", "transaction_time_unreadable")
   end
 
-  it "reports nothing when the HKD is in the group's list" do
-    chat.merchants << merchant
-    expect(decision_for(analyzed_bill).deterministic_business_review_reasons).not_to include("merchant_not_in_chat")
+  it "reports no configuration problem for a fully mapped bill, whatever the group" do
+    chat.update!(name: "Một nhóm bất kỳ")
+    expect(decision_for(analyzed_bill).deterministic_business_review_reasons).to be_empty
   end
 end

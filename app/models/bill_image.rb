@@ -19,6 +19,17 @@ class BillImage < ApplicationRecord
 
   scope :analyzable, -> { where(duplicate_of_id: nil).where.not(ocr_status: "duplicate") }
 
+  # Identical bytes must never become two originals: the duplicate check and
+  # the insert run under a per-content lock, so photos arriving at the same
+  # moment (an album with the same photo twice, a double click) queue up and
+  # the later ones find the first. Released when the transaction ends.
+  def self.with_content_lock(sha256)
+    transaction do
+      connection.execute(sanitize_sql_array([ "SELECT pg_advisory_xact_lock(hashtext(?))", "bill_image:#{sha256}" ]))
+      yield
+    end
+  end
+
   def documents
     Array(normalized_extraction&.dig("documents"))
   end

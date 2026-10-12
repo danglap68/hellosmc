@@ -2,12 +2,45 @@ require "rails_helper"
 
 RSpec.describe MerchantDealer do
   describe "validations" do
-    it "requires tid_key, ds_header and rd_agent_label" do
-      md = build(:merchant_dealer, tid_key: nil, ds_header: nil, rd_agent_label: nil)
+    it "requires the TID, without which the DS MB header cannot be filled in" do
+      md = build(:merchant_dealer, tid_key: nil, ds_header: nil)
       expect(md).not_to be_valid
       expect(md.errors[:tid_key]).to be_present
       expect(md.errors[:ds_header]).to be_present
-      expect(md.errors[:rd_agent_label]).to be_present
+    end
+
+    it "fills the sheet names the client does not know (M1)" do
+      merchant = create(:merchant)
+      create(:merchant_dealer, merchant: merchant, tid_key: "tid1", ds_sheet_anchor: "Thiên Kim GV")
+      md = build(:merchant_dealer, merchant: merchant.reload, dealer: create(:dealer, name: "Sơn"), tid_key: "2",
+                                   ds_sheet_anchor: nil, ds_header: nil, rd_agent_label: nil)
+
+      expect(md).to be_valid
+      expect(md).to have_attributes(ds_sheet_anchor: "Thiên Kim GV", ds_header: "Sơn (tid2)", rd_agent_label: "Sơn")
+    end
+
+    it "rebuilds hidden sheet names when the agent or TID of a row changes (M4)" do
+      link = create(:merchant_dealer, dealer: create(:dealer, name: "Chương"), tid_key: "tid1",
+                                      ds_header: "Chương (tid1)", rd_agent_label: "Chương", tid_label: "tid1")
+
+      link.update!(dealer: create(:dealer, name: "Sơn"))
+      expect(link).to have_attributes(ds_header: "Sơn (tid1)", rd_agent_label: "Sơn")
+
+      link.update!(tid_key: "tid2")
+      expect(link).to have_attributes(ds_header: "Sơn (tid2)", tid_label: "tid2", rd_agent_label: "Sơn")
+    end
+
+    it "keeps a sheet name edited together with the agent change" do
+      link = create(:merchant_dealer, dealer: create(:dealer, name: "Chương"), tid_key: "tid1")
+
+      link.update!(dealer: create(:dealer, name: "Sơn"), ds_header: "Anh Sơn (tid1)")
+      expect(link.ds_header).to eq("Anh Sơn (tid1)")
+    end
+
+    it "keeps names typed by hand (M3)" do
+      md = build(:merchant_dealer, ds_header: "Sơn(tid2)", rd_agent_label: "Anh Sơn")
+      md.valid?
+      expect(md).to have_attributes(ds_header: "Sơn(tid2)", rd_agent_label: "Anh Sơn")
     end
 
     it "defaults tid_label to tid_key" do
@@ -16,7 +49,7 @@ RSpec.describe MerchantDealer do
       expect(md.tid_label).to eq("tid1")
     end
 
-    it "requires the DS MB header anchor instead of guessing the merchant name" do
+    it "requires the DS MB header anchor instead of guessing the merchant name (M2)" do
       merchant = create(:merchant, name: "001_ HỘ KINH DOANH THIÊN KIM GV")
       md = build(:merchant_dealer, merchant: merchant, ds_sheet_anchor: nil)
       expect(md).not_to be_valid

@@ -16,6 +16,7 @@ RSpec.describe "Transaction approval and export" do
     expect(transaction.reload).to be_approved
 
     visit new_admin_excel_export_path
+    select "File hiện tại", from: "Loại file"
     fill_in "Từ ngày", with: "2026-10-04"
     fill_in "Đến ngày", with: "2026-10-04"
     perform_enqueued_jobs { click_button "Tạo file Excel" }

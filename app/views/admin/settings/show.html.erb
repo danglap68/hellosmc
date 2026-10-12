@@ -2,6 +2,56 @@
 
 <div class="row row-cards">
   <div class="col-lg-8">
+    <% unless @services.fetch(AppConfig.vision_provider.to_sym, true) %>
+      <div class="alert alert-danger"><%= icon("alert-triangle") %> <%= t("settings.ocr_not_working") %></div>
+    <% end %>
+    <div class="card mb-3">
+      <div class="card-header">
+        <div>
+          <h3 class="card-title"><%= icon("plug-connected") %> <%= t("settings.connections.title") %></h3>
+          <div class="text-secondary small"><%= t("settings.connections.help") %></div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="d-flex align-items-center mb-2">
+          <span class="fw-medium"><%= t("settings.telegram.token") %></span>
+          <span class="ms-auto"><%= render "secret_badge", source: @telegram[:token], scope: "settings.telegram.token_sources" %></span>
+        </div>
+        <% if can?(:manage, :settings) %>
+          <%= form_with url: telegram_token_admin_settings_path, method: :patch do |form| %>
+            <div class="input-group">
+              <%= form.password_field :telegram_bot_token, class: "form-control", required: true, autocomplete: "off",
+                                      placeholder: t("settings.telegram.token_placeholder") %>
+              <%= form.button t("actions.save"), class: "btn btn-primary", data: { turbo_submits_with: t("settings.telegram.checking") } %>
+            </div>
+            <small class="form-hint"><%= t("settings.telegram.token_hint") %></small>
+          <% end %>
+        <% end %>
+      </div>
+      <div class="card-body border-top">
+        <div class="d-flex align-items-center mb-2">
+          <span class="fw-medium"><%= t("settings.spreadsheet.label") %></span>
+          <span class="ms-auto"><%= render "secret_badge", source: @spreadsheet[:source], scope: "settings.spreadsheet.sources" %></span>
+        </div>
+        <% if @spreadsheet[:id] %>
+          <div class="small text-secondary mb-2 text-break">
+            <code><%= @spreadsheet[:id] %></code>
+            · <%= link_to t("settings.spreadsheet.open"), Workbook::Connection.url(@spreadsheet[:id]), target: "_blank", rel: "noopener" %>
+          </div>
+        <% end %>
+        <% if can?(:manage, :settings) %>
+          <%= form_with url: spreadsheet_admin_settings_path, method: :patch do |form| %>
+            <div class="input-group">
+              <%= form.text_field :spreadsheet_id, class: "form-control", required: true, autocomplete: "off", spellcheck: false,
+                                  placeholder: t("settings.spreadsheet.placeholder") %>
+              <%= form.button t("actions.save"), class: "btn btn-primary", data: { turbo_submits_with: t("settings.spreadsheet.checking") } %>
+            </div>
+            <small class="form-hint"><%= t("settings.spreadsheet.hint") %></small>
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+
     <%= form_with url: admin_settings_path, method: :patch, scope: :settings do |form| %>
       <% if @form.errors.any? %>
         <div class="alert alert-danger">
@@ -19,11 +69,8 @@
             </div>
           </div>
           <div class="card-body">
-            <% if group == "ocr" && !@services.fetch(AppConfig.vision_provider.to_sym, true) %>
-              <div class="alert alert-warning"><%= icon("alert-triangle") %> <%= t("settings.provider_key_missing", env: "#{AppConfig.vision_provider.upcase}_API_KEY") %></div>
-            <% end %>
             <div class="row">
-              <% AppSetting::DEFINITIONS.values.select { |definition| definition.group == group && definition.key != "openai_vision_model" }.each do |definition| %>
+              <% AppSetting::DEFINITIONS.values.select { |definition| definition.group == group }.each do |definition| %>
                 <div class="<%= definition.type == :boolean ? 'col-12' : 'col-md-6' %>">
                   <%= render "field", form: form, definition: definition %>
                 </div>
@@ -46,6 +93,26 @@
         </div>
       </div>
     <% end %>
+
+    <details class="card mt-3">
+      <summary class="card-header"><span class="card-title"><%= icon("adjustments") %> <%= t("settings.tuning.title") %></span></summary>
+      <div class="card-body small text-secondary"><%= t("settings.tuning.help") %></div>
+      <div class="table-responsive">
+        <table class="table card-table table-sm">
+          <thead><tr><th><%= t("settings.tuning.name") %></th><th><%= t("settings.tuning.env") %></th><th><%= t("settings.tuning.value") %></th><th><%= t("settings.tuning.source") %></th></tr></thead>
+          <tbody>
+            <% @tuning.each do |row| %>
+              <tr>
+                <td><%= t("settings.keys.#{row[:key]}", default: row[:key]) %></td>
+                <td><code><%= row[:env] %></code></td>
+                <td><code><%= row[:value].to_s.presence || "—" %></code></td>
+                <td><%= t("settings.tuning.sources.#{row[:source]}") %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </details>
   </div>
 
   <div class="col-lg-4">
@@ -55,22 +122,6 @@
           <h3 class="card-title"><%= icon("brand-telegram") %> <%= t("settings.telegram.title") %></h3>
           <div class="text-secondary small"><%= t("settings.telegram.help") %></div>
         </div>
-      </div>
-      <div class="card-body">
-        <div class="d-flex align-items-center mb-2">
-          <span class="fw-medium"><%= t("settings.telegram.token") %></span>
-          <span class="ms-auto"><%= render "secret_badge", source: @telegram[:token], scope: "settings.telegram.token_sources" %></span>
-        </div>
-        <% if can?(:manage, :settings) %>
-          <%= form_with url: telegram_token_admin_settings_path, method: :patch do |form| %>
-            <div class="input-group">
-              <%= form.password_field :telegram_bot_token, class: "form-control", required: true, autocomplete: "off",
-                                      placeholder: t("settings.telegram.token_placeholder") %>
-              <%= form.button t("actions.save"), class: "btn btn-primary", data: { turbo_submits_with: t("settings.telegram.checking") } %>
-            </div>
-            <small class="form-hint"><%= t("settings.telegram.token_hint") %></small>
-          <% end %>
-        <% end %>
       </div>
       <div class="card-body">
         <div class="d-flex align-items-center mb-1">

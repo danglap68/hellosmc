@@ -67,8 +67,14 @@ RSpec.configure do |config|
       "R2_ACCESS_KEY_ID" => nil,
       "R2_SECRET_ACCESS_KEY" => nil,
       "R2_BUCKET" => nil,
-      "R2_ENDPOINT" => nil
+      "R2_ENDPOINT" => nil,
+      # A developer's real sheet and Google account must never reach an example.
+      "HELLO_SMC_SPREADSHEET_ID" => nil,
+      "GOOGLE_SHEETS_CREDENTIALS_PATH" => nil,
+      "GOOGLE_SHEETS_CREDENTIALS_JSON" => nil
     }
+    # Technical tuning starts from its defaults; an example may set one.
+    AppConfig::TUNING.each_value { |spec| overrides[spec[:env]] = nil unless overrides.key?(spec[:env]) }
     original = overrides.keys.index_with { |key| ENV[key] }
     overrides.each { |key, value| value.nil? ? ENV.delete(key) : ENV[key] = value }
     example.run

@@ -5,44 +5,97 @@
 module AppConfig
   module_function
 
-  # --- Admin settings ------------------------------------------------------
-
-  def ocr_auto_approve_threshold = AppSetting.get("ocr_auto_approve_threshold")
-  def ocr_review_threshold = AppSetting.get("ocr_review_threshold")
-  def vision_provider = AppSetting.get("vision_provider")
-  def openai_vision_model = AppSetting.get("openai_vision_model")
-  # Preserve an explicitly stored legacy model until the primary setting is
-  # saved. Old gpt-4.1 records and existing operator choices remain readable.
-  def primary_vision_model
-    AppSetting.stored_values["primary_vision_model"].presence ||
-      AppSetting.stored_values["openai_vision_model"].presence || AppSetting.get("primary_vision_model")
-  end
-  def validator_vision_model = AppSetting.get("validator_vision_model")
-  def vision_validation_enabled? = AppSetting.get("vision_validation_enabled")
-  def vision_validation_mode = AppSetting.get("vision_validation_mode")
-  def gemini_vision_model = AppSetting.get("gemini_vision_model")
-  def vision_timeout_seconds = AppSetting.get("vision_timeout_seconds")
-  def max_ocr_attempts = AppSetting.get("max_ocr_attempts").clamp(1, BillVision::CallBudget::MAX_OCR_RUNS_PER_BILL)
-  def merchant_fuzzy_threshold = AppSetting.get("merchant_fuzzy_threshold")
-  # Possible duplicate: same merchant + amount within this many minutes.
-  def duplicate_window_minutes = AppSetting.get("duplicate_window_minutes")
-  # Receipts older than this are suspicious (wrong year/month read by OCR).
-  def max_receipt_age_days = AppSetting.get("max_receipt_age_days")
-  def mailer_sender = AppSetting.get("mailer_sender")
+  # --- Client settings (Cài đặt, plain-language switches) -----------------
 
   # When false, groups the bot is added to are registered inactive and their
   # messages are stored but not processed until an admin activates them.
   def telegram_auto_activate_chats? = AppSetting.get("telegram_auto_activate_chats")
 
-  # Feature flag for everything about remitters ("người đi tiền"): bills sent by
-  # a remitter, transfer documents, and the thu chi report. While false only
-  # settlement bills become transactions and everything else is skipped.
+  # Feature flag for remitter transfers ("người đi tiền").
   def remitter_features_enabled? = AppSetting.get("remitter_features_enabled")
 
-  # How long to wait for more photos of a Telegram album before finalizing it.
-  def album_collect_window_seconds = AppSetting.get("album_collect_window_seconds")
+  # --- Technical tuning (developers only, never shown to the client) -------
+  #
+  # Each value comes from, in order: an environment variable on the server,
+  # the value an admin stored back when it was on the settings page (so a
+  # deploy never changes what production does), then the default here.
+  # docs/SPEC_SIMPLIFY_SETTINGS.md §3.2. Invalid values fall back to the
+  # default and are logged.
+  TUNING = {
+    "vision_provider" => { env: "OCR_PROVIDER", default: "openai", type: :string },
+    "primary_vision_model" => { env: "OCR_PRIMARY_MODEL", default: "gpt-6-luna", type: :string },
+    "validator_vision_model" => { env: "OCR_VALIDATOR_MODEL", default: "gpt-6.1-sol", type: :string },
+    "vision_validation_enabled" => { env: "OCR_VALIDATION_ENABLED", default: "true", type: :boolean },
+    "gemini_vision_model" => { env: "GEMINI_VISION_MODEL", default: "gemini-2.5-flash", type: :string },
+    "ocr_auto_approve_threshold" => { env: "OCR_AUTO_APPROVE_THRESHOLD", default: "0.92", type: :rate },
+    "ocr_review_threshold" => { env: "OCR_REVIEW_THRESHOLD", default: "0.70", type: :rate },
+    "vision_timeout_seconds" => { env: "OCR_TIMEOUT_SECONDS", default: "60", type: :integer },
+    "max_ocr_attempts" => { env: "OCR_MAX_ATTEMPTS", default: "3", type: :integer },
+    "merchant_fuzzy_threshold" => { env: "MERCHANT_FUZZY_THRESHOLD", default: "0.88", type: :rate },
+    "duplicate_window_minutes" => { env: "DUPLICATE_WINDOW_MINUTES", default: "10", type: :integer },
+    "max_receipt_age_days" => { env: "MAX_RECEIPT_AGE_DAYS", default: "45", type: :integer },
+    "album_collect_window_seconds" => { env: "ALBUM_COLLECT_WINDOW_SECONDS", default: "15", type: :integer },
+    "max_bill_image_mb" => { env: "MAX_BILL_IMAGE_MB", default: "20", type: :integer },
+    "mailer_sender" => { env: "MAILER_SENDER", default: "no-reply@hellosmc.com", type: :string }
+  }.freeze
 
-  def max_bill_image_bytes = AppSetting.get("max_bill_image_mb").megabytes
+  # [value, source] with source :env, :stored or :default.
+  def tuning(key)
+    spec = TUNING.fetch(key)
+    [ [ ENV[spec[:env]], :env ], [ legacy_stored(key), :stored ] ].each do |raw, source|
+      next if raw.blank?
+
+      value = cast_tuning(spec, raw)
+      return [ value, source ] unless value.nil?
+
+      Rails.logger.warn("[AppConfig] ignoring invalid #{source} value #{raw.inspect} for #{key}")
+    end
+    [ cast_tuning(spec, spec[:default]), :default ]
+  end
+
+  def tuned(key) = tuning(key).first
+
+  def legacy_stored(key)
+    stored = AppSetting.stored_values
+    # Old installs chose the primary model under "openai_vision_model".
+    key == "primary_vision_model" ? stored[key].presence || stored["openai_vision_model"].presence : stored[key].presence
+  end
+
+  def cast_tuning(spec, raw)
+    text = raw.to_s.strip
+    value =
+      case spec[:type]
+      when :integer then Integer(text, 10)
+      when :rate then BigDecimal(text).then { |rate| rate.between?(0, 1) ? rate : nil }
+      when :boolean then { "true" => true, "1" => true, "false" => false, "0" => false }.fetch(text.downcase, nil)
+      else text
+      end
+    spec[:options] && !spec[:options].include?(value) ? nil : value
+  rescue ArgumentError, TypeError
+    nil
+  end
+
+  def vision_provider = tuned("vision_provider")
+  def primary_vision_model = tuned("primary_vision_model")
+  def validator_vision_model = tuned("validator_vision_model")
+  def vision_validation_enabled? = tuned("vision_validation_enabled")
+  # Read again only when a risk was detected (the only mode).
+  def vision_validation_mode = "risk_based"
+  def gemini_vision_model = tuned("gemini_vision_model")
+  def ocr_auto_approve_threshold = tuned("ocr_auto_approve_threshold")
+  def ocr_review_threshold = [ tuned("ocr_review_threshold"), ocr_auto_approve_threshold ].min
+  def vision_timeout_seconds = tuned("vision_timeout_seconds").clamp(10, 300)
+  def max_ocr_attempts = tuned("max_ocr_attempts").clamp(1, BillVision::CallBudget::MAX_OCR_RUNS_PER_BILL)
+  def merchant_fuzzy_threshold = tuned("merchant_fuzzy_threshold")
+  # Possible duplicate: same merchant + amount within this many minutes.
+  def duplicate_window_minutes = tuned("duplicate_window_minutes")
+  # Receipts older than this are suspicious (wrong year/month read by OCR).
+  def max_receipt_age_days = tuned("max_receipt_age_days")
+  # How long to wait for more photos of a Telegram album before finalizing it.
+  def album_collect_window_seconds = tuned("album_collect_window_seconds").clamp(3, 300)
+  # Telegram's bot download limit is 20 MB.
+  def max_bill_image_bytes = tuned("max_bill_image_mb").clamp(1, 20).megabytes
+  def mailer_sender = tuned("mailer_sender")
 
   # --- Secrets (ENV) -------------------------------------------------------
 
@@ -56,8 +109,10 @@ module AppConfig
   def r2_configured? = r2_missing_env.empty?
   def smtp_configured? = ENV["SMTP_ADDRESS"].present?
 
+  # Set under Cài đặt → Kết nối (AppSetting) so a new Google Sheet can be
+  # switched to without a deploy; ENV is the fallback.
   def hello_smc_spreadsheet_id
-    ENV["HELLO_SMC_SPREADSHEET_ID"].presence || AppSetting.get("hello_smc_spreadsheet_id").presence
+    AppSetting.stored_values["hello_smc_spreadsheet_id"].presence || ENV["HELLO_SMC_SPREADSHEET_ID"].presence
   end
 
   def google_sheets_credentials_path = ENV["GOOGLE_SHEETS_CREDENTIALS_PATH"].presence

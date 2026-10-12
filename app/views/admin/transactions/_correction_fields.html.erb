@@ -27,7 +27,8 @@
   <div class="col-md-6">
     <%= form.field :transaction_amount_vnd, label: safe_join([Transaction.human_attribute_name(:transaction_amount_vnd), " ", confidence.call("total_amount_vnd")]),
           required: true, inputmode: "numeric", value: (transaction.transaction_amount_vnd && number_with_delimiter(transaction.transaction_amount_vnd, delimiter: ".")),
-          data: { controller: "amount-input", action: "input->amount-input#format" },
+          data: { controller: "amount-input", action: "input->amount-input#format input->fee-preview#update",
+                  fee_preview_target: "amount" },
           hint: ocr_hint.call(extraction["total_amount_vnd"] && format_vnd(extraction["total_amount_vnd"])) %>
   </div>
   <div class="col-md-6">

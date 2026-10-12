@@ -254,7 +254,7 @@ vi:
       message_text: "Nội dung tin nhắn"
       multiple_settlements: "Ảnh này có %{count} bill kết toán. Đây là bill thứ %{position}."
       fields: "Thông tin cần xác nhận"
-      calculation_preview_hint: "Theo dữ liệu đã lưu gần nhất. Hệ thống tính lại khi duyệt."
+      calculation_preview_hint: "Tự tính lại khi bạn sửa số tiền, theo mức phí đã lưu. Nếu đổi hộ kinh doanh, đại lý, loại thẻ hoặc bảng phí thì hệ thống tính lại khi lưu."
       not_reviewable: "Giao dịch này không còn trong hàng chờ kiểm tra"
       current_status_html: "Trạng thái hiện tại: %{status}"
     field: "Trường"
@@ -332,8 +332,9 @@ vi:
       new: "Thêm người đi tiền"
       empty: "Chưa có người đi tiền"
     form:
-      excel_key_hint: "Khớp hàng 2 của tab thu chi. Ví dụ: LẬP, KIM."
-      telegram_username_hint: "Không cần ký tự @, không phân biệt hoa thường."
+      excel_key_hint: "Tên cột trong tab thu chi. Để trống sẽ tự lấy tên viết hoa (Lập → LẬP)."
+      telegram_user_id_hint: "Bấm vào ô để chọn trong danh sách người đã nhắn trong các nhóm."
+      telegram_username_hint: "Tự điền khi chọn người ở ô bên cạnh. Không cần ký tự @."
     new:
       title: "Thêm người đi tiền"
     edit:
@@ -341,39 +342,30 @@ vi:
 
   telegram_chats:
     messages: "Tin nhắn"
-    unmapped: "Chưa gán đại lý"
-    unmapped_hkd: "Chưa gán hộ kinh doanh"
-    agent: "Đại lý (theo tên nhóm)"
-    agent_not_detected: "Chưa nhận diện"
     index:
       title: "Nhóm Telegram"
       new: "Thêm nhóm"
-      help: "Khi bot được thêm vào một nhóm, nhóm sẽ tự xuất hiện ở đây (mặc định ngừng hoạt động). Gán đại lý và bật hoạt động để bắt đầu xử lý bill."
+      help: "Khi bot được thêm vào một nhóm, nhóm sẽ tự xuất hiện ở đây. Bật hoạt động là nhóm bắt đầu được xử lý bill; hộ kinh doanh và đại lý được đọc từ chính bill, không cần gán cho nhóm."
       empty: "Chưa có nhóm Telegram"
       empty_hint: "Thêm bot vào nhóm và gửi một tin nhắn để nhóm xuất hiện."
     filters:
       all: "Tất cả"
-      unmapped: "Chưa gán đại lý"
       inactive: "Ngừng hoạt động"
     form:
-      chat_id_hint: "ID số của nhóm, ví dụ -1001234567890"
-      dealer_hint: "Bill từ nhóm này được tính cho đại lý đã chọn."
-      name_hint: "Đặt tên nhóm theo mẫu TenĐạiLý-HKD1-HKD2 (HKD2 có thể bỏ), ví dụ: Anh Trân-Thiên Kim GV-Cherry Cofee. Hệ thống đọc tên đại lý từ phần đầu."
-      name_suggestion: "Tên nhóm đang nhắc tới: %{names}. Hãy tick các HKD này trong danh sách trên nếu đúng."
-      merchant_hint: "Các HKD nhóm này phụ trách (tick nhiều HKD). Bill của HKD ngoài danh sách sẽ chuyển sang duyệt tay; để trống nếu không giới hạn."
+      chat_id_hint: "ID số của nhóm, ví dụ -1001234567890. Thường không cần thêm tay: bot tự ghi nhóm khi được thêm vào."
+      chat_id_auto_hint: "Bot tự ghi, không cần sửa."
       active_hint: "Chỉ nhóm đang hoạt động mới được xử lý bill."
     new:
       title: "Thêm nhóm Telegram"
     edit:
       title: "Sửa nhóm %{name}"
     show:
-      name_differs: "Danh sách HKD của nhóm khác với HKD trong tên nhóm (%{names}). Kiểm tra lại cấu hình hoặc tên nhóm."
       recent_messages: "Tin nhắn gần đây"
       stored_images: "Có %{count} ảnh được gửi khi nhóm chưa hoạt động và chưa được xử lý."
       process_stored: "Xử lý các ảnh này"
       process_stored_confirm: "Xử lý %{count} ảnh đã lưu của nhóm này?"
     flash:
-      activate_first: "Hãy gán ít nhất một hộ kinh doanh và bật hoạt động cho nhóm trước."
+      activate_first: "Hãy bật hoạt động cho nhóm trước."
       processing_stored: "Đang xử lý %{count} ảnh đã lưu."
 
   merchants:
@@ -390,7 +382,10 @@ vi:
       default_card_type_hint: "Dùng khi tin nhắn không ghi loại thẻ."
       agents: "Đại lý theo TID"
       tid_key_hint: "Ví dụ: tid1, tid127"
-      ds_sheet_anchor_hint: "Đúng chữ ở ô góc trái bảng trong DS MB, ví dụ: Thiên Kim GV"
+      ds_sheet_anchor_hint: "Đúng chữ ở ô góc trái bảng trong DS MB, ví dụ: Thiên Kim GV. Để trống sẽ lấy từ đại lý khác của hộ này."
+      ds_header_hint: "Để trống sẽ tự điền \"Tên đại lý (tid)\", ví dụ: Chương (tid1)."
+      rd_agent_label_hint: "Để trống sẽ dùng tên đại lý."
+      sheet_names: "Nâng cao: tên trên Google Sheet (tự điền nếu để trống)"
     new:
       title: "Thêm hộ kinh doanh"
     edit:
@@ -589,10 +584,23 @@ vi:
     health: "Kiểm tra tình trạng hệ thống"
     apply_delay: "Thay đổi có hiệu lực trong vòng 30 giây và được ghi vào nhật ký."
     provider_key_missing: "Nhà cung cấp OCR đang chọn chưa có %{env} trên máy chủ – bill mới sẽ bị lỗi OCR cho đến khi khai báo."
+    ocr_not_working: "Đọc bill (OCR) chưa hoạt động vì máy chủ chưa có khoá dịch vụ. Bill mới sẽ không được đọc – vui lòng liên hệ kỹ thuật."
+    tuning:
+      title: "Thông số kỹ thuật (dành cho kỹ thuật viên)"
+      help: "Chỉ để xem. Kỹ thuật viên đổi bằng biến môi trường trên máy chủ rồi khởi động lại; không cần thay đổi gì ở đây."
+      name: "Thông số"
+      env: "Biến môi trường"
+      value: "Đang dùng"
+      source: "Nguồn"
+      sources:
+        env: "Biến môi trường"
+        stored: "Đã lưu trước đây"
+        default: "Mặc định"
     last_change: "Thay đổi gần nhất: %{user}, %{at}"
     flash:
       saved: "Đã lưu cài đặt."
     groups:
+      operations: "Vận hành"
       ocr: "Đọc bill (OCR)"
       matching: "Đối chiếu và kiểm tra trùng"
       telegram: "Telegram"
@@ -600,6 +608,7 @@ vi:
       email: "Email"
       exports: "Google Sheet Hello SMC"
     group_hints:
+      operations: "Bật hoặc tắt các chức năng tự động."
       ocr: "Nhà cung cấp, mô hình và ngưỡng độ tin cậy để tự động duyệt."
       matching: "Cách nhận diện hộ kinh doanh và phát hiện bill trùng."
       telegram: "Cách xử lý nhóm Telegram mới."
@@ -607,6 +616,7 @@ vi:
       email: "Địa chỉ gửi email đặt lại mật khẩu."
       exports: "Spreadsheet ID của bảng Hello SMC (bản Google Sheet native)."
     group_icons:
+      operations: "toggle-right"
       ocr: "scan"
       matching: "git-compare"
       telegram: "brand-telegram"
@@ -649,9 +659,9 @@ vi:
       merchant_fuzzy_threshold: "Tên gần giống từ mức này trở lên được gợi ý (luôn cần người xác nhận)."
       duplicate_window_minutes: "Cùng hộ kinh doanh và cùng số tiền trong khoảng này được đánh dấu có thể trùng."
       max_receipt_age_days: "Bill cũ hơn số ngày này phải kiểm tra thủ công."
-      telegram_auto_activate_chats: "Khi tắt, nhóm mới phải được quản trị viên gán đại lý và bật trước khi xử lý bill."
-      remitter_features_enabled: "Khi bật, ảnh chuyển tiền (người gửi là người đi tiền, tin nhắn có mã như TK01, hoặc OCR nhận ra biên lai chuyển khoản) được đọc số tiền và thêm một dòng vào tab thu chi. Khi tắt, các ảnh này bị bỏ qua. Ảnh chuyển tiền không bao giờ tạo giao dịch."
-      album_collect_window_seconds: "Chờ thêm ảnh của cùng một album trước khi chốt để đối chiếu tổng."
+      telegram_auto_activate_chats: "Khi bật, nhóm mới có bot sẽ được xử lý bill ngay. Khi tắt, nhóm mới phải được bật trong mục Nhóm Telegram trước."
+      remitter_features_enabled: "Khi bật, ảnh chuyển khoản của người đi tiền (hoặc có mã như TK01 trong tin nhắn) được cộng vào báo cáo thu chi. Khi tắt, ảnh chuyển khoản bị bỏ qua. Bill kết toán luôn tạo giao dịch bình thường."
+      album_collect_window_seconds: "Chờ thêm ảnh của cùng một album trước khi chốt (bill con bổ sung thông tin còn thiếu của bill kết)."
       max_bill_image_mb: "Telegram giới hạn tải file của bot ở 20 MB."
       mailer_sender: "Hiển thị ở trường “Từ” của email."
       hello_smc_spreadsheet_id: "Để trống nếu chưa cấu hình ghi Google Sheet Hello SMC."
@@ -688,8 +698,26 @@ vi:
         gemini: "GEMINI_API_KEY"
         r2: "R2_*"
         smtp: "SMTP_*"
+    connections:
+      title: "Kết nối"
+      help: "Đổi bot Telegram hoặc Google Sheet ở đây khi cần; hệ thống kiểm tra trước khi lưu, không cần nhờ kỹ thuật."
+    spreadsheet:
+      label: "Google Sheet Hello SMC"
+      placeholder: "Dán link Google Sheet hoặc Spreadsheet ID"
+      hint: "Chia sẻ sheet với tài khoản Google của hệ thống (quyền Chỉnh sửa) trước khi lưu. Bill mới ghi vào sheet này; các dòng đã ghi vẫn nằm ở sheet cũ."
+      checking: "Đang kiểm tra…"
+      open: "Mở sheet"
+      saved: "Đã lưu Google Sheet (mở được, %{tabs} tab). Bill mới sẽ ghi vào sheet này."
+      saved_unchecked: "Đã lưu Google Sheet. Chưa kiểm tra được vì máy chủ chưa cấu hình tài khoản Google."
+      sources:
+        settings: "Đã cấu hình"
+        env: "Từ biến môi trường"
+        missing: "Chưa cấu hình"
+      errors:
+        invalid: "Không đọc được Spreadsheet ID. Hãy dán link Google Sheet hoặc đúng ID (chuỗi dài giữa /d/ và /edit)."
+        cannot_open: "Không mở được Google Sheet này: %{error} Kiểm tra lại ID và việc chia sẻ sheet cho tài khoản Google của hệ thống."
     telegram:
-      title: "Kết nối Telegram"
+      title: "Webhook Telegram"
       help: "Token và mã bí mật webhook được mã hoá trong hệ thống và không bao giờ hiển thị lại."
       token: "Token bot"
       token_placeholder: "Dán token từ @BotFather"
@@ -1119,6 +1147,7 @@ vi:
           no_transfer: "Không có ảnh tổng kết"
           transfer_duplicate: "Ảnh tổng kết bị trùng"
           incomplete: "Chưa đủ dữ liệu"
+          settlement_complete: "Bill kết đầy đủ, bỏ bill con"
       user:
         role:
           admin: "Quản trị"

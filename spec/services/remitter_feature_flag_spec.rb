@@ -33,14 +33,20 @@ RSpec.describe "remitter feature flag off" do
   end
 
   describe "albums" do
-    it "still builds the total (settlement or transfer) of an album for review" do
-      %w[normal_settlement transfer].each do |extraction|
-        bill_image = analyzed_bill(extraction: extraction)
-        bill_image.update!(bill_album: create(:bill_album, telegram_chat: chat))
+    it "still builds the total of an album; a transfer total is always reviewed" do
+      bill_image = analyzed_bill(extraction: "transfer")
+      bill_image.update!(bill_album: create(:bill_album, telegram_chat: chat))
 
-        transaction = Transactions::Builder.call(bill_image: bill_image).sole
-        expect(transaction.review_reason_codes).to include("album_total_review")
-      end
+      transaction = Transactions::Builder.call(bill_image: bill_image).sole
+      expect(transaction.review_reason_codes).to include("album_total_review")
+    end
+
+    it "builds a complete settlement of an album like a single photo" do
+      bill_image = analyzed_bill(extraction: "normal_settlement")
+      bill_image.update!(bill_album: create(:bill_album, telegram_chat: chat))
+
+      transaction = Transactions::Builder.call(bill_image: bill_image).sole
+      expect(transaction.review_reason_codes).not_to include("album_total_review")
     end
   end
 

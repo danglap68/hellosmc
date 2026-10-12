@@ -93,7 +93,7 @@ module ApplicationHelper
   def reconciliation_status_badge(album)
     return content_tag(:span, "—", class: "badge bg-secondary-lt") if album.reconciliation_status.blank?
 
-    color = album.reconciliation_status == "matched" ? "green" : "yellow"
+    color = album.reconciliation_status.in?(%w[matched settlement_complete]) ? "green" : "yellow"
     content_tag(:span, enum_label(:bill_album, :reconciliation_status, album.reconciliation_status), class: "badge bg-#{color}-lt")
   end
 

@@ -4,10 +4,18 @@
       <%= form.error_summary %>
       <div class="row">
         <div class="col-md-6"><%= form.field :name, required: true %></div>
-        <div class="col-md-6"><%= form.field :excel_key, required: true, hint: t("remitters.form.excel_key_hint") %></div>
+        <div class="col-md-6"><%= form.field :excel_key, hint: t("remitters.form.excel_key_hint") %></div>
       </div>
       <div class="row">
-        <div class="col-md-6"><%= form.field :telegram_user_id %></div>
+        <div class="col-md-6">
+          <%= form.field :telegram_user_id, list: "telegram-senders", autocomplete: "off",
+                                            hint: t("remitters.form.telegram_user_id_hint") %>
+          <datalist id="telegram-senders">
+            <% Remitter.telegram_sender_suggestions.each do |sender| %>
+              <option value="<%= sender.id %>"><%= sender.label %></option>
+            <% end %>
+          </datalist>
+        </div>
         <div class="col-md-6"><%= form.field :telegram_username, hint: t("remitters.form.telegram_username_hint") %></div>
       </div>
       <%= form.switch_field :active %>

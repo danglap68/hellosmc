@@ -315,13 +315,48 @@ RSpec.describe Transactions::Builder do
     expect(transaction.review_reason_codes).to include("album_total_review")
   end
 
-  it "builds a settlement as the reviewed total transaction in an album" do
+  it "sends a complete album settlement to review when the agent cannot be told" do
+    document = extraction_fixture("normal_settlement")["documents"].first.merge("merchant_name" => "HỘ KINH DOANH THIÊN KIM GV")
+    normalized = BillVision::Normalizer.call({ "documents" => [ document ] }, provider: "openai", model: "gpt-test")
+    bill_image = create(:bill_image, telegram_message: create(:telegram_message, telegram_chat: chat),
+                                     bill_album: create(:bill_album, telegram_chat: chat),
+                                     normalized_extraction: normalized, ocr_status: "completed")
+
+    transaction = described_class.call(bill_image: bill_image).sole
+    expect(transaction).to be_needs_review
+    expect(transaction.review_reason_codes).to include("dealer_unmapped")
+    expect(transaction.review_reason_codes).not_to include("album_total_review")
+  end
+
+  it "judges a complete settlement in an album like a single photo (child bills dropped)" do
     bill_image = analyzed_bill(extraction: "normal_settlement")
     bill_image.update!(bill_album: create(:bill_album, telegram_chat: chat))
 
     transaction = described_class.call(bill_image: bill_image).sole
+    expect(transaction.review_reason_codes).not_to include("album_total_review")
+  end
+
+  it "keeps an incomplete settlement in an album as a reviewed total transaction" do
+    document = extraction_fixture("normal_settlement")["documents"].first.merge("lot_number" => nil)
+    normalized = BillVision::Normalizer.call({ "documents" => [ document ] }, provider: "openai", model: "gpt-test")
+    bill_image = create(:bill_image, telegram_message: create(:telegram_message, telegram_chat: chat),
+                                     bill_album: create(:bill_album, telegram_chat: chat),
+                                     normalized_extraction: normalized, ocr_status: "needs_review")
+
+    transaction = described_class.call(bill_image: bill_image).sole
     expect(transaction).to be_needs_review
     expect(transaction.review_reason_codes).to include("album_total_review")
+  end
+
+  it "knows when a settlement printed everything" do
+    document = normalized_document
+    expect(described_class.complete_settlement?(document)).to be(true)
+    %w[lot_number transaction_time transaction_date total_amount_vnd merchant_name terminal_or_merchant_id].each do |field|
+      expect(described_class.complete_settlement?(document.merge(field => nil))).to be(false)
+    end
+    # The agent suffix is optional: a name cut short by the POS screen still counts.
+    expect(described_class.complete_settlement?(document.merge("merchant_name" => "001_ HỘ KINH DOANH THIÊN KIM..."))).to be(true)
+    expect(described_class.complete_settlement?(document.merge("document_type" => "transfer"))).to be(false)
   end
 
   it "skips unreadable (unknown) documents in an album" do
@@ -484,6 +519,26 @@ RSpec.describe Transactions::Builder, "reprocessing a multi-settlement image" do
     expect(first.reload).to be_approved
   end
 
+  it "does not book an approved bill again when the rerun reads it a little differently" do
+    second = bill_image.transactions.find_by!(source_index: 1)
+    second.transition_to!("processing")
+    analyze(bill_image, [ thien_kim_doc.merge("transaction_time" => "09:01:00"), tran3_doc ])
+    described_class.call(bill_image: bill_image)
+
+    expect(bill_image.transactions.count).to eq(2)
+    expect(bill_image.transactions.find_by!(source_index: 0)).to be_approved
+    expect(second.reload.merchant).to eq(tran3)
+  end
+
+  it "does not book an approved bill again when the rerun cannot read its time" do
+    second = bill_image.transactions.find_by!(source_index: 1)
+    second.transition_to!("processing")
+    analyze(bill_image, [ thien_kim_doc.merge("transaction_time" => nil), tran3_doc ])
+    described_class.call(bill_image: bill_image)
+
+    expect(bill_image.transactions.count).to eq(2)
+  end
+
   it "never auto-approves settlements that only appear after a reprocess" do
     second = bill_image.transactions.find_by!(source_index: 1)
     second.transition_to!("processing")
@@ -496,19 +551,15 @@ RSpec.describe Transactions::Builder, "reprocessing a multi-settlement image" do
     expect(added.review_reason_codes).to include("document_added_after_reprocess")
   end
 
-  describe "Telegram group HKD list" do
-    it "sends a bill for an HKD outside the group's list to review" do
-      chat.merchants << create(:merchant)
-      transaction = described_class.call(bill_image: analyzed_bill).sole
-      expect(transaction).to be_needs_review
-      expect(transaction.review_reason_codes).to include("merchant_not_in_chat")
-    end
+  describe "HKD and agent come from the bill, not the Telegram group" do
+    it "approves whatever the group is called" do
+      chat.update!(name: "Chị Lan-Cherry Coffee")
+      create(:merchant_dealer, merchant: merchant, dealer: create(:dealer, name: "Chị Lan"), tid_key: "tid2")
 
-    it "approves when the HKD is in the group's list" do
-      chat.merchants << merchant
       transaction = described_class.call(bill_image: analyzed_bill).sole
-      expect(transaction.review_reason_codes).not_to include("merchant_not_in_chat")
+
       expect(transaction).to be_approved
+      expect(transaction.dealer).to eq(dealer)
     end
 
     it "never auto-approves an agent inferred only from the transfer recipient" do
@@ -517,15 +568,6 @@ RSpec.describe Transactions::Builder, "reprocessing a multi-settlement image" do
       transaction = described_class.call(bill_image: analyzed_bill).sole
       expect(transaction).to be_needs_review
       expect(transaction.review_reason_codes).to include("dealer_from_recipient")
-    end
-
-    it "sends to review when the title's agent disagrees with the TID" do
-      other = create(:dealer, name: "Chị Lan")
-      chat.update!(name: "Chị Lan-Thiên Kim GV")
-      create(:merchant_dealer, merchant: merchant, dealer: other, tid_key: "tid2")
-      transaction = described_class.call(bill_image: analyzed_bill).sole
-      expect(transaction).to be_needs_review
-      expect(transaction.review_reason_codes).to include("dealer_group_mismatch")
     end
   end
 end

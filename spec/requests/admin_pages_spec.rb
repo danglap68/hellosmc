@@ -21,7 +21,7 @@ RSpec.describe "Admin pages" do
       admin_reviews_path, admin_reviews_path(queue: "hold"), admin_review_path(review), admin_review_path(approved),
       new_admin_bill_upload_path,
       admin_dealers_path, admin_dealer_path(dealer), new_admin_dealer_path, edit_admin_dealer_path(dealer),
-      admin_telegram_chats_path, admin_telegram_chats_path(filter: "unmapped"), admin_telegram_chat_path(chat),
+      admin_telegram_chats_path, admin_telegram_chats_path(filter: "inactive"), admin_telegram_chat_path(chat),
       new_admin_telegram_chat_path, edit_admin_telegram_chat_path(chat),
       admin_bill_albums_path, admin_bill_album_path(bill_album),
       admin_merchants_path, admin_merchant_path(merchant), new_admin_merchant_path, edit_admin_merchant_path(merchant),
@@ -41,6 +41,14 @@ RSpec.describe "Admin pages" do
       expect(response.body).not_to include("translation missing"), "#{path} has missing translations"
       expect(response.body).not_to match(/Translation missing/i), "#{path} has missing translations"
     end
+  end
+
+  it "suggests Telegram senders on the remitter form" do
+    create(:telegram_message, telegram_chat: chat, telegram_sender_id: 777, sender_name: "Lập", telegram_username: "laplap")
+
+    get new_admin_remitter_path
+
+    expect(response.body).to include(%(list="telegram-senders"), %(<option value="777">Lập @laplap</option>))
   end
 
   it "serves bill images only to signed-in users" do
