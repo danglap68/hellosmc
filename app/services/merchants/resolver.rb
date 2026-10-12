@@ -134,15 +134,21 @@ module Merchants
       return 0.0 if words.sum(&:length) < 6 || ocr_words.empty?
 
       remaining = ocr_words.dup
-      matched = words.select do |word|
+      pairs = words.filter_map do |word|
         found = remaining.index { |candidate| same_word?(word, candidate) }
-        found && remaining.delete_at(found)
-      end
-      return 0.0 if matched.sum(&:length) < 6
+        next unless found
 
-      recall = matched.sum(&:length).to_f / words.sum(&:length)
+        candidate = remaining.delete_at(found)
+        [ word, candidate, [ word.length, candidate.length ].max * VietnameseText.similarity(word, candidate) ]
+      end
+      return 0.0 if pairs.sum { |word, _candidate, _letters| word.length } < 6
+
+      # A misread letter counts against the score on both sides: the score is as
+      # sure as the letters that agree.
+      weight = pairs.sum { |_word, _candidate, letters| letters }
+      recall = weight / words.sum(&:length)
       extra = remaining.sum { |word| foreign.any? { |other| same_word?(word, other) } ? word.length : word.length * 0.25 }
-      precision = matched.sum(&:length).to_f / (matched.sum(&:length) + extra)
+      precision = weight / (pairs.sum { |_word, candidate, _letters| candidate.length } + extra)
       # Never a perfect score: a perfect one is an exact name, which this is not.
       [ (2 * precision * recall) / (precision + recall), 0.99 ].min
     end

@@ -32,6 +32,7 @@ module AppConfig
     "vision_timeout_seconds" => { env: "OCR_TIMEOUT_SECONDS", default: "60", type: :integer },
     "max_ocr_attempts" => { env: "OCR_MAX_ATTEMPTS", default: "3", type: :integer },
     "merchant_fuzzy_threshold" => { env: "MERCHANT_FUZZY_THRESHOLD", default: "0.88", type: :rate },
+    "merchant_auto_accept_score" => { env: "MERCHANT_AUTO_ACCEPT_SCORE", default: "0.90", type: :rate },
     "duplicate_window_minutes" => { env: "DUPLICATE_WINDOW_MINUTES", default: "10", type: :integer },
     "max_receipt_age_days" => { env: "MAX_RECEIPT_AGE_DAYS", default: "45", type: :integer },
     "album_collect_window_seconds" => { env: "ALBUM_COLLECT_WINDOW_SECONDS", default: "15", type: :integer },
@@ -87,6 +88,8 @@ module AppConfig
   def vision_timeout_seconds = tuned("vision_timeout_seconds").clamp(10, 300)
   def max_ocr_attempts = tuned("max_ocr_attempts").clamp(1, BillVision::CallBudget::MAX_OCR_RUNS_PER_BILL)
   def merchant_fuzzy_threshold = tuned("merchant_fuzzy_threshold")
+  # A near name match at this score or above is accepted as the HKD (no review of its own).
+  def merchant_auto_accept_score = tuned("merchant_auto_accept_score")
   # Possible duplicate: same merchant + amount within this many minutes.
   def duplicate_window_minutes = tuned("duplicate_window_minutes")
   # Receipts older than this are suspicious (wrong year/month read by OCR).
