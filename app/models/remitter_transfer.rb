@@ -53,6 +53,22 @@ class RemitterTransfer < ApplicationRecord
     telegram_message.effective_text
   end
 
+  # When the bank slip says the money was sent (read by OCR). transferred_at
+  # is when the photo was posted in the group. A Date when only the day was
+  # read, nil when the slip shows no date.
+  def slip_at
+    document = display_image&.documents&.find { |doc| doc["document_type"] == "transfer" && doc["transaction_date"].present? }
+    return unless document
+
+    date = Date.iso8601(document["transaction_date"])
+    return date if document["transaction_time"].blank?
+
+    hour, minute, second = document["transaction_time"].split(":").map(&:to_i)
+    Time.zone.local(date.year, date.month, date.day, hour, minute, second)
+  rescue Date::Error, ArgumentError
+    nil
+  end
+
   # Approved by a person or automatically, with everything the sheet needs.
   def writable?
     approved? && amount_vnd.present? && merchant_dealer.present? && remitter.present?

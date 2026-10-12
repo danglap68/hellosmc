@@ -16,6 +16,14 @@ module RemitterTransfersHelper
     end
   end
 
+  # Date and time printed on the bank slip; "—" when OCR read none.
+  def remitter_slip_datetime(transfer)
+    slip_at = transfer.slip_at
+    return content_tag(:span, "—", class: "text-secondary") unless slip_at
+
+    slip_at.is_a?(Date) ? l(slip_at) : format_datetime(slip_at)
+  end
+
   def remitter_transfer_reason(code)
     t("remitter_transfers.reasons.#{code}", default: t("review_reasons.#{code}", default: code))
   end

@@ -878,6 +878,7 @@ vi:
       image_missing: "Không tải được ảnh"
       ocr_failed: "OCR xử lý lỗi"
       settlement_photo: "Ảnh là bill kết toán (mã trong tin nhắn bị hiểu nhầm), đã chuyển sang luồng giao dịch"
+      not_a_transfer: "Ảnh không phải biên lai chuyển khoản (ví dụ máy tính, bill khác), đã bỏ qua"
     write_issues:
       rd_sheet_missing: "Chưa có tab thu chi của ngày này. Tạo tab rồi bấm Ghi lại."
       rd_agent_missing: "Tab %{sheet} không có khối của đại lý này (kiểm tra nhãn thu chi của đại lý)."
@@ -988,6 +989,7 @@ vi:
         dealer: "Đại lý"
         amount_vnd: "Số tiền"
         transferred_at: "Gửi lúc"
+        slip_at: "Ngày giờ chuyển khoản"
         status: "Trạng thái"
         rd_cell: "Ô trên tab thu chi"
         reviewed_by: "Người duyệt"
