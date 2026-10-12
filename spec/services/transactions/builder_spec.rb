@@ -315,13 +315,48 @@ RSpec.describe Transactions::Builder do
     expect(transaction.review_reason_codes).to include("album_total_review")
   end
 
-  it "builds a settlement as the reviewed total transaction in an album" do
+  it "sends a complete album settlement to review when the agent cannot be told" do
+    document = extraction_fixture("normal_settlement")["documents"].first.merge("merchant_name" => "HỘ KINH DOANH THIÊN KIM GV")
+    normalized = BillVision::Normalizer.call({ "documents" => [ document ] }, provider: "openai", model: "gpt-test")
+    bill_image = create(:bill_image, telegram_message: create(:telegram_message, telegram_chat: chat),
+                                     bill_album: create(:bill_album, telegram_chat: chat),
+                                     normalized_extraction: normalized, ocr_status: "completed")
+
+    transaction = described_class.call(bill_image: bill_image).sole
+    expect(transaction).to be_needs_review
+    expect(transaction.review_reason_codes).to include("dealer_unmapped")
+    expect(transaction.review_reason_codes).not_to include("album_total_review")
+  end
+
+  it "judges a complete settlement in an album like a single photo (child bills dropped)" do
     bill_image = analyzed_bill(extraction: "normal_settlement")
     bill_image.update!(bill_album: create(:bill_album, telegram_chat: chat))
 
     transaction = described_class.call(bill_image: bill_image).sole
+    expect(transaction.review_reason_codes).not_to include("album_total_review")
+  end
+
+  it "keeps an incomplete settlement in an album as a reviewed total transaction" do
+    document = extraction_fixture("normal_settlement")["documents"].first.merge("lot_number" => nil)
+    normalized = BillVision::Normalizer.call({ "documents" => [ document ] }, provider: "openai", model: "gpt-test")
+    bill_image = create(:bill_image, telegram_message: create(:telegram_message, telegram_chat: chat),
+                                     bill_album: create(:bill_album, telegram_chat: chat),
+                                     normalized_extraction: normalized, ocr_status: "needs_review")
+
+    transaction = described_class.call(bill_image: bill_image).sole
     expect(transaction).to be_needs_review
     expect(transaction.review_reason_codes).to include("album_total_review")
+  end
+
+  it "knows when a settlement printed everything" do
+    document = normalized_document
+    expect(described_class.complete_settlement?(document)).to be(true)
+    %w[lot_number transaction_time transaction_date total_amount_vnd merchant_name terminal_or_merchant_id].each do |field|
+      expect(described_class.complete_settlement?(document.merge(field => nil))).to be(false)
+    end
+    # The agent suffix is optional: a name cut short by the POS screen still counts.
+    expect(described_class.complete_settlement?(document.merge("merchant_name" => "001_ HỘ KINH DOANH THIÊN KIM..."))).to be(true)
+    expect(described_class.complete_settlement?(document.merge("document_type" => "transfer"))).to be(false)
   end
 
   it "skips unreadable (unknown) documents in an album" do

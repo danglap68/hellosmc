@@ -37,6 +37,7 @@ module BillAlbums
       @total_count = 0
       @total_amounts = []
       @total_image = nil
+      @total_docs = []
       @amount_missing = false
 
       @album.bill_images.analyzable.each do |image|
@@ -53,6 +54,7 @@ module BillAlbums
 
             @total_count += 1
             @total_amounts << amount
+            @total_docs << doc
             @total_image ||= image
           end
         end
@@ -71,10 +73,15 @@ module BillAlbums
       return unless @total_count >= 1
 
       # The Builder skips child receipts (evidence) and builds the "tổng kết"
-      # settlement/transfer as the single transaction (never auto-approved).
-      @album.bill_images.analyzable.each do |image|
-        Transactions::Builder.call(bill_image: image)
+      # settlement/transfer as the single transaction. A complete settlement
+      # stands on its own: a photo whose OCR failed is skipped, not built as a
+      # failed row (it is listed in the album's metadata).
+      images = @album.bill_images.analyzable.to_a
+      if settlement_complete?
+        skipped, images = images.partition(&:ocr_failed?)
+        @skipped_failed_image_ids = skipped.map(&:id)
       end
+      images.each { |image| Transactions::Builder.call(bill_image: image) }
     end
 
     def apply_decision
@@ -83,6 +90,12 @@ module BillAlbums
         @reconciliation_status = total_duplicate? ? "transfer_duplicate" : "no_transfer"
         @flag_reason = nil
         @skip_reason = total_duplicate? ? "transfer_duplicate" : nil
+      elsif settlement_complete?
+        # The bill kết has everything: child bills are dropped, not summed,
+        # and a child whose OCR failed does not hold the album back.
+        @status = "reconciled"
+        @reconciliation_status = "settlement_complete"
+        @flag_reason = nil
       elsif @album.any_ocr_failed?
         @status = "needs_review"
         @reconciliation_status = "incomplete"
@@ -110,6 +123,10 @@ module BillAlbums
       end
     end
 
+    def settlement_complete?
+      @total_docs.one? && Transactions::Builder.complete_settlement?(@total_docs.first)
+    end
+
     def persist
       Transactions::Flagger.call(transactions: @album.transactions, reason: @flag_reason) if @flag_reason
 
@@ -118,6 +135,10 @@ module BillAlbums
       metadata = @album.metadata
       metadata = metadata.merge("total_amounts" => @total_amounts) if @total_count > 1
       metadata = metadata.merge("skip_reason" => @skip_reason) if @skip_reason.present?
+      if @reconciliation_status == "settlement_complete"
+        metadata = metadata.merge("children_dropped" => true)
+        metadata = metadata.merge("skipped_failed_image_ids" => @skipped_failed_image_ids) if @skipped_failed_image_ids.present?
+      end
 
       @album.update!(
         status: @status,

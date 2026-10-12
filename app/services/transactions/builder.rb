@@ -25,6 +25,17 @@ module Transactions
       @bill_image = bill_image
     end
 
+    # A "bill kết" that printed everything it needs needs nothing from the
+    # child bills: amount, HKD name, TID/MID, lot, date and time. The agent
+    # (the number ending the HKD name) is not required: the POS screen often
+    # cuts the name short ("THIÊN KIM..."), and an agent that cannot be told
+    # goes to review (dealer_unmapped) instead of waiting on the child bills.
+    def self.complete_settlement?(document)
+      document["document_type"] == "settlement" &&
+        %w[total_amount_vnd merchant_name terminal_or_merchant_id lot_number transaction_date transaction_time]
+          .all? { |field| document[field].present? }
+    end
+
     def call
       return [] if @bill_image.ocr_duplicate? || @bill_image.duplicate_of_id.present?
       return [ build_failed(0) ] + fail_leftovers if @bill_image.ocr_failed?
@@ -122,9 +133,12 @@ module Transactions
 
     # In an album the settlement/transfer is the single "tổng kết" transaction,
     # which is never auto-approved: a human confirms it against the child bills.
+    # A settlement that printed everything is judged like a single photo: the
+    # child bills are dropped, so there is nothing to confirm against them.
     def album_total_reasons(document)
       return [] unless @bill_image.bill_album_id.present?
       return [] unless document["document_type"].in?(%w[settlement transfer])
+      return [] if self.class.complete_settlement?(document)
 
       [ "album_total_review" ]
     end
@@ -136,8 +150,7 @@ module Transactions
     def inherit_album_fields(document)
       return document unless @bill_image.bill_album_id.present?
       return document unless document["document_type"].in?(%w[settlement transfer])
-      return document if document["merchant_name"].present? && document["terminal_or_merchant_id"].present? &&
-                        document["lot_number"].present? && document["transaction_time"].present?
+      return document if self.class.complete_settlement?(document)
 
       children = album_child_receipts
       return document if children.empty?

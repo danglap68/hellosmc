@@ -61,6 +61,54 @@ RSpec.describe BillAlbums::Reconciler do
     expect(album.transactions.sole.review_reason_codes).to include("album_total_review")
   end
 
+  it "drops the child bills when the settlement printed everything" do
+    child_bill(100_000_000)
+    child_bill(50_000_000)
+    analyzed_image(raw_document("settlement", 600_000_000).merge("lot_number" => "000269", "terminal_or_merchant_id" => "000000123456"))
+
+    reconcile
+
+    expect(album.status).to eq("reconciled")
+    expect(album.reconciliation_status).to eq("settlement_complete")
+    expect(album.metadata["children_dropped"]).to be(true)
+    expect(album.transactions.sole.review_reason_codes).not_to include("album_total_review", "album_total_mismatch")
+  end
+
+  it "skips a child whose OCR failed when the settlement is complete" do
+    child_bill(100_000_000)
+    failed = create(:bill_image, bill_album: album, telegram_message: create(:telegram_message, telegram_chat: chat),
+                                 ocr_status: "failed", processing_error: "boom")
+    analyzed_image(raw_document("settlement", 600_000_000).merge("lot_number" => "000269", "terminal_or_merchant_id" => "000000123456"))
+
+    reconcile
+
+    expect(album.reconciliation_status).to eq("settlement_complete")
+    expect(album.metadata["skipped_failed_image_ids"]).to eq([ failed.id ])
+    expect(failed.transactions.count).to eq(0)
+    expect(album.transactions.pluck(:status)).not_to include("failed")
+  end
+
+  it "still reviews a failed photo when the settlement is incomplete" do
+    create(:bill_image, bill_album: album, telegram_message: create(:telegram_message, telegram_chat: chat),
+                        ocr_status: "failed", processing_error: "boom")
+    analyzed_image(raw_document("settlement", 600_000_000))
+
+    reconcile
+
+    expect(album.reconciliation_status).to eq("incomplete")
+  end
+
+  it "keeps the child bills to fill in a settlement that is missing fields" do
+    child_bill(600_000_000)
+    analyzed_image(raw_document("settlement", 600_000_000))
+
+    reconcile
+
+    expect(album.reconciliation_status).to eq("matched")
+    expect(album.metadata["children_dropped"]).to be_nil
+    expect(album.transactions.sole.review_reason_codes).to include("album_total_review")
+  end
+
   it "flags a mismatch and records the difference" do
     child_bill(100_000_000)
     child_bill(200_000_000)

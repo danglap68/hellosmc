@@ -1129,6 +1129,7 @@ vi:
           no_transfer: "Không có ảnh tổng kết"
           transfer_duplicate: "Ảnh tổng kết bị trùng"
           incomplete: "Chưa đủ dữ liệu"
+          settlement_complete: "Bill kết đầy đủ, bỏ bill con"
       user:
         role:
           admin: "Quản trị"

@@ -196,6 +196,22 @@ Build do `Reconciler` quyết định (xem mục 6): chỉ gọi `Transactions::
 
 **Quy tắc vàng giữ nguyên:** không sửa số tiền của bất kỳ giao dịch con nào; đối chiếu chỉ thêm cảnh báo/review, không tự sửa dữ liệu kế toán.
 
+### 6.x Bill kết đầy đủ thì bỏ bill con (bổ sung)
+
+Một bill kết (`settlement`) được coi là **đầy đủ** khi OCR bóc được cả sáu trường:
+số tiền, tên HKD, TID/MID (`terminal_or_merchant_id`), số lô, ngày, giờ
+(`Transactions::Builder.complete_settlement?`). Tên đại lý (số ở cuối tên HKD) **không bắt buộc**:
+màn hình POS hay cắt tên ("THIÊN KIM…"); không xác định được đại lý thì giao dịch vào review
+(`dealer_unmapped`), bill con không được dùng để tìm đại lý.
+
+- **Đầy đủ** (đúng một bill kết): bill con bị bỏ, không cộng tổng/đối chiếu. Album `reconciled`,
+  `reconciliation_status = settlement_complete`, `metadata.children_dropped = true`. Giao dịch
+  được xét như ảnh đơn, không có lý do `album_total_review`.
+- **Thiếu bất kỳ trường nào**: giữ bill con để điền phần thiếu (merchant, lô, giờ) và đối chiếu tổng
+  như mô tả ở mục 6; giao dịch vẫn có `album_total_review`.
+- Thứ tự quyết định: không có tổng → `skipped`; có ảnh OCR lỗi → `incomplete`; nhiều tổng →
+  `multiple_transfers`; đầy đủ → `settlement_complete`; còn lại theo mục 6.
+
 ## 7. Admin
 
 - `Admin::BillAlbumsController` (`index`, `show`) + route `resources :bill_albums, only: %i[index show]`.

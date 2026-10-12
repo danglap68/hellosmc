@@ -5,7 +5,7 @@
 class BillAlbum < ApplicationRecord
   STATUSES = %w[collecting processing reconciled needs_review skipped failed].freeze
   RECONCILIATION_STATUSES = %w[matched mismatched multiple_transfers missing_bills no_transfer
-                               transfer_duplicate incomplete].freeze
+                               transfer_duplicate incomplete settlement_complete].freeze
   TERMINAL_STATUSES = %w[reconciled needs_review skipped failed].freeze
 
   belongs_to :telegram_chat
