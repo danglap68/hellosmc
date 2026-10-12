@@ -34,7 +34,8 @@
               <td><code><%= chat.telegram_chat_id %></code></td>
               <td><%= @message_counts[chat.id].to_i %></td>
               <td><%= active_badge(chat.active?) %></td>
-              <td><% if can?(:manage, :telegram_chats) %><%= link_to t("actions.edit"), edit_admin_telegram_chat_path(chat), class: "btn btn-sm" %><% end %></td>
+              <%= render "admin/shared/row_actions", resource: :telegram_chats, edit_path: edit_admin_telegram_chat_path(chat),
+                         delete_path: admin_telegram_chat_path(chat) %>
             </tr>
           <% end %>
         </tbody>

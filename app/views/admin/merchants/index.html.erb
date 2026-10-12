@@ -36,7 +36,8 @@
               <td><%= merchant.default_card_type&.name || "—" %></td>
               <td><%= @alias_counts[merchant.id].to_i %></td>
               <td><%= active_badge(merchant.active?) %></td>
-              <td><% if can?(:manage, :merchants) %><%= link_to t("actions.edit"), edit_admin_merchant_path(merchant), class: "btn btn-sm" %><% end %></td>
+              <%= render "admin/shared/row_actions", resource: :merchants, edit_path: edit_admin_merchant_path(merchant),
+                         delete_path: admin_merchant_path(merchant) %>
             </tr>
           <% end %>
         </tbody>
