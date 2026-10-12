@@ -11,7 +11,7 @@ RSpec.describe Exports::ExcelGenerator do
     Transactions::StatusUpdater.call(transaction: transaction, actor: admin, action: "hold")
     transaction
   end
-  let(:export) { create(:excel_export, export_date: Date.new(2026, 10, 4), generated_by: admin) }
+  let(:export) { create(:excel_export, export_date: Date.new(2026, 10, 4), layout: "legacy", generated_by: admin) }
 
   # Tempfiles are removed after each example (they used to pile up in tmp/).
   after { @tempfiles&.each(&:close!) }
@@ -71,7 +71,7 @@ RSpec.describe Exports::ExcelGenerator do
 
   it "excludes transactions outside the range or still in review" do
     Transactions::Builder.call(bill_image: analyzed_bill(extraction: "blurry_settlement"))
-    other_day = create(:excel_export, export_date: Date.new(2026, 10, 3))
+    other_day = create(:excel_export, export_date: Date.new(2026, 10, 3), layout: "legacy")
     described_class.call(excel_export: other_day)
     expect(other_day.reload.transaction_count).to eq(0)
   end

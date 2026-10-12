@@ -8,11 +8,12 @@ RSpec.describe "Excel export layout choice" do
   it "changes the column list with the selected export type and stores that type" do
     visit new_admin_excel_export_path
 
-    expect(page).to have_select("Loại file", selected: "File hiện tại")
-    expect(page).to have_css("[data-layout='legacy']", text: "Tên Đại lý")
-    expect(page).to have_css("[data-layout='ket_toan_phi_goc']", visible: :hidden, text: "Tỷ lệ")
-    expect(page).to have_content("bill hold")
+    expect(page).to have_select("Loại file", selected: "Kết toán theo phí gốc")
+    expect(page).to have_css("[data-layout='ket_toan_phi_goc']", text: "Tỷ lệ")
+    expect(page).to have_css("[data-layout='legacy']", visible: :hidden, text: "Tên Đại lý")
 
+    select "File hiện tại", from: "Loại file"
+    expect(page).to have_content("bill hold")
     select "Kết toán theo phí gốc", from: "Loại file"
     fill_in "Từ ngày", with: "2026-10-05"
     fill_in "Đến ngày", with: "2026-10-05"

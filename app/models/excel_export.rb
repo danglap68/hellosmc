@@ -8,7 +8,8 @@ class ExcelExport < ApplicationRecord
   has_one_attached :file
 
   enum :status, STATUSES.index_by(&:itself), validate: true
-  enum :layout, LAYOUTS.index_by(&:itself), validate: true, default: "legacy"
+  # The settlement file is the default for every export, scheduled ones included.
+  enum :layout, LAYOUTS.index_by(&:itself), validate: true, default: "ket_toan_phi_goc"
 
   validates :export_date, :end_date, presence: true
   validate :date_range_valid
