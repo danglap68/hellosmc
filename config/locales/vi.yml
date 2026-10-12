@@ -326,6 +326,13 @@ vi:
       map_group: "Gán nhóm Telegram"
       no_groups: "Chưa gán nhóm Telegram nào."
 
+  telegram_source:
+    chat_id: "ID nhóm"
+    user_id: "Telegram ID"
+    album: "Album"
+    album_photos: "%{count} ảnh gửi cùng lúc"
+    text_from_album: "Lấy từ tin nhắn đầu của album (chỉ tin đó có chữ)."
+
   transfer_codes:
     manage: "Quản lý mã chuyển tiền (Cài đặt)"
     merchant: "Hộ kinh doanh"

@@ -56,6 +56,8 @@
       </div>
     </div>
 
+    <div class="mb-3"><%= render "admin/shared/telegram_source", message: @transfer.telegram_message, bill_image: @transfer.bill_image %></div>
+
     <% if (issue = @transfer.metadata["write_issue"]) && !@transfer.written? %>
       <div class="alert alert-danger">
         <%= t("remitter_transfers.write_issues.#{issue}", default: issue, sheet: @transfer.metadata["write_sheet"]) %>

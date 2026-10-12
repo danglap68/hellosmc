@@ -60,4 +60,41 @@ RSpec.describe "Remitter transfers" do
 
     expect(response.body).to include("Ảnh không phải biên lai chuyển khoản")
   end
+  describe "where the message came from" do
+    let(:chat) { create(:telegram_chat, name: "Nhóm Thiên Kim", telegram_chat_id: -1001234567890) }
+    let(:message) do
+      create(:telegram_message, telegram_chat: chat, telegram_message_id: 4242, sender_name: "Đặng Văn Lập", telegram_username: "laplap",
+                                telegram_sender_id: 777_000, message_text: "Lap chuyen tien TK01", sent_at: Time.zone.local(2026, 10, 12, 16, 4, 24),
+                                processing_status: "processed")
+    end
+
+    it "gives the group, who sent it, when, the message id and what they wrote on the transfer page" do
+      get admin_remitter_transfer_path(transfer)
+
+      expect(response.body).to include("Nguồn Telegram", "Nhóm Thiên Kim", "-1001234567890", "Đặng Văn Lập", "@laplap", "777000",
+                                       "12/10/2026 16:04:24", "4242", "Lap chuyen tien TK01", "Đã xử lý")
+    end
+
+    it "says when the text comes from the first message of the album, and how many photos it has" do
+      first = create(:telegram_message, telegram_chat: chat, media_group_id: "G1", message_text: "TK02 chuyen tien", telegram_message_id: 10)
+      second = create(:telegram_message, telegram_chat: chat, media_group_id: "G1", message_text: nil, telegram_message_id: 11)
+      data = extraction_fixture("transfer")
+      image = create(:bill_image, telegram_message: second, ocr_status: "completed",
+                                  normalized_extraction: BillVision::Normalizer.call(data, provider: "openai", model: "gpt-test"))
+      create(:remitter_transfer, telegram_message: first, status: "needs_review")
+      later = create(:remitter_transfer, telegram_message: second, bill_image: image, status: "needs_review")
+
+      get admin_remitter_transfer_path(later)
+
+      expect(response.body).to include("2 ảnh gửi cùng lúc", "G1", "TK02 chuyen tien", "Lấy từ tin nhắn đầu của album")
+    end
+
+    it "shows the same block on the transaction page" do
+      transaction = create(:transaction, telegram_message: message)
+
+      get admin_transaction_path(transaction)
+
+      expect(response.body).to include("Nguồn Telegram", "Nhóm Thiên Kim", "Đặng Văn Lập", "@laplap", "Lap chuyen tien TK01")
+    end
+  end
 end
