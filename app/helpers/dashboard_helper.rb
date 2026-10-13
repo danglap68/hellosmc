@@ -65,33 +65,40 @@ module DashboardHelper
     return "".html_safe if buckets.empty?
 
     max = [buckets.map { |bucket| bucket[:total] }.max.to_f, 1].max
-    slot = 36
+    width = 640
     height = 168
-    baseline = 148
-    width = buckets.size * slot
-    label_step = buckets.size > 16 ? (buckets.size / 8.0).ceil : 1
-    parts = []
+    baseline = 142
+    plot = 118
+    inset = 16
+    slot = (width - inset * 2).to_f / buckets.size
+    bar_w = [[slot * 0.58, 22].min, 3].max
+    label_step = buckets.size > 14 ? (buckets.size / 7.0).ceil : 1
+    parts = [0, 0.5, 1].map do |fraction|
+      y = (baseline - plot * fraction).round(2)
+      %(<line class="column-chart-grid" x1="#{inset}" y1="#{y}" x2="#{width - inset}" y2="#{y}"></line>)
+    end
     buckets.each_with_index do |bucket, index|
-      x = index * slot + 6
-      cursor = baseline
+      x = (inset + index * slot + (slot - bar_w) / 2).round(2)
+      delay = index * 18
+      cursor = baseline.to_f
       if bucket[:total].zero?
-        parts << %(<rect class="column-chart-bar is-empty" x="#{x}" y="#{baseline - 2}" width="22" height="2" rx="1"></rect>)
+        parts << %(<rect class="column-chart-bar is-empty" x="#{x}" y="#{baseline - 2}" width="#{bar_w.round(2)}" height="2" rx="1" style="animation-delay: #{delay}ms"></rect>)
       else
         legend.each_with_index do |series, series_index|
           amount = bucket[:stacks][series[:key]].to_i
           next if amount.zero?
 
-          bar = (amount / max) * 132
-          bar = 1.5 if bar < 1.5
+          bar = (amount / max) * plot
+          bar = 2 if bar < 2
           cursor -= bar
           color = CHART_COLORS[series_index % CHART_COLORS.size]
-          parts << %(<rect x="#{x}" y="#{cursor.round(2)}" width="22" height="#{bar.round(2)}" rx="3" fill="#{color}"><title>#{ERB::Util.html_escape(series[:name])}: #{ERB::Util.html_escape(number_with_delimiter(amount, delimiter: "."))} ₫</title></rect>)
+          parts << %(<rect class="column-chart-stack" x="#{x}" y="#{cursor.round(2)}" width="#{bar_w.round(2)}" height="#{bar.round(2)}" rx="3" fill="#{color}" style="animation-delay: #{delay}ms"><title>#{ERB::Util.html_escape(series[:name])}: #{ERB::Util.html_escape(number_with_delimiter(amount, delimiter: "."))} ₫</title></rect>)
         end
       end
-      if index % label_step == 0 || index == buckets.size - 1
-        parts << %(<text class="column-chart-label" x="#{x + 11}" y="#{height - 4}" text-anchor="middle">#{ERB::Util.html_escape(bucket[:label])}</text>)
-      end
+      next unless index % label_step == 0 || index == buckets.size - 1
+
+      parts << %(<text class="column-chart-label" x="#{(x + bar_w / 2).round(2)}" y="#{height - 6}" text-anchor="middle">#{ERB::Util.html_escape(bucket[:label])}</text>)
     end
-    %(<svg class="column-chart" viewBox="0 0 #{width} #{height}" role="img" aria-label="#{ERB::Util.html_escape(t("dashboard.chart_by_card"))}">#{parts.join}</svg>).html_safe
+    %(<svg class="column-chart" viewBox="0 0 #{width} #{height}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="#{ERB::Util.html_escape(t("dashboard.chart_by_card"))}">#{parts.join}</svg>).html_safe
   end
 end

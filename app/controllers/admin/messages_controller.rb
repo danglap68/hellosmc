@@ -33,6 +33,7 @@ module Admin
       ids = scope.order(Arel.sql("sent_at DESC NULLS LAST, id DESC")).limit(THREAD_LIMIT + 1).pluck(:id)
       has_older = ids.size > THREAD_LIMIT
       messages = TelegramMessage.for_list.where(id: ids.first(THREAD_LIMIT))
+        .preload(bill_images: [ :image_attachment, { duplicate_of: :image_attachment } ])
         .order(Arel.sql("sent_at ASC NULLS LAST, telegram_messages.id ASC"))
       [ messages, has_older ]
     end

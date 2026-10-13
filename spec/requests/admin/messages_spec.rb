@@ -48,9 +48,45 @@ RSpec.describe "Admin messages" do
     expect(log.text.index("tin cũ")).to be < log.text.index("tin mới")
     expect(log.text.index("tin mới")).to be < log.text.index("[Voice]")
     expect(log.text).not_to include("bên kia")
-    expect(log.at_css(".chat-tone-1")).to be_present
-    expect(log.at_css(".chat-tone-4")).to be_present
+    lan = log.css(".chat-bubble").select { |node| node.at_css(".chat-sender").text == "Lan" }
+    minh = log.css(".chat-bubble").find { |node| node.at_css(".chat-sender").text == "Minh" }
+    expect(lan.map { |node| node["class"] }.uniq.size).to eq(1)
+    expect(lan.first["class"]).not_to eq(minh["class"])
     expect(page.at_css(".chat-conv-list").text).to include("Nhóm khác", "Hùng: bên kia")
+  end
+
+  it "gives different names different colors even when the sender id is the same" do
+    text_message(chat, sender: "Hoàng Chương", text: "bên chương", telegram_sender_id: 99, sent_at: 2.minutes.ago)
+    text_message(chat, sender: "Anh tên là Lập", text: "bên lập", telegram_sender_id: 99, sent_at: 1.minute.ago)
+    text_message(chat, sender: "Anh tên là Lập", text: "lập nói tiếp", telegram_sender_id: 99, sent_at: Time.current)
+
+    get admin_messages_path(chat_id: chat.id)
+
+    bubbles = Nokogiri::HTML(response.body).css(".chat-log .chat-bubble")
+    chuong = bubbles.find { |node| node.at_css(".chat-sender").text == "Hoàng Chương" }
+    lap = bubbles.select { |node| node.at_css(".chat-sender").text == "Anh tên là Lập" }
+    expect(lap.map { |node| node["class"] }.uniq.size).to eq(1)
+    expect(chuong["class"]).not_to eq(lap.first["class"])
+    expect(chuong["class"]).to match(/chat-tone-\d+/)
+  end
+
+  it "renders a downloaded photo in the bubble and leaves an undownloaded one as a label" do
+    photo = create(:telegram_message, telegram_chat: chat, sender_name: "Lan", message_text: nil, kind: "photo",
+                                      processing_status: "processed", sent_at: 2.minutes.ago)
+    image = create(:bill_image, telegram_message: photo)
+    create(:telegram_message, telegram_chat: chat, sender_name: "Minh", message_text: nil, kind: "photo",
+                              processing_status: "ignored", sent_at: 1.minute.ago,
+                              raw_payload: { "message" => { "photo" => [ { "file_id" => "not-downloaded" } ] } })
+
+    get admin_messages_path(chat_id: chat.id)
+
+    bubbles = Nokogiri::HTML(response.body).css(".chat-log .chat-bubble")
+    downloaded = bubbles.find { |node| node.at_css(".chat-sender").text == "Lan" }
+    missing = bubbles.find { |node| node.at_css(".chat-sender").text == "Minh" }
+    expect(downloaded.at_css("img.chat-photo")["src"]).to eq(admin_bill_image_path(image))
+    expect(downloaded.text).not_to include("[Ảnh]")
+    expect(missing.at_css("img")).to be_nil
+    expect(missing.text).to include("[Ảnh]")
   end
 
   it "links a photo's detail to the transaction and the transfer, and hides raw JSON from an operator" do

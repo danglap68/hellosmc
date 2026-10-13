@@ -48,15 +48,25 @@
         </div>
       <% end %>
       <% if @messages.any? %>
+        <% tones = chat_tone_map(@messages.map { |message| chat_sender_key(message) }) %>
         <ol class="chat-log" data-controller="chat-thread">
           <% @messages.each do |message| %>
-            <li class="chat-bubble chat-tone-<%= chat_tone(message) %>">
+            <% photo = chat_photo(message) %>
+            <li class="chat-bubble chat-tone-<%= chat_tone(message, tones) %>">
               <div class="chat-bubble-head">
                 <span class="chat-avatar" aria-hidden="true"><%= chat_initial(message) %></span>
                 <span class="chat-sender"><%= message.sender_name.presence || t("messages.index.unknown_sender") %></span>
                 <%= link_to chat_time(message.sent_at), admin_message_path(message), class: "chat-detail" %>
               </div>
-              <p class="chat-text"><%= message.display_body %></p>
+              <% if photo %>
+                <%= link_to admin_bill_image_path(photo), class: "chat-photo-link", target: "_blank", rel: "noopener" do %>
+                  <%= image_tag admin_bill_image_path(photo), class: "chat-photo", alt: "", loading: "lazy" %>
+                <% end %>
+              <% end %>
+              <% body = message.message_text.presence || (photo ? nil : message.display_body) %>
+              <% if body.present? %>
+                <p class="chat-text"><%= body %></p>
+              <% end %>
               <% if message.reply_to_message_id %>
                 <p class="chat-aside"><%= t("messages.show.reply", id: message.reply_to_message_id) %></p>
               <% end %>
