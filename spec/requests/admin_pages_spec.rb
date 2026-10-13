@@ -28,6 +28,19 @@ RSpec.describe "Admin pages" do
     expect(Nokogiri::HTML(response.body).css(%(a[href="#{new_admin_bill_upload_path}"]))).to be_empty
   end
 
+  it "shows the profit KPI with its stored total, period comparison and trend" do
+    get admin_root_path(period: "7d")
+
+    page = Nokogiri::HTML(response.body)
+    card = page.css(".kpi-card").find { |node| node.at_css("h2").text == "Lợi nhuận" }
+    expect(card).to be_present
+    expected = ApplicationController.helpers.format_vnd(Dashboard::Stats.new(period: "7d").current_snapshot[:profit])
+    expect(card.at_css(".kpi-value").text).to eq(expected)
+    expect(card.at_css(".delta-pill")).to be_present
+    expect(card.at_css(".sparkline")).to be_present
+    expect(card.text).to include("Tiền sau phí gốc trừ tiền đại lý, trên giao dịch đã duyệt")
+  end
+
   it "lists every page once by default and moves starred pages into Ghim" do
     get admin_root_path
     page = Nokogiri::HTML(response.body)

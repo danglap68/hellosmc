@@ -221,7 +221,7 @@ vi:
 
   dashboard:
     title: "Tổng quan"
-    description: "Doanh số, phí và hàng chờ tính từ giao dịch đã ghi."
+    description: "Doanh số, phí, lợi nhuận và hàng chờ tính từ giao dịch đã ghi."
     period_label: "Kỳ thống kê"
     periods:
       7d: "7 ngày"
@@ -243,6 +243,8 @@ vi:
       fee_context: "Số tiền giao dịch trừ số tiền sau phí gốc, trên giao dịch đã duyệt hoặc đã xuất"
       after_fee: "Số tiền sau phí"
       after_fee_context: "Trên giao dịch đã duyệt hoặc đã xuất"
+      profit: "Lợi nhuận"
+      profit_context: "Tiền sau phí gốc trừ tiền đại lý, trên giao dịch đã duyệt"
       approval: "Tỷ lệ duyệt"
       approval_context: "%{approved} trên %{decided} giao dịch đã chốt"
       approval_empty: "Chưa có giao dịch đã chốt"

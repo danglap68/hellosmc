@@ -920,7 +920,7 @@
 .period-option:hover { color: var(--ev-ink); background: color-mix(in srgb, var(--ev-ov-seg-on) 55%, transparent); }
 .app-ui a.period-option[aria-current="page"], .period-option[aria-current="page"] { background: var(--ev-ov-seg-on); color: var(--ev-ink); font-weight: 600; box-shadow: var(--ev-ov-seg-shadow); }
 .kpi-board {
-  display: grid; grid-template-columns: minmax(0, 1.55fr) repeat(4, minmax(0, 1fr));
+  display: grid; grid-template-columns: minmax(0, 1.55fr) repeat(5, minmax(0, 1fr));
   gap: 1px; margin: 0 0 1.25rem; overflow: hidden; border-radius: var(--ev-radius);
   background: var(--tblr-border-color); box-shadow: var(--ev-shadow);
 }
@@ -932,9 +932,10 @@
 .kpi-card:nth-child(3) { animation-delay: 80ms; }
 .kpi-card:nth-child(4) { animation-delay: 120ms; }
 .kpi-card:nth-child(5) { animation-delay: 160ms; }
+.kpi-card:nth-child(6) { animation-delay: 200ms; }
 .kpi-card h2 { margin: 0; font-size: 0.8125rem; line-height: 1.25rem; font-weight: 500; color: var(--tblr-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .kpi-card.is-hero h2 { color: var(--ev-ink-2); font-weight: 600; }
-.kpi-value { margin: 0.25rem 0 0; font-size: clamp(1.05rem, 1.5vw, 1.5rem); line-height: 1.25; font-weight: 650; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--ev-ink); overflow-wrap: anywhere; }
+.kpi-value { margin: 0.25rem 0 0; font-size: clamp(1.05rem, 1.25vw, 1.25rem); line-height: 1.25; font-weight: 650; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--ev-ink); overflow-wrap: anywhere; }
 .kpi-card.is-hero .kpi-value { font-size: clamp(1.65rem, 2.2vw, 2.25rem); line-height: 1.15; letter-spacing: -0.03em; font-weight: 700; }
 .kpi-card h2 { white-space: normal; }
 .kpi-meta { display: flex; flex-direction: column; align-items: flex-start; gap: 0.35rem; margin: 0.5rem 0 0; }
@@ -1035,12 +1036,13 @@
   .shell-pin { width: 36px; height: 36px; right: 4px; }
   .app-ui .shell-item a.shell-link { padding-right: 44px; }
 }
+@media (max-width: 1599.98px) {
+  .kpi-board { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
 @media (max-width: 1439.98px) {
   .overview-breakdowns { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 1199.98px) {
-  .kpi-board { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  .kpi-card.is-hero { grid-column: 1 / -1; }
   .kpi-card.is-hero .kpi-value { font-size: 2rem; line-height: 2.4rem; }
   .overview-split, .settings-body { grid-template-columns: minmax(0, 1fr); }
   .settings-subnav { position: static; flex-direction: row; flex-wrap: wrap; }

@@ -26,6 +26,7 @@
        [:count, current[:count], period_delta(current[:count], previous[:count]), trends.map { |row| row[:count] }, t("dashboard.kpis.count_context", count: current[:approved_count]), false],
        [:fee, format_vnd(current[:base_fee]), period_delta(current[:base_fee], previous[:base_fee]), trends.map { |row| row[:base_fee] }, t("dashboard.kpis.fee_context"), false],
        [:after_fee, format_vnd(current[:after_fee]), period_delta(current[:after_fee], previous[:after_fee]), trends.map { |row| row[:after_fee] }, t("dashboard.kpis.after_fee_context"), false],
+       [:profit, format_vnd(current[:profit]), period_delta(current[:profit], previous[:profit]), trends.map { |row| row[:profit] }, t("dashboard.kpis.profit_context"), false],
        [:approval, share_percent(current[:approval_rate]), period_delta(current[:approval_rate], previous[:approval_rate], mode: :rate), trends.map { |row| row[:approval_rate].to_f }, current[:decided].zero? ? t("dashboard.kpis.approval_empty") : t("dashboard.kpis.approval_context", approved: current[:approved_count], decided: current[:decided]), false]
      ].each do |key, value, delta, series, context, hero| %>
     <article class="kpi-card<%= " is-hero" if hero %>">

@@ -147,7 +147,7 @@ module Dashboard
         Arel.sql("COALESCE(SUM(transactions.transaction_amount_vnd), 0)")
       )
       by_date = grouped.to_h do |day, count, amount|
-        [coerce_date(day), { count: count.to_i, amount: amount.to_i }]
+        [ coerce_date(day), { count: count.to_i, amount: amount.to_i } ]
       end
       (chart_start..@date).map do |day|
         row = by_date[day] || { count: 0, amount: 0 }
@@ -259,11 +259,12 @@ module Dashboard
     end
 
     def snapshot(range)
-      gross, count, approved_gross, after_fee, approved_count, decided = Transaction.where(transaction_at: range).where.not(status: "excluded").pick(
+      gross, count, approved_gross, after_fee, profit, approved_count, decided = Transaction.where(transaction_at: range).where.not(status: "excluded").pick(
         Arel.sql("COALESCE(SUM(transaction_amount_vnd) FILTER (WHERE transactions.status NOT IN ('rejected', 'failed')), 0)"),
         Arel.sql("COUNT(*) FILTER (WHERE transactions.status NOT IN ('rejected', 'failed'))"),
         Arel.sql("COALESCE(SUM(transaction_amount_vnd) FILTER (WHERE transactions.status = 'approved'), 0)"),
         Arel.sql("COALESCE(SUM(amount_after_base_fee_vnd) FILTER (WHERE transactions.status = 'approved'), 0)"),
+        Arel.sql("COALESCE(SUM(profit_amount_vnd) FILTER (WHERE transactions.status = 'approved'), 0)"),
         Arel.sql("COUNT(*) FILTER (WHERE transactions.status = 'approved')"),
         Arel.sql("COUNT(*) FILTER (WHERE transactions.status NOT IN ('pending', 'processing'))")
       )
@@ -276,6 +277,7 @@ module Dashboard
         count: count.to_i,
         approved_gross: approved_gross,
         after_fee: after_fee,
+        profit: profit.to_i,
         base_fee: approved_gross - after_fee,
         approved_count: approved_count,
         decided: decided,
@@ -290,17 +292,19 @@ module Dashboard
         Arel.sql("COUNT(*) FILTER (WHERE transactions.status NOT IN ('rejected', 'failed'))"),
         Arel.sql("COALESCE(SUM(transaction_amount_vnd) FILTER (WHERE transactions.status = 'approved'), 0)"),
         Arel.sql("COALESCE(SUM(amount_after_base_fee_vnd) FILTER (WHERE transactions.status = 'approved'), 0)"),
+        Arel.sql("COALESCE(SUM(profit_amount_vnd) FILTER (WHERE transactions.status = 'approved'), 0)"),
         Arel.sql("COUNT(*) FILTER (WHERE transactions.status = 'approved')"),
         Arel.sql("COUNT(*) FILTER (WHERE transactions.status NOT IN ('pending', 'processing'))")
-      ).to_h do |day, gross, count, approved_gross, after_fee, approved_count, decided|
-        [coerce_date(day), {
+      ).to_h do |day, gross, count, approved_gross, after_fee, profit, approved_count, decided|
+        [ coerce_date(day), {
           gross: gross.to_i,
           count: count.to_i,
           base_fee: approved_gross.to_i - after_fee.to_i,
           after_fee: after_fee.to_i,
+          profit: profit.to_i,
           approved_count: approved_count.to_i,
           decided: decided.to_i
-        }]
+        } ]
       end
     end
 
@@ -313,6 +317,7 @@ module Dashboard
         bucket[:count] += fact[:count]
         bucket[:base_fee] += fact[:base_fee]
         bucket[:after_fee] += fact[:after_fee]
+        bucket[:profit] += fact[:profit]
         bucket[:approved_count] += fact[:approved_count]
         bucket[:decided] += fact[:decided]
       end
@@ -327,7 +332,7 @@ module Dashboard
     end
 
     def empty_fact
-      { gross: 0, count: 0, base_fee: 0, after_fee: 0, approved_count: 0, decided: 0 }
+      { gross: 0, count: 0, base_fee: 0, after_fee: 0, profit: 0, approved_count: 0, decided: 0 }
     end
 
     def bucket_for(day)
