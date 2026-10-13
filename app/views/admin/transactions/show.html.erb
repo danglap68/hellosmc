@@ -214,37 +214,39 @@
       <div class="card-body">
         <% calc = @transaction.calculation_data %>
         <% if calc.present? %>
-          <table class="table table-sm mb-3">
-            <tr><th class="w-50"><%= t("transactions.calculation.formula") %></th><td><code><%= calc["formula"] %></code></td></tr>
-            <tr><th><%= Transaction.human_attribute_name(:transaction_amount_vnd) %></th><td class="money"><%= format_vnd(calc["transaction_amount_vnd"]) %></td></tr>
-            <tr><th><%= t("transactions.calculation.base_fee_rate") %></th><td><code><%= calc["base_fee_rate"] %></code> (<%= format_rate(calc["base_fee_rate"]) %>)</td></tr>
-            <% source_id = calc.dig("base_fee_rule", "id") %>
-            <% if source_id && source_id != @transaction.fee_rule_id %>
-              <% source_rule = FeeRule.find_by(id: source_id) %>
+          <div class="table-responsive mb-3">
+            <table class="table table-sm mb-0">
+              <tr><th class="w-50"><%= t("transactions.calculation.formula") %></th><td><code><%= calc["formula"] %></code></td></tr>
+              <tr><th><%= Transaction.human_attribute_name(:transaction_amount_vnd) %></th><td class="money"><%= format_vnd(calc["transaction_amount_vnd"]) %></td></tr>
+              <tr><th><%= t("transactions.calculation.base_fee_rate") %></th><td><code><%= calc["base_fee_rate"] %></code> (<%= format_rate(calc["base_fee_rate"]) %>)</td></tr>
+              <% source_id = calc.dig("base_fee_rule", "id") %>
+              <% if source_id && source_id != @transaction.fee_rule_id %>
+                <% source_rule = FeeRule.find_by(id: source_id) %>
+                <tr>
+                  <th><%= t("transactions.calculation.base_fee_rule") %></th>
+                  <td><%= source_rule && can?(:read, :fee_rules) ? link_to(fee_rule_label(source_rule), admin_fee_rule_path(source_rule)) : fee_rule_label(source_rule) %></td>
+                </tr>
+              <% end %>
+              <tr><th><%= Transaction.human_attribute_name(:amount_after_base_fee_vnd) %></th><td class="money fw-bold"><%= format_vnd(calc["amount_after_base_fee_vnd"]) %></td></tr>
+              <% if calc["dealer_formula"] %>
+                <tr><th><%= t("transactions.calculation.dealer_formula") %></th><td><code><%= calc["dealer_formula"] %></code></td></tr>
+                <tr><th><%= Transaction.human_attribute_name(:dealer_amount_vnd) %></th><td class="money"><%= format_vnd(calc["dealer_amount_vnd"]) %></td></tr>
+                <tr><th><%= t("transactions.calculation.profit_formula") %></th><td><code><%= calc["profit_formula"] %></code></td></tr>
+                <tr><th><%= Transaction.human_attribute_name(:profit_amount_vnd) %></th><td class="money"><%= format_vnd(calc["profit_amount_vnd"]) %></td></tr>
+              <% end %>
+              <tr><th><%= t("transactions.calculation.rounding") %></th><td><%= t("transactions.calculation.rounding_value") %></td></tr>
               <tr>
-                <th><%= t("transactions.calculation.base_fee_rule") %></th>
-                <td><%= source_rule && can?(:read, :fee_rules) ? link_to(fee_rule_label(source_rule), admin_fee_rule_path(source_rule)) : fee_rule_label(source_rule) %></td>
+                <th><%= t("transactions.calculation.fee_rule") %></th>
+                <td>
+                  <% if @transaction.fee_rule %>
+                    <%= can?(:read, :fee_rules) ? link_to(fee_rule_label(@transaction.fee_rule), admin_fee_rule_path(@transaction.fee_rule)) : fee_rule_label(@transaction.fee_rule) %>
+                    <% if calc["fee_rule_source"] == "override" %><span class="badge bg-purple-lt ms-1"><%= t("transactions.calculation.override") %></span><% end %>
+                  <% else %>—<% end %>
+                </td>
               </tr>
-            <% end %>
-            <tr><th><%= Transaction.human_attribute_name(:amount_after_base_fee_vnd) %></th><td class="money fw-bold"><%= format_vnd(calc["amount_after_base_fee_vnd"]) %></td></tr>
-            <% if calc["dealer_formula"] %>
-              <tr><th><%= t("transactions.calculation.dealer_formula") %></th><td><code><%= calc["dealer_formula"] %></code></td></tr>
-              <tr><th><%= Transaction.human_attribute_name(:dealer_amount_vnd) %></th><td class="money"><%= format_vnd(calc["dealer_amount_vnd"]) %></td></tr>
-              <tr><th><%= t("transactions.calculation.profit_formula") %></th><td><code><%= calc["profit_formula"] %></code></td></tr>
-              <tr><th><%= Transaction.human_attribute_name(:profit_amount_vnd) %></th><td class="money"><%= format_vnd(calc["profit_amount_vnd"]) %></td></tr>
-            <% end %>
-            <tr><th><%= t("transactions.calculation.rounding") %></th><td><%= t("transactions.calculation.rounding_value") %></td></tr>
-            <tr>
-              <th><%= t("transactions.calculation.fee_rule") %></th>
-              <td>
-                <% if @transaction.fee_rule %>
-                  <%= can?(:read, :fee_rules) ? link_to(fee_rule_label(@transaction.fee_rule), admin_fee_rule_path(@transaction.fee_rule)) : fee_rule_label(@transaction.fee_rule) %>
-                  <% if calc["fee_rule_source"] == "override" %><span class="badge bg-purple-lt ms-1"><%= t("transactions.calculation.override") %></span><% end %>
-                <% else %>—<% end %>
-              </td>
-            </tr>
-            <tr><th><%= t("transactions.calculation.calculated_at") %></th><td><%= calc["calculated_at"] ? format_datetime(Time.zone.parse(calc["calculated_at"])) : "—" %></td></tr>
-          </table>
+              <tr><th><%= t("transactions.calculation.calculated_at") %></th><td><%= calc["calculated_at"] ? format_datetime(Time.zone.parse(calc["calculated_at"])) : "—" %></td></tr>
+            </table>
+          </div>
           <details>
             <summary class="text-secondary small"><%= t("transactions.calculation.snapshot") %></summary>
             <%= json_block(calc) %>
@@ -268,18 +270,20 @@
           <div class="tab-pane active show" id="tab-normalized" role="tabpanel">
             <% extraction = @transaction.extraction %>
             <% if extraction.present? %>
-              <table class="table table-sm mb-3">
-                <thead><tr><th><%= t("reviews.field") %></th><th><%= t("reviews.ocr_value") %></th><th><%= t("common.confidence") %></th></tr></thead>
-                <tbody>
-                  <% BillVision::Prompt::FIELDS.each do |field| %>
-                    <tr>
-                      <td><%= t("extraction_fields.#{field}") %></td>
-                      <td><%= field == "total_amount_vnd" ? format_vnd(extraction[field]) : (field == "document_type" ? enum_label(:extraction, :document_type, extraction[field]) : (extraction[field].presence || "—")) %></td>
-                      <td><%= confidence_badge(extraction.dig("confidence", field)) %></td>
-                    </tr>
-                  <% end %>
-                </tbody>
-              </table>
+              <div class="table-responsive mb-3">
+                <table class="table table-sm mb-0">
+                  <thead><tr><th><%= t("reviews.field") %></th><th><%= t("reviews.ocr_value") %></th><th><%= t("common.confidence") %></th></tr></thead>
+                  <tbody>
+                    <% BillVision::Prompt::FIELDS.each do |field| %>
+                      <tr>
+                        <td><%= t("extraction_fields.#{field}") %></td>
+                        <td><%= field == "total_amount_vnd" ? format_vnd(extraction[field]) : (field == "document_type" ? enum_label(:extraction, :document_type, extraction[field]) : (extraction[field].presence || "—")) %></td>
+                        <td><%= confidence_badge(extraction.dig("confidence", field)) %></td>
+                      </tr>
+                    <% end %>
+                  </tbody>
+                </table>
+              </div>
             <% end %>
             <%= json_block(extraction) %>
           </div>

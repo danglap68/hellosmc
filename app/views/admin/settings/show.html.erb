@@ -199,24 +199,26 @@
           <div class="text-secondary small"><%= t("settings.services.help") %></div>
         </div>
       </div>
-      <table class="table card-table">
-        <% @services.each do |service, configured| %>
+      <div class="table-responsive">
+        <table class="table card-table">
+          <% @services.each do |service, configured| %>
+            <tr>
+              <td><%= t("settings.services.#{service}") %><div class="small text-secondary"><code><%= t("settings.services.env.#{service}") %></code></div></td>
+              <td class="text-end">
+                <% if configured %>
+                  <span class="badge bg-green-lt"><%= t("settings.services.configured") %></span>
+                <% else %>
+                  <span class="badge bg-secondary-lt"><%= t("settings.services.missing") %></span>
+                <% end %>
+              </td>
+            </tr>
+          <% end %>
           <tr>
-            <td><%= t("settings.services.#{service}") %><div class="small text-secondary"><code><%= t("settings.services.env.#{service}") %></code></div></td>
-            <td class="text-end">
-              <% if configured %>
-                <span class="badge bg-green-lt"><%= t("settings.services.configured") %></span>
-              <% else %>
-                <span class="badge bg-secondary-lt"><%= t("settings.services.missing") %></span>
-              <% end %>
-            </td>
+            <td><%= t("settings.services.storage") %></td>
+            <td class="text-end"><code><%= t("settings.services.storage_values.#{@storage_service}", default: @storage_service) %></code></td>
           </tr>
-        <% end %>
-        <tr>
-          <td><%= t("settings.services.storage") %></td>
-          <td class="text-end"><code><%= t("settings.services.storage_values.#{@storage_service}", default: @storage_service) %></code></td>
-        </tr>
-      </table>
+        </table>
+      </div>
       <% if can?(:manage, :settings) %>
         <div class="card-footer">
           <%= button_to check_r2_admin_settings_path, class: "btn btn-outline-primary btn-sm",
@@ -233,11 +235,13 @@
         <h3 class="card-title"><%= t("navigation.card_types") %></h3>
         <div class="card-actions"><%= link_to t("actions.manage"), admin_card_types_path %></div>
       </div>
-      <table class="table card-table">
-        <% @card_types.each do |card_type| %>
-          <tr><td><code><%= card_type.key %></code></td><td><%= card_type.name %></td><td><%= active_badge(card_type.active?) %></td></tr>
-        <% end %>
-      </table>
+      <div class="table-responsive">
+        <table class="table card-table">
+          <% @card_types.each do |card_type| %>
+            <tr><td><code><%= card_type.key %></code></td><td><%= card_type.name %></td><td><%= active_badge(card_type.active?) %></td></tr>
+          <% end %>
+        </table>
+      </div>
     </div>
 
     <div class="card">

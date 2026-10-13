@@ -427,6 +427,100 @@
   .app-ui *, .app-ui *::before, .app-ui *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
 }
 
+/* Toasts: bottom-right so they never cover the page title or its primary actions. */
+.app-toast-stack {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  z-index: 1090;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.625rem;
+  width: min(24rem, calc(100vw - 2.5rem));
+  pointer-events: none;
+}
+.app-toast {
+  --toast-accent: var(--app-accent);
+  --toast-soft: var(--app-accent-soft);
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.875rem 0.75rem 0.875rem 0.875rem;
+  overflow: hidden;
+  background: var(--tblr-bg-surface);
+  border: 1px solid var(--ev-line);
+  border-radius: var(--ev-radius);
+  box-shadow: var(--ev-shadow-pop);
+  color: var(--ev-ink);
+  pointer-events: auto;
+  animation: app-toast-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.app-toast.is-leaving { opacity: 0; transform: translateX(0.75rem); }
+.app-toast-success { --toast-accent: var(--app-success); --toast-soft: var(--app-success-soft); }
+.app-toast-warning { --toast-accent: var(--app-warning); --toast-soft: var(--app-warning-soft); }
+.app-toast-error { --toast-accent: var(--app-danger); --toast-soft: var(--app-danger-soft); }
+.app-toast-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  background: var(--toast-soft);
+  color: var(--toast-accent);
+}
+.app-toast-icon .icon { width: 1.125rem; height: 1.125rem; font-size: 1.125rem; }
+.app-toast-body { flex: 1 1 auto; min-width: 0; padding-top: 0.0625rem; }
+.app-toast-title { font-weight: 600; line-height: 1.35; }
+.app-toast-message { margin-top: 0.125rem; color: var(--ev-ink-2); line-height: 1.45; overflow-wrap: anywhere; white-space: pre-line; }
+.app-toast-message:empty { display: none; }
+.app-toast-close {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  margin: -0.25rem -0.125rem 0 0;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: var(--ev-radius-sm);
+  color: var(--ev-muted);
+  cursor: pointer;
+}
+.app-toast-close:hover { background: var(--ev-hover); color: var(--ev-ink); }
+.app-toast-close:focus-visible { outline: none; box-shadow: var(--ev-focus); }
+.app-toast-timer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: var(--toast-accent);
+  opacity: 0.45;
+  transform-origin: left center;
+  visibility: hidden;
+}
+.app-toast.has-timer .app-toast-timer {
+  visibility: visible;
+  animation: app-toast-timer var(--toast-duration, 5s) linear forwards;
+}
+.app-toast.is-paused .app-toast-timer { animation-play-state: paused; }
+@keyframes app-toast-in { from { opacity: 0; transform: translateY(0.5rem) scale(0.98); } }
+@keyframes app-toast-timer { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+@media (max-width: 575.98px) {
+  .app-toast-stack { left: 0.75rem; right: 0.75rem; bottom: 0.75rem; width: auto; align-items: stretch; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-toast-timer { display: none; }
+}
+
 /* Album photos under the bill viewer (review / transaction pages). */
 .album-strip { display: flex; gap: .5rem; overflow-x: auto; padding-bottom: .25rem; }
 .album-thumb { flex: 0 0 6.5rem; display: flex; flex-direction: column; align-items: center; gap: .25rem; padding: .25rem; background: none; border: 2px solid transparent; border-radius: var(--tblr-border-radius); color: inherit; cursor: pointer; }
@@ -881,6 +975,26 @@
   .shell-sidebar .shell-collapse { height: auto; flex: 1 1 auto; }
   .shell-sidebar .shell-collapse { display: flex !important; flex-direction: column; min-height: 0; }
   .shell-scroll { flex: 1; overflow: auto; }
+}
+@media (max-width: 991.98px) {
+  .admin-layout { --shell-bar-h: 65px; }
+  .shell-sidebar.navbar { position: sticky; top: 0; z-index: 50; padding: 0; border-right: 0; border-bottom: 1px solid var(--tblr-border-color); }
+  .shell-sidebar-inner { width: 100%; min-height: 0; padding: 12px 16px; gap: 0; }
+  .shell-brand-row { height: 40px; padding: 0; }
+  .shell-sidebar .shell-collapse {
+    position: fixed; top: var(--shell-bar-h); left: 0; right: 0; max-height: calc(100dvh - var(--shell-bar-h));
+    overflow-y: auto; overscroll-behavior: contain; padding: 12px 16px 16px;
+    background: var(--tblr-bg-surface); border-bottom: 1px solid var(--tblr-border-color); box-shadow: var(--ev-shadow-pop);
+  }
+  .shell-sidebar .shell-collapse.show { display: flex; flex-direction: column; align-items: stretch; gap: 12px; }
+  .shell-sidebar .shell-collapse > * { width: 100%; }
+  .shell-sidebar:has(.shell-collapse.show, .shell-collapse.collapsing)::after {
+    content: ""; position: fixed; inset: var(--shell-bar-h) 0 0; z-index: -1; background: rgba(15, 23, 42, 0.42);
+  }
+  body:has(.shell-collapse.show) { overflow: hidden; }
+  .shell-link, .app-ui a.shell-link { min-height: 44px; }
+  .shell-pin { width: 36px; height: 36px; right: 4px; }
+  .app-ui .shell-item a.shell-link { padding-right: 44px; }
 }
 @media (max-width: 1439.98px) {
   .overview-breakdowns { grid-template-columns: minmax(0, 1fr); }

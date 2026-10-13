@@ -494,6 +494,7 @@ vi:
       search: "Mã, hộ kinh doanh hoặc đại lý"
       copy: "Chép mã %{code}"
       copied: "Đã chép"
+      copied_toast: "Đã chép mã %{code} vào bộ nhớ tạm."
       sorts:
         code_asc: "Mã A-Z"
         code_desc: "Mã Z-A"

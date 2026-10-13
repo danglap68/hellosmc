@@ -28,11 +28,13 @@
         <h3 class="card-title"><%= icon("building-store") %> <%= t("dealers.merchants") %></h3>
       </div>
       <% if @merchants.any? %>
-        <table class="table card-table">
-          <% @merchants.each do |merchant| %>
-            <tr><td><%= link_to merchant.name, admin_merchant_path(merchant) %></td><td><code><%= merchant.code %></code></td><td><%= safe_join(Array(@tids_by_merchant[merchant.id]).map { |link| content_tag(:span, link.tid_label, class: "badge bg-blue-lt me-1") }) %></td><td><%= active_badge(merchant.active?) %></td></tr>
-          <% end %>
-        </table>
+        <div class="table-responsive">
+          <table class="table card-table table-vcenter">
+            <% @merchants.each do |merchant| %>
+              <tr><td><%= link_to merchant.name, admin_merchant_path(merchant) %></td><td><code><%= merchant.code %></code></td><td><%= safe_join(Array(@tids_by_merchant[merchant.id]).map { |link| content_tag(:span, link.tid_label, class: "badge bg-blue-lt me-1") }) %></td><td><%= active_badge(merchant.active?) %></td></tr>
+            <% end %>
+          </table>
+        </div>
       <% else %>
         <div class="card-body text-secondary"><%= t("merchants.index.empty") %></div>
       <% end %>

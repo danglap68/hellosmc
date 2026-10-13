@@ -3,7 +3,7 @@ import { Controller } from "@hotwired/stimulus"
 // Copies data-clipboard-text-value and briefly swaps the copy icon for a
 // check. Clipboard API first, then a hidden-textarea fallback for plain http.
 export default class extends Controller {
-  static values = { text: String, copied: String }
+  static values = { text: String, copied: String, toast: String }
 
   disconnect() {
     clearTimeout(this.timer)
@@ -42,6 +42,9 @@ export default class extends Controller {
     this.label ??= this.element.getAttribute("title")
     this.toggle(true)
     this.timer = setTimeout(() => this.toggle(false), 1500)
+    if (this.toastValue) {
+      window.dispatchEvent(new CustomEvent("toast:show", { detail: { type: "success", message: this.toastValue } }))
+    }
   }
 
   toggle(copied) {

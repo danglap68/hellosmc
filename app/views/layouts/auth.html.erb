@@ -15,9 +15,9 @@
           </span>
           <div class="text-secondary mt-1"><%= t("app.tagline") %></div>
         </div>
-        <%= render "layouts/flash" %>
         <%= yield %>
       </div>
     </main>
+    <%= render "layouts/toasts" %>
   </body>
 </html>

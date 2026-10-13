@@ -50,7 +50,8 @@
                         aria-label="<%= t('transfer_codes.index.copy', code: link.transfer_code) %>"
                         data-controller="clipboard" data-action="clipboard#copy"
                         data-clipboard-text-value="<%= link.transfer_code %>"
-                        data-clipboard-copied-value="<%= t('transfer_codes.index.copied') %>">
+                        data-clipboard-copied-value="<%= t('transfer_codes.index.copied') %>"
+                        data-clipboard-toast-value="<%= t('transfer_codes.index.copied_toast', code: link.transfer_code) %>">
                   <%= icon("copy") %>
                 </button>
               </td>

@@ -1,0 +1,12 @@
+<% config = toast_config(type) %>
+<div class="app-toast app-toast-<%= type %>" role="<%= config[:role] %>" data-turbo-temporary
+     data-toast-target="item" data-duration="<%= config[:duration] %>"
+     data-action="mouseenter->toast#pause mouseleave->toast#resume focusin->toast#pause focusout->toast#resume keydown.esc->toast#dismiss">
+  <span class="app-toast-icon"><%= icon(config[:icon]) %></span>
+  <div class="app-toast-body">
+    <div class="app-toast-title"><%= config[:title] %></div>
+    <div class="app-toast-message"><%= message %></div>
+  </div>
+  <button type="button" class="app-toast-close" data-action="toast#dismiss" aria-label="<%= t("ui.toast.close") %>"><%= icon("x") %></button>
+  <span class="app-toast-timer" aria-hidden="true"></span>
+</div>

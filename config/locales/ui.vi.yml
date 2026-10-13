@@ -4,6 +4,15 @@ vi:
     main_navigation: "Điều hướng chính"
     breadcrumbs: "Đường dẫn"
     daily_bill_stats: "Thống kê xử lý bill hôm nay"
+    toast:
+      region: "Thông báo"
+      close: "Đóng thông báo"
+      validation_failed: "Chưa thực hiện được. Kiểm tra lại các trường được đánh dấu bên dưới."
+      titles:
+        success: "Thành công"
+        info: "Thông tin"
+        warning: "Lưu ý"
+        error: "Có lỗi"
     appearance:
       label: "Giao diện"
       option: "Giao diện %{mode}"

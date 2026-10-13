@@ -1,0 +1,10 @@
+<section class="app-toast-stack" aria-label="<%= t("ui.toast.region") %>"
+         data-controller="toast" data-toast-types-value="<%= toast_types_json %>"
+         data-action="toast:show@window->toast#show">
+  <% toast_messages.each do |toast| %>
+    <%= render "layouts/toast", type: toast[:type], message: toast[:message] %>
+  <% end %>
+  <template data-toast-target="template">
+    <%= render "layouts/toast", type: "info", message: "" %>
+  </template>
+</section>

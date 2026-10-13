@@ -26,16 +26,18 @@
       <div class="card-header"><h3 class="card-title"><%= t("merchants.show.transfer_codes") %></h3></div>
       <% links = @merchant.merchant_dealers.includes(:dealer, :merchant).order(:tid_key) %>
       <% if links.any? %>
-        <table class="table table-sm card-table">
-          <tbody>
-            <% links.each do |link| %>
-              <tr>
-                <td><%= link.dealer.name %> <span class="text-secondary">(<%= link.tid_label %>)</span></td>
-                <td class="text-end"><%= link.transfer_code ? content_tag(:code, link.transfer_code) : "—" %></td>
-              </tr>
-            <% end %>
-          </tbody>
-        </table>
+        <div class="table-responsive">
+          <table class="table table-sm card-table">
+            <tbody>
+              <% links.each do |link| %>
+                <tr>
+                  <td><%= link.dealer.name %> <span class="text-secondary">(<%= link.tid_label %>)</span></td>
+                  <td class="text-end"><%= link.transfer_code ? content_tag(:code, link.transfer_code) : "—" %></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
       <% end %>
       <div class="card-body text-secondary small">
         <%= t("merchants.show.transfer_codes_help") %>

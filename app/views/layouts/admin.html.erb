@@ -10,7 +10,8 @@
         data-command-palette-labels-value="<%= command_palette_labels.to_json %>">
     <a href="#main-content" class="skip-link"><%= t("ui.skip_to_content") %></a>
     <div class="page">
-      <aside class="navbar navbar-vertical navbar-expand-lg shell-sidebar" aria-label="<%= t("ui.main_navigation") %>">
+      <aside class="navbar navbar-vertical navbar-expand-lg shell-sidebar" aria-label="<%= t("ui.main_navigation") %>"
+             data-controller="shell-menu" data-action="click->shell-menu#backdrop keydown@document->shell-menu#escape">
         <div class="shell-sidebar-inner">
           <div class="shell-brand-row">
             <%= link_to admin_root_path, class: "shell-brand" do %>
@@ -20,13 +21,14 @@
                 <span class="shell-product"><%= t("navigation.product") %></span>
               </span>
             <% end %>
-            <button class="navbar-toggler shell-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#sidebar-menu"
-                    aria-controls="sidebar-menu" aria-expanded="false" aria-label="<%= t('navigation.toggle') %>">
+            <button class="navbar-toggler shell-toggler collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sidebar-menu"
+                    aria-controls="sidebar-menu" aria-expanded="false" aria-label="<%= t('navigation.toggle') %>"
+                    data-shell-menu-target="toggle">
               <span class="navbar-toggler-icon"></span>
             </button>
           </div>
 
-          <div class="collapse navbar-collapse shell-collapse" id="sidebar-menu">
+          <div class="collapse navbar-collapse shell-collapse" id="sidebar-menu" data-shell-menu-target="menu">
             <button type="button" class="shell-search" data-action="command-palette#open">
               <%= icon("search") %>
               <span><%= t("navigation.palette_placeholder") %></span>
@@ -82,7 +84,6 @@
       <div class="page-wrapper">
         <main class="page-body" id="main-content" tabindex="-1">
           <div class="container-xl">
-            <%= render "layouts/flash" %>
             <% if settings_context? && settings_tabs.any? %>
               <div class="settings-page">
                 <header class="settings-intro">
@@ -128,5 +129,6 @@
       </div>
     </div>
     <%= render "admin/shared/command_palette" %>
+    <%= render "layouts/toasts" %>
   </body>
 </html>
