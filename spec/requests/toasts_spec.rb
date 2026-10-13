@@ -35,6 +35,13 @@ RSpec.describe "Toast messages" do
     expect(toast["data-duration"]).to eq("0")
   end
 
+  it "does not call Devise's informational alerts an error" do
+    get new_user_session_path
+    follow_redirect! while response.redirect?
+
+    expect(toasts.sole["class"]).to include("app-toast-info")
+  end
+
   it "warns with an error toast when a form is sent back with errors" do
     patch admin_transfer_code_path(tk01), params: { merchant_dealer: { transfer_code: "tk02" } }
 

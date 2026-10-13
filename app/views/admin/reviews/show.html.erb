@@ -6,7 +6,7 @@
 <% content_for :actions do %>
   <%= link_to admin_transaction_path(@transaction), class: "btn btn-outline-secondary" do %><%= icon("eye") %> <%= t("reviews.show.details") %><% end %>
   <% if @next_transaction %>
-    <%= link_to admin_review_path(@next_transaction), class: "btn btn-outline-primary" do %><%= t("reviews.show.next") %> <%= icon("arrow-right") %><% end %>
+    <%= link_to admin_review_path(@next_transaction), class: "btn btn-outline-primary" do %><%= t("reviews.show.next") %> <%= icon("arrow-right", "icon-right") %><% end %>
   <% end %>
 <% end %>
 

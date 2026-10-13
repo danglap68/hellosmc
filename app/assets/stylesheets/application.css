@@ -418,6 +418,7 @@
   .dashboard-metric:last-child { grid-column: 1 / -1; }
   .metric-value { font-size: 1.75rem; }
   .amount-value { font-size: 1.375rem; white-space: normal; overflow-wrap: anywhere; }
+  .bill-viewer { min-height: 16rem; }
   .auth-toolbar { padding: 1rem; }
   .auth-layout .card-body { padding: 1.5rem; }
   .auth-layout .page-center { padding-top: 0; }
@@ -933,7 +934,7 @@
 .tone-danger { background: var(--ev-red-wash); color: var(--ev-red-ink); }
 
 .settings-intro { margin-bottom: 0.25rem; }
-.settings-tabs { display: flex; gap: 1.5rem; list-style: none; margin: 0 0 1.5rem; padding: 0; border-bottom: 1px solid var(--tblr-border-color); overflow-x: auto; }
+.settings-tabs { display: flex; gap: 1.5rem; list-style: none; margin: 0 0 1.5rem; padding: 0; border-bottom: 1px solid var(--tblr-border-color); overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
 .settings-tab, .app-ui a.settings-tab {
   position: relative; display: inline-flex; align-items: center; padding: 0.875rem 0 0.8125rem;
   border-radius: 0; background: none; color: var(--tblr-secondary); text-decoration: none; font-size: 0.875rem; font-weight: 500; white-space: nowrap; box-shadow: none;
@@ -941,7 +942,7 @@
 .settings-tab:hover { color: var(--ev-ink); }
 .app-ui a.settings-tab[aria-current="page"], .settings-tab[aria-current="page"] { background: none; color: var(--ev-ink); font-weight: 600; box-shadow: none; }
 .settings-tab[aria-current="page"]::after {
-  content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; border-radius: 2px 2px 0 0; background: var(--ev-grad);
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; border-radius: 2px 2px 0 0; background: var(--ev-grad);
 }
 .settings-body { display: grid; grid-template-columns: 12.5rem minmax(0, 1fr); gap: 2rem; align-items: start; }
 .settings-subnav { display: flex; flex-direction: column; gap: 0.125rem; position: sticky; top: 1rem; }

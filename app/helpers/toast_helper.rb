@@ -17,9 +17,17 @@ module ToastHelper
     "error" => "error"
   }.freeze
 
+  # Devise puts these in flash[:alert] although nothing went wrong.
+  DEVISE_ALERT_TYPES = {
+    "devise.failure.already_authenticated" => "info",
+    "devise.failure.unauthenticated" => "info",
+    "devise.failure.timeout" => "warning"
+  }.freeze
+
   def toast_messages
     toasts = flash.filter_map do |key, message|
-      type = FLASH_TYPES[key.to_s]
+      type = devise_alert_type(message) if key.to_s == "alert"
+      type ||= FLASH_TYPES[key.to_s]
       { type: type, message: message.to_s } if type && message.present?
     end
     if response.status == 422 && toasts.none? { |toast| toast[:type] == "error" }
@@ -34,5 +42,11 @@ module ToastHelper
 
   def toast_types_json
     TOAST_TYPES.keys.index_with { |type| toast_config(type) }.to_json
+  end
+
+  private
+
+  def devise_alert_type(message)
+    DEVISE_ALERT_TYPES.find { |key, _type| message.to_s == t(key) }&.last
   end
 end
