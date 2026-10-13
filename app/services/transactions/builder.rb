@@ -403,25 +403,38 @@ module Transactions
     # (Transactions::Includer). A photo uploaded by hand is always built: a
     # person chose it.
     def skip_tag(document)
+      @merchant_result = nil
       return unless @bill_image.telegram?
       return "smart_pos" if document["shows_smart_pos"] == true
 
       "skip_merchant" if skipped_merchant?(document)
     end
 
+    # No HKD is set to "Bỏ qua bill": nothing to look up (the lookup is not free for a name that
+    # needs the fuzzy match).
     def skipped_merchant?(document)
-      result = Merchants::Resolver.for_document(document)
-      return false unless result.merchant&.skip_bills?
+      return false unless Merchant.active.where(skip_bills: true).exists?
 
-      result.exact? || (result.fuzzy? && result.score.to_f >= AppConfig.merchant_auto_accept_score)
+      result = trusted_merchant(document)
+      result&.skip_bills? || false
+    end
+
+    # The HKD of the bill when it is an exact or a near enough match, else nil. Looked up once
+    # per document: the tag decision and the excluded row share it.
+    def trusted_merchant(document)
+      @merchant_result ||= begin
+        result = Merchants::Resolver.for_document(document)
+        trusted = result.exact? || (result.fuzzy? && result.score.to_f >= AppConfig.merchant_auto_accept_score)
+        [ trusted ? result.merchant : nil ]
+      end
+      @merchant_result.first
     end
 
     # What the bill says, nothing calculated: no dealer, card type, fee, review,
     # duplicate check, sheet or Excel row.
     def exclude(transaction, document, tag, before:, creating:)
-      merchant = excluded_merchant(document)
       transaction.assign_attributes(
-        merchant: merchant,
+        merchant: trusted_merchant(document),
         lot_number: document["lot_number"],
         transaction_at: document["transaction_at"].presence && Time.zone.parse(document["transaction_at"]),
         transaction_amount_vnd: document["total_amount_vnd"],
@@ -440,11 +453,6 @@ module Transactions
                        metadata: { "bill_image_id" => @bill_image.id, "excluded_reason" => tag })
       StructuredLog.info("transaction.excluded", transaction_id: transaction.id, bill_image_id: @bill_image.id, tag: tag)
       transaction
-    end
-
-    def excluded_merchant(document)
-      result = Merchants::Resolver.for_document(document)
-      result.merchant if result.exact? || (result.fuzzy? && result.score.to_f >= AppConfig.merchant_auto_accept_score)
     end
 
     def record_skipped(index)
