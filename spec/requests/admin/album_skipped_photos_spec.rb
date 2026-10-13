@@ -51,6 +51,6 @@ RSpec.describe "Album with photos that are not bills" do
     get admin_transaction_path(album.transactions.sole)
 
     expect(Nokogiri::HTML(response.body).css(".album-strip")).to be_empty
-    expect(response.body).not_to include("Album #", "Bỏ qua", "Hình chuyển tiền")
+    expect(response.body).not_to include("Bỏ qua", "Hình chuyển tiền")
   end
 end

@@ -41,7 +41,9 @@ RSpec.describe "Album with its child bills dropped" do
 
     body = response.body
     expect(body).to include("Ảnh bill", "77.678.000")
-    expect(body).not_to include("Album #", "Bill con", "Bỏ qua", "Tổng bill con", "Chênh lệch", "49.981.000", "27.697.000", "12.000.000")
+    expect(body).not_to include("Bill con", "Bỏ qua", "Tổng bill con", "Chênh lệch", "49.981.000", "27.697.000", "12.000.000")
+    # Only a link to the album page, to check its other photos and transactions.
+    expect(Nokogiri::HTML(body).css(%(a[href="#{admin_bill_album_path(album)}"])).text).to include("Album ##{album.id}")
     expect(Nokogiri::HTML(body).css(".album-strip")).to be_empty
     expect(Nokogiri::HTML(body).css(".bill-viewer img").size).to eq(1)
   end
@@ -67,11 +69,13 @@ RSpec.describe "Album with its child bills dropped" do
 
     get admin_transaction_path(transactions.first)
     expect(response.body).to include("5.003.000")
-    expect(response.body).not_to include("4.995.000", "Album #", "Nhiều ảnh tổng kết")
+    expect(response.body).not_to include("4.995.000", "Nhiều ảnh tổng kết")
+    expect(response.body).to include(admin_bill_album_path(several))
     expect(Nokogiri::HTML(response.body).css(".bill-viewer img").size).to eq(1)
 
     get admin_bill_album_path(several)
     expect(response).to have_http_status(:ok)
+    transactions.each { |transaction| expect(response.body).to include(admin_transaction_path(transaction)) }
   end
 
   it "still shows the child bills of an album that was reconciled against them" do

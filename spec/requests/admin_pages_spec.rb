@@ -13,6 +13,15 @@ RSpec.describe "Admin pages" do
 
   before { sign_in admin }
 
+  it "lists the albums in the menu, for the people who may read them" do
+    get admin_root_path
+    expect(Nokogiri::HTML(response.body).css(%(a[href="#{admin_bill_albums_path}"])).text).to include("Album bill")
+
+    sign_in create(:user, :viewer)
+    get admin_root_path
+    expect(Nokogiri::HTML(response.body).css(%(a[href="#{admin_bill_albums_path}"]))).to be_present
+  end
+
   it "renders index, show, new and edit pages" do
     paths = [
       admin_root_path,
