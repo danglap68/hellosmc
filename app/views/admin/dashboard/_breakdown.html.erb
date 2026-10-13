@@ -1,0 +1,43 @@
+<%# locals: (title:, rows:, filter_key:) %>
+<section class="card">
+  <div class="card-header">
+    <h2 class="card-title"><%= title %></h2>
+    <div class="card-actions text-secondary small"><%= t("dashboard.period_range", from: l(@stats.period_start), to: l(@stats.period_end)) %></div>
+  </div>
+  <% if rows.any? %>
+    <% max_amount = [rows.map { |row| row[:amount] }.max.to_f, 1].max %>
+    <div class="table-responsive breakdown-scroll">
+      <table class="table table-vcenter card-table">
+        <thead>
+          <tr>
+            <th><%= title %></th>
+            <th class="text-end"><%= t("dashboard.count_column") %></th>
+            <th class="text-end"><%= t("dashboard.amount_column") %></th>
+            <th class="text-end"><%= t("dashboard.approved_column") %></th>
+            <th class="text-end"><%= t("dashboard.profit_column") %></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% rows.each do |row| %>
+            <tr>
+              <td>
+                <% if row[:id] %>
+                  <%= link_to row[:name], admin_transactions_path(filter_key => row[:id], date_from: @stats.period_start, date_to: @stats.period_end) %>
+                <% else %>
+                  <%= row[:name] %>
+                <% end %>
+                <div class="share-bar" style="--share: <%= (row[:amount] / max_amount * 100).round(1) %>%"></div>
+              </td>
+              <td class="text-end"><%= row[:count] %></td>
+              <td class="text-end money"><%= format_vnd(row[:amount]) %></td>
+              <td class="text-end money"><%= format_vnd(row[:approved_amount]) %></td>
+              <td class="text-end money"><%= format_vnd(row[:profit]) %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% else %>
+    <div class="card-body"><%= empty_state t("dashboard.empty_window") %></div>
+  <% end %>
+</section>

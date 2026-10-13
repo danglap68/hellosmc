@@ -2,11 +2,20 @@ module Admin
   class TransactionsController < BaseController
     permission :transactions
 
+    SORTS = {
+      "newest" => { created_at: :desc, id: :desc },
+      "oldest" => { created_at: :asc, id: :asc },
+      "when_desc" => { transaction_at: :desc, id: :desc },
+      "when_asc" => { transaction_at: :asc, id: :asc },
+      "amount_desc" => { transaction_amount_vnd: :desc, id: :desc },
+      "amount_asc" => { transaction_amount_vnd: :asc, id: :asc }
+    }.freeze
+
     before_action :set_transaction, except: :index
 
     def index
       @filter = Transactions::Filter.new(params)
-      scope = @filter.apply(Transaction.includes(:dealer, :merchant, :card_type)).recent_first
+      scope = apply_sort(@filter.apply(Transaction.includes(:dealer, :merchant, :card_type)), SORTS, default: "newest")
       @pagy, @transactions = pagy(scope)
     end
 

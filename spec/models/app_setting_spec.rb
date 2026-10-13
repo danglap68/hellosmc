@@ -11,8 +11,9 @@ RSpec.describe AppSetting do
     expect(AppConfig.telegram_auto_activate_chats?).to be(true)
   end
 
-  it "rejects keys that are not settings any more" do
-    expect(described_class.new(key: "ocr_auto_approve_threshold", value: "0.9")).not_to be_valid
+  it "accepts technical tuning keys and rejects unknown ones" do
+    expect(described_class.new(key: "ocr_auto_approve_threshold", value: "0.9")).to be_valid
+    expect(described_class.new(key: "openai_vision_model", value: "gpt-4.1")).not_to be_valid
     expect(described_class.new(key: "openai_api_key", value: "sk")).not_to be_valid
   end
 

@@ -1,5 +1,6 @@
 class TelegramMessage < ApplicationRecord
   PROCESSING_STATUSES = %w[received ignored queued processed failed].freeze
+  KINDS = %w[text photo document video voice audio sticker location contact service other].freeze
 
   belongs_to :telegram_chat
   has_many :bill_images, dependent: :restrict_with_error
@@ -9,7 +10,10 @@ class TelegramMessage < ApplicationRecord
   enum :processing_status, PROCESSING_STATUSES.index_by(&:itself), prefix: :processing, validate: true
 
   validates :telegram_message_id, presence: true, uniqueness: { scope: :telegram_chat_id }
+  validates :kind, inclusion: { in: KINDS }
 
+  # List pages must not load raw_payload.
+  scope :for_list, -> { select(column_names - [ "raw_payload" ]) }
   scope :with_image, -> {
     where(<<~SQL.squish)
       COALESCE(raw_payload -> 'message', raw_payload -> 'channel_post') ? 'photo'
@@ -35,6 +39,10 @@ class TelegramMessage < ApplicationRecord
         [ id ]
       end
     Transaction.where(telegram_message_id: message_ids)
+  end
+
+  def display_body
+    message_text.presence || I18n.t("messages.kinds.bracket.#{kind}", default: I18n.t("messages.kinds.bracket.other"))
   end
 
   # Telegram sends an album as separate messages sharing a media_group_id;

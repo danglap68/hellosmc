@@ -42,6 +42,7 @@ RSpec.describe "Role restrictions" do
 
     it "can read but not change configuration" do
       get admin_fee_rules_path
+      follow_redirect!
       expect(response).to have_http_status(:ok)
       get new_admin_fee_rule_path
       expect(response).to have_http_status(:forbidden)
@@ -63,6 +64,7 @@ RSpec.describe "Role restrictions" do
 
     it "can manage users and settings" do
       get admin_users_path
+      follow_redirect!
       expect(response).to have_http_status(:ok)
       get admin_settings_path
       expect(response).to have_http_status(:ok)

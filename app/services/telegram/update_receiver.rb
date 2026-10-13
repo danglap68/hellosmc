@@ -20,7 +20,6 @@ module Telegram
 
       chat = upsert_chat(parsed)
       return handle_edit(chat, parsed) if parsed.edited
-      return result(:ignored_inactive_chat) if !chat.active? && !parsed.image?
 
       message, created = persist_message(chat, parsed)
       unless created
@@ -28,6 +27,14 @@ module Telegram
         return result(:duplicate, message)
       end
 
+      route_new_message(chat, parsed, message)
+    end
+
+    private
+
+    # Same routing as a first delivery. Inactive chats are stored and not
+    # downloaded. Only an image of an active chat is queued for OCR.
+    def route_new_message(chat, parsed, message)
       # Flag off: no transfer flow at all. Every photo (remitters' included)
       # takes the normal path, so a remitter's settlement bill still becomes a
       # transaction; a transfer photo is dropped after OCR (AnalyzeBillImageJob).
@@ -39,7 +46,7 @@ module Telegram
       # with the flag off each one is judged on its own after OCR (settlement
       # -> transaction, anything else skipped) instead of the album path
       # turning every transfer into a "tổng kết" transaction to reject by hand.
-      if created && parsed.image? && parsed.media_group_id.present? && remitter_sender(parsed).nil?
+      if parsed.image? && parsed.media_group_id.present? && remitter_sender(parsed).nil?
         BillAlbums::Collector.call(message)
       end
 
@@ -57,8 +64,6 @@ module Telegram
         result(:queued, message)
       end
     end
-
-    private
 
     def remitter_sender(parsed)
       return @remitter_sender if defined?(@remitter_sender)
@@ -151,11 +156,30 @@ module Telegram
         media_group_id: parsed.media_group_id,
         message_text: parsed.text,
         sent_at: parsed.sent_at,
+        kind: parsed.kind,
+        reply_to_message_id: parsed.reply_to_message_id,
+        forwarded_from: parsed.forwarded_from,
         raw_payload: @update.to_h.deep_stringify_keys
       )
       [ message, true ]
     rescue ActiveRecord::RecordNotUnique
       [ TelegramMessage.find_by!(telegram_chat: chat, telegram_message_id: parsed.message_id), false ]
+    end
+
+    # An edit can arrive before the original. Store it and route it once, the
+    # same way a first delivery is routed, so an active chat's photo is still
+    # downloaded and a text message is only stored.
+    def create_from_edit(chat, parsed)
+      message, created = persist_message(chat, parsed)
+      return result(:edit_duplicate, message) unless created
+
+      message.update!(edited_at: parsed.edited_at || Time.current)
+      AuditLogger.log!(
+        action: "telegram_message.created_from_edit", auditable: message,
+        after_data: { "message_text" => parsed.text }
+      )
+      log("telegram.message_created_from_edit", chat, parsed)
+      route_new_message(chat, parsed, message)
     end
 
     # The edited text replaces message_text (the original stays in raw_payload
@@ -164,14 +188,18 @@ module Telegram
     # are sent back to a human.
     def handle_edit(chat, parsed)
       message = TelegramMessage.find_by(telegram_chat: chat, telegram_message_id: parsed.message_id)
-      return result(:ignored_edit_unknown_message) unless message
+      return create_from_edit(chat, parsed) unless message
 
       edits = Array(message.raw_payload["edits"])
       return result(:edit_duplicate, message) if edits.any? { |edit| edit["update_id"] == parsed.update_id }
 
       previous_text = message.effective_text
       edits << { "update_id" => parsed.update_id, "text" => parsed.text, "received_at" => Time.current.utc.iso8601 }
-      message.update!(message_text: parsed.text, raw_payload: message.raw_payload.merge("edits" => edits))
+      message.update!(
+        message_text: parsed.text,
+        edited_at: parsed.edited_at || Time.current,
+        raw_payload: message.raw_payload.merge("edits" => edits)
+      )
       AuditLogger.log!(
         action: "telegram_message.edited", auditable: message,
         before_data: { "message_text" => previous_text }, after_data: { "message_text" => parsed.text }

@@ -5,7 +5,20 @@
   <% end %>
 <% end %>
 <div class="alert alert-info"><%= icon("info-circle") %> <%= t("card_types.index.help") %></div>
+<%= list_toolbar(
+      url: admin_settings_fees_card_types_path,
+      search: { param: "q", value: params[:q], placeholder: t("card_types.index.title") },
+      default_sort: "position",
+      sorts: [
+        { key: "position", label: t("toolbar.sorts.position") },
+        { key: "name_asc", label: t("toolbar.sorts.name_asc") }
+      ],
+      filters: [
+        { type: :single, name: "active", label: t("toolbar.active_state"), value: params[:active], options: [[t("common.active"), "1"], [t("common.inactive"), "0"]] }
+      ]
+    ) %>
 <div class="card">
+  <% if @card_types.any? %>
   <div class="table-responsive">
     <table class="table table-vcenter card-table">
       <thead>
@@ -33,4 +46,7 @@
       </tbody>
     </table>
   </div>
+  <% else %>
+    <div class="card-body"><%= empty_state t("common.no_data") %></div>
+  <% end %>
 </div>

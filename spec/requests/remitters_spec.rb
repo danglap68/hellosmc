@@ -17,6 +17,7 @@ RSpec.describe "Remitters admin" do
   it "lists remitters" do
     create(:remitter, name: "Lập", excel_key: "LẬP")
     get admin_remitters_path
+    follow_redirect!
     expect(response).to have_http_status(:ok)
     expect(response.body).to include("Lập")
   end

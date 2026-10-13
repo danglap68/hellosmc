@@ -3,7 +3,9 @@ module Admin
     permission :dashboard
 
     def index
-      @stats = Dashboard::Stats.new
+      @period = params[:period].to_s
+      @period = "30d" unless @period.in?(Dashboard::Stats::PERIODS)
+      @stats = Dashboard::Stats.new(period: @period)
     end
   end
 end

@@ -31,6 +31,7 @@ RSpec.configure do |config|
   # Rails 8 loads routes lazily; Devise mappings need them.
   config.before(:suite) do
     Rails.application.reload_routes_unless_loaded
+    Role.seed_defaults!(reset_system_grants: true)
   end
 
   # Files attached during the suite land on the Disk service (tmp/storage) and

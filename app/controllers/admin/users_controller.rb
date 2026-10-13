@@ -5,7 +5,19 @@ module Admin
     before_action :set_user, only: %i[edit update destroy send_reset_password]
 
     def index
-      @pagy, @users = pagy(User.ordered)
+      scope = User.includes(:access_role)
+      if params[:q].present?
+        q = "%#{User.sanitize_sql_like(params[:q])}%"
+        scope = scope.where("users.email ILIKE :q OR users.name ILIKE :q", q: q)
+      end
+      scope = scope.where(role: params[:role]) if params[:role].present? && Role.exists?(key: params[:role])
+      scope = apply_active_filter(scope)
+      scope = apply_sort(scope, {
+        "email" => { email: :asc },
+        "name_asc" => { name: :asc, email: :asc },
+        "newest" => { created_at: :desc, id: :desc }
+      }, default: "email")
+      @pagy, @users = pagy(scope)
     end
 
     def new

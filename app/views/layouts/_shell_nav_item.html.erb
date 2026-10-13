@@ -1,0 +1,16 @@
+<% pinned = shell_pinned_keys.include?(item[:key]) %>
+<div class="shell-item" data-nav-pins-key="<%= item[:key] %>">
+  <%= link_to item[:url], class: "shell-link", aria: { current: ("page" if item[:active]) } do %>
+    <span class="shell-link-icon"><%= icon(item[:icon]) %></span>
+    <span class="shell-link-label"><%= item[:label] %></span>
+    <% if item[:count].positive? %><span class="shell-count"><%= item[:count] %></span><% end %>
+  <% end %>
+  <button type="button" class="shell-pin"
+          data-action="nav-pins#toggle"
+          data-nav-pins-key-param="<%= item[:key] %>"
+          aria-pressed="<%= pinned %>"
+          aria-label="<%= t(pinned ? "navigation.unpin" : "navigation.pin", name: item[:label]) %>"
+          title="<%= t(pinned ? "navigation.unpin_short" : "navigation.pin_short") %>">
+    <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M12 17.75l-6.17 3.24 1.18-6.87L2 9.26l6.9-1L12 2l3.1 6.26 6.9 1-5 4.86 1.18 6.87z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+  </button>
+</div>

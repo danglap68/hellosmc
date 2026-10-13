@@ -42,29 +42,29 @@ function browser({ saved = null, dark = false, blocked = false } = {}) {
   }
 }
 
-test('first visit follows OS appearance and follows subsequent OS changes', () => {
-  const page = browser({ dark: true })
-  assert.equal(page.attrs['data-bs-theme'], 'dark')
-  assert.equal(page.buttons[2]['aria-pressed'], 'true')
-  page.media.matches = false
-  page.emit('media:change')
-  assert.equal(page.attrs['data-bs-theme'], 'light')
-})
-
-test('explicit choice survives a full reload and overrides OS changes', () => {
+test('only light and dark are offered', () => {
   const page = browser()
-  page.select('dark')
-  page.emit('media:change')
-  assert.equal(page.attrs['data-bs-theme'], 'dark')
-  assert.equal(page.reload().attrs['data-bs-theme'], 'dark')
-})
-
-test('returning to system mode restores automatic OS appearance', () => {
-  const page = browser({ saved: 'dark' })
   page.select('system')
   assert.equal(page.attrs['data-bs-theme'], 'light')
-  page.media.matches = true
-  page.emit('media:change')
+  assert.equal(page.buttons.find(button => button.dataset.themeValue === 'system')['aria-pressed'], 'false')
+})
+
+test('first visit starts from the OS appearance and highlights that choice', () => {
+  const page = browser({ dark: true })
+  assert.equal(page.attrs['data-bs-theme'], 'dark')
+  assert.equal(page.buttons[1]['aria-pressed'], 'true')
+})
+
+test('explicit choice survives a full reload and ignores the OS appearance', () => {
+  const page = browser({ dark: true })
+  page.select('light')
+  assert.equal(page.attrs['data-bs-theme'], 'light')
+  assert.equal(page.reload().attrs['data-bs-theme'], 'light')
+})
+
+test('a previously saved system preference falls back to the OS appearance', () => {
+  const page = browser({ saved: 'system', dark: true })
+  assert.equal(page.attrs['data-theme-preference'], 'dark')
   assert.equal(page.attrs['data-bs-theme'], 'dark')
 })
 
@@ -84,9 +84,9 @@ test('storage restrictions do not prevent theme changes or initial rendering', (
   assert.equal(page.attrs['data-bs-theme'], 'light')
 })
 
-test('invalid saved values fall back to system', () => {
+test('invalid saved values fall back to the OS appearance', () => {
   const page = browser({ saved: 'invalid', dark: true })
-  assert.equal(page.attrs['data-theme-preference'], 'system')
+  assert.equal(page.attrs['data-theme-preference'], 'dark')
   assert.equal(page.attrs['data-bs-theme'], 'dark')
 })
 

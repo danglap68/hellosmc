@@ -11,20 +11,43 @@ RSpec.describe "Admin pages" do
   let!(:export) { create(:excel_export, generated_by: admin) }
   let!(:bill_album) { create(:bill_album, telegram_chat: chat) }
 
-  before { sign_in admin }
+  before do
+    client = instance_double(Telegram::BotClient, get_me: { "can_read_all_group_messages" => true })
+    allow(Telegram::BotClient).to receive(:new).and_return(client)
+    sign_in admin
+  end
 
-  it "lists the albums in the menu, for the people who may read them" do
+  it "hides the bill album and bill upload entry points from the UI" do
     get admin_root_path
-    expect(Nokogiri::HTML(response.body).css(%(a[href="#{admin_bill_albums_path}"])).text).to include("Album bill")
+    page = Nokogiri::HTML(response.body)
+    expect(page.css(%(a[href="#{admin_bill_albums_path}"]))).to be_empty
+    expect(page.css(%(a[href="#{new_admin_bill_upload_path}"]))).to be_empty
+    expect(response.body).not_to include(new_admin_bill_upload_path)
 
-    sign_in create(:user, :viewer)
+    get admin_reviews_path
+    expect(Nokogiri::HTML(response.body).css(%(a[href="#{new_admin_bill_upload_path}"]))).to be_empty
+  end
+
+  it "lists every page once by default and moves starred pages into Ghim" do
     get admin_root_path
-    expect(Nokogiri::HTML(response.body).css(%(a[href="#{admin_bill_albums_path}"]))).to be_present
+    page = Nokogiri::HTML(response.body)
+    expect(page.css("[data-nav-pins-target=pinned] .shell-item")).to be_empty
+    expect(page.css("[data-nav-pins-target=list] .shell-item").map { _1["data-nav-pins-key"] })
+      .to include("dashboard", "transactions", "reviews", "remitter_transfers")
+
+    cookies[SettingsNavHelper::NAV_PINS_COOKIE] = "reviews,transactions,unknown"
+    get admin_root_path
+    page = Nokogiri::HTML(response.body)
+    expect(page.css("[data-nav-pins-target=pinned] .shell-item").map { _1["data-nav-pins-key"] })
+      .to eq(%w[reviews transactions])
+    expect(page.css(%([data-nav-pins-target=list] [data-nav-pins-key=reviews] .shell-pin)).first["aria-pressed"]).to eq("true")
   end
 
   it "renders index, show, new and edit pages" do
     paths = [
       admin_root_path,
+      admin_messages_path, admin_messages_path(chat_id: chat.id, q: "MB"),
+      admin_message_path(approved.telegram_message),
       admin_transactions_path, admin_transactions_path(q: "000269", status: "approved", date_from: "2026-10-01"),
       admin_transaction_path(approved), admin_transaction_path(review), edit_admin_transaction_path(review),
       admin_reviews_path, admin_reviews_path(queue: "hold"), admin_review_path(review), admin_review_path(approved),
@@ -41,11 +64,13 @@ RSpec.describe "Admin pages" do
       admin_excel_exports_path, new_admin_excel_export_path, admin_excel_export_path(export),
       admin_audit_logs_path, admin_audit_logs_path(actor: "system"), admin_audit_log_path(AuditLog.first),
       admin_users_path, new_admin_user_path, edit_admin_user_path(admin),
+      admin_settings_system_roles_path, admin_transfer_codes_path, new_admin_transfer_code_path,
       admin_settings_path
     ]
 
     paths.each do |path|
       get path
+      follow_redirect! if response.redirect?
       expect(response).to have_http_status(:ok), "#{path} returned #{response.status}"
       expect(response.body).not_to include("translation missing"), "#{path} has missing translations"
       expect(response.body).not_to match(/Translation missing/i), "#{path} has missing translations"

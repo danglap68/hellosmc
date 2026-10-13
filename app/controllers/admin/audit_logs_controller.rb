@@ -11,6 +11,14 @@ module Admin
       scope = scope.where(action: params[:action_name]) if params[:action_name].present?
       scope = scope.where(created_at: parse_day(params[:date_from])..) if parse_day(params[:date_from])
       scope = scope.where(created_at: ..parse_day(params[:date_to]).end_of_day) if parse_day(params[:date_to])
+      if params[:q].present?
+        like = "%#{AuditLog.sanitize_sql_like(params[:q])}%"
+        scope = scope.where("audit_logs.action ILIKE :q OR audit_logs.auditable_type ILIKE :q OR audit_logs.auditable_id::text = :id", q: like, id: params[:q].strip)
+      end
+      scope = apply_sort(scope, {
+        "newest" => { created_at: :desc, id: :desc },
+        "oldest" => { created_at: :asc, id: :asc }
+      }, default: "newest")
       @pagy, @audit_logs = pagy(scope, limit: 50)
       @actions = AuditLog.distinct.order(:action).pluck(:action)
       @entities = AuditLog.where.not(auditable_type: nil).distinct.order(:auditable_type).pluck(:auditable_type)

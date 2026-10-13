@@ -1,0 +1,16 @@
+<section class="codes-group" data-code-group <% if group[:tone] %>data-tone="<%= group[:tone] %>"<% end %> <%= "hidden" unless group[:cards].any? { |card| card[:visible] } %>>
+  <h2 class="codes-group__title">
+    <% if group[:tone] %>
+      <span class="codes-chip" aria-hidden="true"></span>
+    <% end %>
+    <span class="codes-group__name"><%= group[:title] %></span>
+    <% if group[:meta].present? %>
+      <span class="codes-group__meta"><%= group[:meta] %></span>
+    <% end %>
+  </h2>
+  <div class="codes-grid">
+    <% group[:cards].each do |card| %>
+      <%= render "card", card: card %>
+    <% end %>
+  </div>
+</section>

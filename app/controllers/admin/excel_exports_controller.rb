@@ -5,7 +5,23 @@ module Admin
     before_action :set_export, only: %i[show download]
 
     def index
-      @pagy, @excel_exports = pagy(ExcelExport.includes(:generated_by).recent_first)
+      scope = ExcelExport.includes(:generated_by)
+      scope = scope.where(status: params[:status]) if params[:status].in?(ExcelExport::STATUSES)
+      scope = scope.where(layout: params[:layout]) if params[:layout].in?(ExcelExport::LAYOUTS)
+      scope = apply_date_column_range(scope, :export_date)
+      if params[:q].present?
+        like = "%#{ExcelExport.sanitize_sql_like(params[:q])}%"
+        matched = ExcelExport.left_joins(:generated_by).where(
+          "users.email ILIKE :q OR users.name ILIKE :q OR excel_exports.id::text = :id",
+          q: like, id: params[:q].strip
+        ).select(:id)
+        scope = scope.where(id: matched)
+      end
+      scope = apply_sort(scope, {
+        "newest" => { created_at: :desc, id: :desc },
+        "oldest" => { created_at: :asc, id: :asc }
+      }, default: "newest")
+      @pagy, @excel_exports = pagy(scope)
     end
 
     def show; end

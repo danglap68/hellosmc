@@ -7,11 +7,28 @@ RSpec.describe "Telegram webhook" do
     post "/webhooks/telegram", params: body.to_json, headers: { "CONTENT_TYPE" => "application/json" }.merge(headers)
   end
 
-  it "enqueues the update and returns immediately" do
+  it "enqueues the stored update and returns immediately" do
     deliver(update)
     expect(response).to have_http_status(:ok)
-    expect(ProcessTelegramUpdateJob).to have_been_enqueued.with(update)
+    inbox = TelegramUpdate.sole
+    expect(inbox.payload).to eq(update)
+    expect(inbox.status).to eq("received")
+    expect(ProcessTelegramUpdateJob).to have_been_enqueued.with(inbox.id)
     expect(TelegramMessage.count).to eq(0)
+  end
+
+  it "stores one row when Telegram delivers the same update twice" do
+    deliver(update)
+    deliver(update)
+    expect(TelegramUpdate.count).to eq(1)
+    expect(ProcessTelegramUpdateJob).to have_been_enqueued.once
+  end
+
+  it "returns 500 when the update cannot be stored, so Telegram will retry" do
+    allow(TelegramUpdate).to receive(:store!).and_raise(ActiveRecord::StatementInvalid)
+    deliver(update)
+    expect(response).to have_http_status(:internal_server_error)
+    expect(ProcessTelegramUpdateJob).not_to have_been_enqueued
   end
 
   context "with a configured secret" do

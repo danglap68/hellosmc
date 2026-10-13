@@ -5,12 +5,24 @@ module Admin
     before_action :set_fee_rule, only: %i[show edit update destroy]
 
     def index
-      scope = FeeRule.includes(:fee_rule_merchants, :merchants, :dealer, :fee_rule_card_types, :card_types).ordered
+      scope = FeeRule.includes(:fee_rule_merchants, :merchants, :dealer, :fee_rule_card_types, :card_types)
       scope = scope.where(dealer_id: params[:dealer_id]) if params[:dealer_id].present?
       scope = scope.assigned_to_merchant(params[:merchant_id]) if params[:merchant_id].present?
       scope = scope.assigned_to_card_type(params[:card_type_id]) if params[:card_type_id].present?
       scope = scope.active.effective_at(Time.current) if params[:state] == "current"
       scope = scope.where(active: false) if params[:state] == "inactive"
+      if params[:q].present?
+        like = "%#{FeeRule.sanitize_sql_like(params[:q])}%"
+        ids = FeeRule.left_joins(:dealer, :merchants).where(
+          "dealers.name ILIKE :q OR merchants.name ILIKE :q OR fee_rules.id::text = :id",
+          q: like, id: params[:q].strip
+        ).distinct.select(:id)
+        scope = scope.where(id: ids)
+      end
+      scope = apply_sort(scope, {
+        "priority" => { priority: :asc, effective_from: :desc, id: :desc },
+        "newest" => { effective_from: :desc, id: :desc }
+      }, default: "priority")
       @pagy, @fee_rules = pagy(scope)
     end
 

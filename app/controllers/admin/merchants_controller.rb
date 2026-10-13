@@ -12,6 +12,14 @@ module Admin
         scope = scope.where("merchants.name ILIKE :like OR merchants.code ILIKE :like OR merchants.normalized_name LIKE :normalized",
                             like: like, normalized: normalized)
       end
+      scope = apply_active_filter(scope)
+      scope = scope.where(skip_bills: true) if params[:skip_bills] == "1"
+      scope = apply_sort(scope, {
+        "name_asc" => { name: :asc, id: :asc },
+        "name_desc" => { name: :desc, id: :desc },
+        "code" => { code: :asc, id: :asc },
+        "newest" => { created_at: :desc, id: :desc }
+      }, default: "name_asc")
       @pagy, @merchants = pagy(scope)
       @alias_counts = MerchantAlias.where(merchant_id: @merchants.map(&:id)).group(:merchant_id).count
     end

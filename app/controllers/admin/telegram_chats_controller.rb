@@ -5,8 +5,18 @@ module Admin
     before_action :set_chat, only: %i[show edit update destroy process_stored]
 
     def index
-      scope = TelegramChat.ordered
+      scope = TelegramChat.all
       scope = scope.where(active: false) if params[:filter] == "inactive"
+      scope = scope.where(active: true) if params[:filter] == "active"
+      if params[:q].present?
+        like = "%#{TelegramChat.sanitize_sql_like(params[:q])}%"
+        scope = scope.where("COALESCE(telegram_chats.name, '') ILIKE :q OR telegram_chats.telegram_chat_id::text ILIKE :q", q: like)
+      end
+      scope = apply_sort(scope, {
+        "name_asc" => { name: :asc, telegram_chat_id: :asc },
+        "name_desc" => { name: :desc, telegram_chat_id: :desc },
+        "newest" => { created_at: :desc, id: :desc }
+      }, default: "name_asc")
       @pagy, @telegram_chats = pagy(scope)
       @message_counts = TelegramMessage.where(telegram_chat_id: @telegram_chats.map(&:id)).group(:telegram_chat_id).count
     end

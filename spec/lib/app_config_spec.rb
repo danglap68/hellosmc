@@ -1,7 +1,7 @@
 require "rails_helper"
 
-# Technical tuning: ENV, then a value stored when it was a setting, then the
-# default (docs/SPEC_SIMPLIFY_SETTINGS.md §3.2).
+# Technical tuning: the value an admin saved, then ENV, then the default
+# (docs/SPEC_SIMPLIFY_SETTINGS.md §3.2).
 RSpec.describe AppConfig do
   # A row kept from when the key was on the settings page (no longer valid to create).
   def legacy(key, value)
@@ -32,11 +32,12 @@ RSpec.describe AppConfig do
     expect(described_class.tuning("ocr_auto_approve_threshold").last).to eq(:stored)
   end
 
-  it "lets an environment variable win (C3)" do
-    legacy("ocr_auto_approve_threshold", "0.95")
+  it "prefers the value saved by an admin over the environment variable (C3)" do
     ENV["OCR_AUTO_APPROVE_THRESHOLD"] = "0.9"
-
     expect(described_class.tuning("ocr_auto_approve_threshold")).to eq([ BigDecimal("0.9"), :env ])
+
+    legacy("ocr_auto_approve_threshold", "0.95")
+    expect(described_class.tuning("ocr_auto_approve_threshold")).to eq([ BigDecimal("0.95"), :stored ])
   end
 
   it "honors a legacy primary model choice (C4)" do
@@ -54,11 +55,13 @@ RSpec.describe AppConfig do
 
   it "ignores an invalid value and falls back" do
     ENV["OCR_AUTO_APPROVE_THRESHOLD"] = "abc"
-    legacy("duplicate_window_minutes", "15")
-    ENV["DUPLICATE_WINDOW_MINUTES"] = "-"
+    legacy("duplicate_window_minutes", "-")
+    ENV["DUPLICATE_WINDOW_MINUTES"] = "15"
+    ENV["OCR_PROVIDER"] = "nope"
 
     expect(described_class.ocr_auto_approve_threshold).to eq(BigDecimal("0.92"))
     expect(described_class.duplicate_window_minutes).to eq(15)
+    expect(described_class.vision_provider).to eq("openai")
   end
 
   it "never lets the readable threshold exceed the auto-approve one" do

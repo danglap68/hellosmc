@@ -48,10 +48,10 @@ Yêu cầu:
 
 ### 3.2 `AppConfig`: giá trị kỹ thuật
 
-Thứ tự lấy giá trị mỗi thông số:
+Thứ tự lấy giá trị mỗi thông số (đổi 13/10/2026, admin sửa tay được):
 
-1. **Biến môi trường** trên Coolify (dev chỉnh, restart là áp dụng).
-2. **Giá trị đã lưu trong bảng `app_settings`** từ khi còn trên trang Cài đặt (chỉ đọc). → Deploy **không đổi** hành vi prod, dù trước đó ai đã chỉnh gì.
+1. **Giá trị admin đặt** ở khối "Thông số kỹ thuật" (bảng `app_settings`, `TuningForm`, có audit `settings.tuning_updated`, áp dụng trong ~30 giây). Để trống = xoá giá trị đặt.
+2. **Biến môi trường** trên Coolify (restart là áp dụng).
 3. **Mặc định trong code.**
 
 | Thông số | Biến môi trường | Mặc định |
@@ -84,7 +84,7 @@ Thứ tự lấy giá trị mỗi thông số:
 - Một khối "Vận hành" với 2 công tắc, mô tả bằng lời thường.
 - Khối Telegram (token, webhook) và Kết nối dịch vụ giữ nguyên.
 - Cảnh báo nổi bật khi thiếu API key OCR ("OCR chưa hoạt động — liên hệ kỹ thuật").
-- Khối thu gọn **"Thông số kỹ thuật"** (chỉ admin thấy, chỉ đọc): tên, giá trị đang dùng, nguồn (biến môi trường / đã lưu trước đây / mặc định). Dev xem nhanh mà khách không phải đụng.
+- Khối thu gọn **"Thông số kỹ thuật"** (chỉ admin thấy): mỗi dòng có ô "Đặt ở đây", giá trị đang dùng + nguồn (đặt ở đây / biến môi trường / mặc định), giá trị biến môi trường và mặc định. Kiểm tra kiểu, khoảng (vd. số lần OCR 1–3) trước khi lưu.
 
 ### 3.4 Form tự điền
 
@@ -136,7 +136,7 @@ Test: `spec/services/dealers/resolver_spec.rb`, `spec/services/workbook/resolver
 |---|---|---|---|
 | C1 | Không ENV, không giá trị lưu | Mặc định §3.2 | `spec/lib/app_config_spec.rb` |
 | C2 | Có giá trị lưu cũ (`ocr_auto_approve_threshold` = 0.95) | 0.95 | idem |
-| C3 | ENV `OCR_AUTO_APPROVE_THRESHOLD=0.9` + giá trị lưu 0.95 | 0.9 | idem |
+| C3 | ENV `OCR_AUTO_APPROVE_THRESHOLD=0.9` + giá trị lưu 0.95 | 0.95 (giá trị admin đặt thắng ENV) | idem |
 | C4 | `openai_vision_model` cũ đã lưu, chưa có `primary_vision_model` | Dùng model cũ | idem |
 | C5 | `OCR_MAX_ATTEMPTS=10` | 3 | idem |
 | C6 | `MAX_BILL_IMAGE_MB=5` | 5 MB | idem |
@@ -158,7 +158,7 @@ Test: `spec/services/dealers/resolver_spec.rb`, `spec/services/workbook/resolver
 
 | # | Rủi ro | Mức | Giảm thiểu |
 |---|---|---|---|
-| 1 | Dev quên rằng giá trị cũ trong `app_settings` vẫn đang được dùng | Thấp | Khối "Thông số kỹ thuật" ghi nguồn; ENV luôn thắng |
+| 1 | Dev đổi ENV nhưng không có tác dụng vì admin đã đặt giá trị | Thấp | Khối "Thông số kỹ thuật" ghi nguồn; xoá ô "Đặt ở đây" để ENV áp dụng |
 | 2 | ENV sai định dạng (`OCR_AUTO_APPROVE_THRESHOLD=abc`) | Thấp | Đọc lỗi → dùng mặc định + log cảnh báo |
 | 3 | Tiêu đề cột tự sinh không khớp sheet (đại lý đặt tên khác) | Thấp | Chỉ tự điền khi trống; sửa trong "Nâng cao"; sai thì bill vào "Bill vô chủ" kèm lý do `ds_header` như hiện tại |
 | 4 | Gợi ý Telegram ID lộ danh sách người nhắn | Thấp | Chỉ người có quyền quản lý người đi tiền thấy |

@@ -5,8 +5,15 @@ module Admin
     before_action :set_dealer, only: %i[show edit update destroy]
 
     def index
-      scope = Dealer.includes(:default_card_type).ordered
+      scope = Dealer.includes(:default_card_type)
       scope = scope.where("dealers.name ILIKE :q OR dealers.code ILIKE :q", q: "%#{Dealer.sanitize_sql_like(params[:q])}%") if params[:q].present?
+      scope = apply_active_filter(scope)
+      scope = apply_sort(scope, {
+        "name_asc" => { name: :asc, id: :asc },
+        "name_desc" => { name: :desc, id: :desc },
+        "code" => { code: :asc, id: :asc },
+        "newest" => { created_at: :desc, id: :desc }
+      }, default: "name_asc")
       @pagy, @dealers = pagy(scope)
       @merchant_counts = MerchantDealer.where(dealer_id: @dealers.map(&:id)).group(:dealer_id).distinct.count(:merchant_id)
     end

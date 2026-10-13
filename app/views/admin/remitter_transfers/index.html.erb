@@ -1,18 +1,24 @@
 <% content_for :title, t("remitter_transfers.index.title") %>
 
+<%= list_toolbar(
+      url: admin_remitter_transfers_path,
+      search: { param: "q", value: params[:q], placeholder: t("remitter_transfers.index.title") },
+      default_sort: "newest",
+      sorts: [
+        { key: "newest", label: t("toolbar.sorts.newest") },
+        { key: "oldest", label: t("toolbar.sorts.oldest") },
+        { key: "amount_desc", label: t("toolbar.sorts.amount_desc") },
+        { key: "amount_asc", label: t("toolbar.sorts.amount_asc") }
+      ],
+      filters: [
+        { type: :single, name: "queue", label: t("toolbar.queue"), include_blank: false, chip: params[:queue].present?, value: @queue,
+          options: Admin::RemitterTransfersController::QUEUES.keys.map { |queue| ["#{t("remitter_transfers.queues.#{queue}")} (#{@counts[queue].to_i})", queue] } },
+        { type: :single, name: "dealer_id", label: RemitterTransfer.human_attribute_name(:dealer), value: params[:dealer_id], options: dealer_options },
+        { type: :date_range, key: "dates", label: RemitterTransfer.human_attribute_name(:slip_at), from_name: "date_from", to_name: "date_to", from_value: params[:date_from], to_value: params[:date_to] }
+      ]
+    ) %>
+
 <div class="card">
-  <div class="card-header">
-    <ul class="nav nav-tabs card-header-tabs">
-      <% Admin::RemitterTransfersController::QUEUES.each_key do |queue| %>
-        <li class="nav-item">
-          <%= link_to admin_remitter_transfers_path(queue: queue), class: "nav-link #{'active' if @queue == queue}" do %>
-            <%= t("remitter_transfers.queues.#{queue}") %>
-            <span class="badge bg-secondary-lt ms-2"><%= @counts[queue].to_i %></span>
-          <% end %>
-        </li>
-      <% end %>
-    </ul>
-  </div>
   <% if @transfers.any? %>
     <div class="table-responsive">
       <table class="table table-vcenter card-table">

@@ -24,6 +24,9 @@ Workbook::Seed.call
 FeeRules::Seed.call
 puts "Fee rules: #{FeeRule.count}"
 
+Role.seed_defaults!
+puts "Roles: #{Role.order(:position).pluck(:key).join(', ')}"
+
 admin_email = ENV["SEED_ADMIN_EMAIL"].presence || "danglap686868@gmail.com"
 unless User.exists?(email: admin_email)
   password = ENV["SEED_ADMIN_PASSWORD"].presence

@@ -1,13 +1,13 @@
 module Admin
-  # The client's switches (stored in the database, audited) and a read-only
-  # view of the technical tuning (AppConfig::TUNING, set with ENV).
+  # The client's switches and the technical tuning (AppConfig::TUNING), both
+  # stored in the database and audited.
   # API keys stay in ENV and the page only shows whether they are set; the
   # Telegram bot token and webhook secret (encrypted, AppSecret) and the Google
   # Sheet ID are managed here, on the Kết nối card.
   class SettingsController < BaseController
     permission :settings
 
-    before_action :load_sidebar, only: %i[show update]
+    before_action :load_sidebar, only: %i[show update tuning]
 
     def show
       @form = SettingsForm.new
@@ -18,6 +18,16 @@ module Admin
       if @form.save(actor: current_user)
         redirect_to admin_settings_path, notice: t("settings.flash.saved")
       else
+        render :show, status: :unprocessable_content
+      end
+    end
+
+    def tuning
+      @tuning_form = TuningForm.new(params.fetch(:tuning, {}).permit(*AppConfig::TUNING.keys))
+      if @tuning_form.save(actor: current_user)
+        redirect_to admin_settings_path(anchor: "tinh-chinh"), notice: t("settings.tuning.saved")
+      else
+        @form = SettingsForm.new
         render :show, status: :unprocessable_content
       end
     end
@@ -95,8 +105,6 @@ module Admin
         webhook_url: Telegram::Connection.webhook_url
       }
       @spreadsheet = { id: AppConfig.hello_smc_spreadsheet_id, source: spreadsheet_source }
-      @transfer_codes = MerchantDealer.where.not(transfer_code: nil).includes(:merchant, :dealer).order(:transfer_code)
-      @agents_without_code = MerchantDealer.active.where(transfer_code: nil).count
       @services = {
         openai: AppConfig.openai_api_key.present?,
         gemini: AppConfig.gemini_api_key.present?,
@@ -106,9 +114,14 @@ module Admin
       @storage_service = AppConfig.active_storage_service
       @card_types = CardType.ordered
       @last_change = AuditLog.where(action: "settings.updated").includes(:actor_user).recent_first.first
+      @tuning_form = TuningForm.new
+      load_tuning
+    end
+
+    def load_tuning
       @tuning = AppConfig::TUNING.map do |key, spec|
         value, source = AppConfig.tuning(key)
-        { key: key, env: spec[:env], value: value, source: source }
+        { key: key, spec: spec, env_value: ENV[spec[:env]].presence, value: value, source: source }
       end
     end
   end

@@ -1,0 +1,74 @@
+<% content_for :title, t("roles.index.title") %>
+
+<p class="text-secondary"><%= t("roles.index.lead") %></p>
+
+<div class="role-editor">
+  <div class="role-editor-side">
+    <nav class="role-editor-nav" aria-label="<%= t("roles.index.select") %>">
+      <% @roles.each do |role| %>
+        <%= link_to admin_settings_system_roles_path(role: role.key), class: "role-editor-link",
+              aria: { current: ("page" if role == @role) } do %>
+          <span class="role-editor-link-name"><%= role.name %></span>
+          <span class="role-editor-link-meta"><%= t("roles.index.user_count", count: @user_counts.fetch(role.key, 0)) %></span>
+        <% end %>
+      <% end %>
+    </nav>
+
+    <% if can?(:manage, :roles) %>
+      <div class="card">
+        <div class="card-body">
+          <h3 class="card-title mb-3"><%= t("roles.index.add") %></h3>
+          <%= tabler_form_with model: @new_role, url: admin_roles_path do |form| %>
+            <%= form.error_summary %>
+            <%= form.field :name, required: true, label: t("roles.index.name"),
+                  placeholder: t("roles.index.name_placeholder"), wrapper: "mb-3" %>
+            <%= form.submit_button t("roles.index.add_submit") %>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+  </div>
+
+  <% if @role %>
+    <div class="card role-editor-main">
+      <div class="card-header role-editor-head">
+        <div>
+          <h3 class="card-title mb-1"><%= @role.name %></h3>
+          <div class="text-secondary small"><%= t("roles.index.user_count", count: @user_counts.fetch(@role.key, 0)) %></div>
+        </div>
+        <div class="role-editor-head-actions">
+          <% if @role.locked? %>
+            <span class="badge bg-azure-lt"><%= t("roles.index.locked") %></span>
+          <% elsif @role.system? %>
+            <span class="badge bg-secondary-lt"><%= t("roles.index.system") %></span>
+          <% end %>
+          <% if can?(:manage, :roles) && !@role.system? %>
+            <% if @user_counts.fetch(@role.key, 0).zero? %>
+              <%= button_to t("roles.index.delete"), admin_role_path(@role), method: :delete, class: "btn btn-ghost-danger",
+                    form: { data: { turbo_confirm: t("roles.confirm_delete", name: @role.name) } } %>
+            <% else %>
+              <span class="text-secondary small"><%= t("roles.index.delete_blocked") %></span>
+            <% end %>
+          <% end %>
+        </div>
+      </div>
+
+      <% if can?(:manage, :roles) %>
+        <%= form_with url: grants_admin_roles_path, method: :patch, data: { controller: "role-matrix" } do %>
+          <%= hidden_field_tag :role_key, @role.key %>
+          <%= render "grants", role: @role, editable: !@role.locked? %>
+          <% unless @role.locked? %>
+            <div class="card-footer role-editor-save">
+              <span class="text-secondary"><%= t("roles.index.manage_implies_read") %></span>
+              <%= button_tag type: "submit", class: "btn btn-primary" do %>
+                <%= icon("device-floppy") %> <%= t("roles.index.save") %>
+              <% end %>
+            </div>
+          <% end %>
+        <% end %>
+      <% else %>
+        <%= render "grants", role: @role, editable: false %>
+      <% end %>
+    </div>
+  <% end %>
+</div>

@@ -64,13 +64,18 @@ or picks a rule explicitly.
 
 ### Roles
 
+Built-in roles are created by the migration and by `Role.seed_defaults!`. Under **Settings → Phân quyền**, pick one role and turn its view and manage grants on or off. The admin role always has everything, so the app cannot be locked out. Sidekiq stays available only to the admin role.
+
 | | admin | operator | viewer |
 |---|---|---|---|
 | Dashboard, transactions (read), exports (download) | ✓ | ✓ | ✓ |
+| Message log | ✓ | read | |
 | Review queue, approve/hold/reject/edit/reprocess, manual upload, generate exports | ✓ | ✓ | |
 | Configuration (dealers, Telegram groups, merchants, fee rules, card types) | manage | read | |
-| Audit log | ✓ | ✓ | |
-| Users, settings, Sidekiq UI | ✓ | | |
+| Audit log | ✓ | read | |
+| Users, settings, permission matrix | ✓ | | |
+
+Kế toán starts with Excel exports plus read access to the dashboard, transactions, fees, card types, the audit log, dealers, merchants, and transfers. Đối soát can review bills and transfers. Vận hành kho can upload bills and manage transfers. Those grants are edited on the same screen.
 
 No public sign-up. Inactive users cannot sign in; accounts lock for 1 hour after 10 failed attempts.
 
@@ -290,6 +295,7 @@ Recommended cron jobs:
 ```
 5 0 * * *    cd /app && bin/rails hellosmc:export_daily
 */15 * * * * cd /app && bin/rails hellosmc:retry_failed_extractions
+*/5 * * * *  cd /app && bin/rails hellosmc:retry_stuck_telegram_updates
 ```
 
 Logs are one JSON line per business event (`telegram.update_received`, `ocr.request`, `ocr.result`,

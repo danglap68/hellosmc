@@ -15,16 +15,23 @@
   <div class="small"><%= t("fee_rules.index.how_priority") %></div>
 </div>
 
+<%= list_toolbar(
+      url: admin_settings_fees_rules_path,
+      search: { param: "q", value: params[:q], placeholder: t("fee_rules.index.title") },
+      default_sort: "priority",
+      sorts: [
+        { key: "priority", label: t("toolbar.sorts.priority") },
+        { key: "newest", label: t("toolbar.sorts.newest") }
+      ],
+      filters: [
+        { type: :single, name: "dealer_id", label: Transaction.human_attribute_name(:dealer), value: params[:dealer_id], options: dealer_options },
+        { type: :single, name: "merchant_id", label: Transaction.human_attribute_name(:merchant), value: params[:merchant_id], options: merchant_options },
+        { type: :single, name: "card_type_id", label: Transaction.human_attribute_name(:card_type), value: params[:card_type_id], options: card_type_options },
+        { type: :single, name: "state", label: t("toolbar.active_state"), value: params[:state], options: [[t("fee_rules.index.state_current"), "current"], [t("common.inactive"), "inactive"]] }
+      ]
+    ) %>
+
 <div class="card">
-  <div class="card-header">
-    <%= form_with url: admin_fee_rules_path, method: :get, class: "row g-2 w-100" do %>
-      <div class="col-md-3"><%= select_tag :dealer_id, options_for_select(dealer_options, params[:dealer_id]), include_blank: t("merchants.index.all_dealers"), class: "form-select" %></div>
-      <div class="col-md-3"><%= select_tag :merchant_id, options_for_select(merchant_options, params[:merchant_id]), include_blank: t("fee_rules.index.all_merchants"), class: "form-select" %></div>
-      <div class="col-md-2"><%= select_tag :card_type_id, options_for_select(card_type_options, params[:card_type_id]), include_blank: t("fee_rules.any_card_type"), class: "form-select" %></div>
-      <div class="col-md-2"><%= select_tag :state, options_for_select([[t("fee_rules.index.state_current"), "current"], [t("common.inactive"), "inactive"]], params[:state]), include_blank: t("common.all"), class: "form-select" %></div>
-      <div class="col-md-2"><button class="btn w-100" type="submit"><%= icon("filter") %> <%= t("actions.filter") %></button></div>
-    <% end %>
-  </div>
   <%= render "table", fee_rules: @fee_rules %>
   <%= pagination(@pagy) %>
 </div>

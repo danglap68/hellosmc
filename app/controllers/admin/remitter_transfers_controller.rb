@@ -18,7 +18,23 @@ module Admin
       @queue = QUEUES.key?(params[:queue]) ? params[:queue] : "needs_review"
       @counts = QUEUES.transform_values { |scope| scope.call.count }
       scope = QUEUES.fetch(@queue).call.includes(:remitter, :telegram_message, bill_image: :duplicate_of, merchant_dealer: %i[dealer merchant])
-      @pagy, @transfers = pagy(scope.recent_first)
+      scope = scope.where(merchant_dealer_id: MerchantDealer.where(dealer_id: params[:dealer_id]).select(:id)) if params[:dealer_id].present?
+      scope = apply_time_range(scope, :transferred_at)
+      if params[:q].present?
+        like = "%#{RemitterTransfer.sanitize_sql_like(params[:q])}%"
+        matched = RemitterTransfer.left_joins(:remitter).where(
+          "remitter_transfers.transfer_code ILIKE :q OR remitters.name ILIKE :q OR remitter_transfers.id::text = :id",
+          q: like, id: params[:q].strip
+        ).select(:id)
+        scope = scope.where(id: matched)
+      end
+      scope = apply_sort(scope, {
+        "newest" => { transferred_at: :desc, id: :desc },
+        "oldest" => { transferred_at: :asc, id: :asc },
+        "amount_desc" => { amount_vnd: :desc, id: :desc },
+        "amount_asc" => { amount_vnd: :asc, id: :asc }
+      }, default: "newest")
+      @pagy, @transfers = pagy(scope)
     end
 
     def show; end

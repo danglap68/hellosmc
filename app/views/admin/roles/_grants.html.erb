@@ -1,0 +1,23 @@
+<% Permissions::GROUPS.each do |group| %>
+  <section class="role-grant-group">
+    <h4><%= t("roles.groups.#{group[:key]}") %></h4>
+    <% group[:resources].each do |resource| %>
+      <div class="role-grant">
+        <div>
+          <div class="fw-semibold"><%= t("roles.resources.#{resource}.name") %></div>
+          <div class="text-secondary small"><%= t("roles.resources.#{resource}.hint") %></div>
+        </div>
+        <div class="role-grant-checks" data-role-matrix-cell>
+          <% Permissions::ABILITIES.each do |ability| %>
+            <label class="form-check">
+              <%= check_box_tag "grants[#{resource}][#{ability}]", "1", role.granted?(resource, ability),
+                    disabled: !editable,
+                    data: { action: "change->role-matrix#sync", ability: ability } %>
+              <span class="form-check-label"><%= t("roles.abilities.#{ability}") %></span>
+            </label>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+  </section>
+<% end %>

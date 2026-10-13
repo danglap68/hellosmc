@@ -16,7 +16,7 @@ RSpec.describe "Row actions of the configuration tables" do
       "remitters" => admin_remitters_path,
       "Telegram groups" => admin_telegram_chats_path,
       "users" => admin_users_path,
-      "transfer codes (Cài đặt)" => admin_settings_path
+      "transfer codes" => admin_transfer_codes_path
     }
   end
 
@@ -28,17 +28,19 @@ RSpec.describe "Row actions of the configuration tables" do
     default_rule
   end
 
-  it "gives every row Sửa and Xoá, styled the same, to someone who can manage the table" do
+  it "gives every row a three-dot menu with Sửa and Xoá to someone who can manage the table" do
     sign_in admin
 
     pages.each do |name, path|
       get path
+      follow_redirect! if response.redirect?
       body = Nokogiri::HTML(response.body)
       row = body.css("tbody tr").find { |tr| tr.css("button").any? { |button| button.text.strip == "Xoá" } }
 
       expect(row).to be_present, "#{name}: no row with a Xoá button"
-      expect(row.css("a.btn.btn-sm").map(&:text)).to include("Sửa")
-      delete = row.css("button.btn.btn-sm.btn-ghost-danger").find { |button| button.text.strip == "Xoá" }
+      expect(row.at_css(%(.row-actions button[data-bs-toggle="dropdown"][aria-label="Thao tác khác"]))).to be_present, "#{name}: no three-dot toggle"
+      expect(row.css(".row-actions .dropdown-menu a.dropdown-item").map { _1.text.strip }).to include("Sửa")
+      delete = row.css(".row-actions .dropdown-menu button.dropdown-item.text-danger").find { |button| button.text.strip == "Xoá" }
       expect(delete).to be_present, "#{name}: no Xoá button"
       expect(row.at_css("form[data-turbo-confirm]")).to be_present, "#{name}: Xoá asks no confirmation"
       expect(row.css("td").last["class"]).to include("text-nowrap", "text-end"), "#{name}: actions are not the last, right-aligned cell"
@@ -48,6 +50,7 @@ RSpec.describe "Row actions of the configuration tables" do
   it "keeps the user's own account from being deleted from the table, but not the reset link" do
     sign_in admin
     get admin_users_path
+    follow_redirect!
     rows = Nokogiri::HTML(response.body).css("tbody tr")
     mine = rows.find { |tr| tr.text.include?(admin.email) }
 
@@ -65,7 +68,8 @@ RSpec.describe "Row actions of the configuration tables" do
       next unless response.status == 200
 
       body = Nokogiri::HTML(response.body)
-      expect(body.css("tbody a.btn.btn-sm", text: "Sửa")).to be_empty, "#{resource}: viewer sees Sửa"
+      expect(body.css("tbody .row-actions")).to be_empty, "#{resource}: viewer sees the action menu"
+      expect(body.css("tbody a", text: "Sửa")).to be_empty, "#{resource}: viewer sees Sửa"
       expect(body.css("tbody button", text: "Xoá")).to be_empty, "#{resource}: viewer sees Xoá"
     end
   end

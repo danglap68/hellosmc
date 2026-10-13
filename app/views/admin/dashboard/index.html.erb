@@ -1,133 +1,104 @@
 <% content_for :title, t("dashboard.title") %>
-<% content_for :actions do %>
-  <% if can?(:manage, :bill_uploads) %>
-    <%= link_to new_admin_bill_upload_path, class: "btn btn-outline-primary" do %><%= icon("upload") %> <%= t("navigation.bill_uploads") %><% end %>
-  <% end %>
-  <% if can?(:manage, :reviews) %>
-    <%= link_to admin_reviews_path, class: "btn btn-primary" do %><%= icon("scan") %> <%= t("dashboard.open_review") %><% end %>
-  <% end %>
-<% end %>
+<% content_for :bare_page, "1" %>
+<% current = @stats.current_snapshot %>
+<% previous = @stats.previous_snapshot %>
+<% trends = @stats.trend_buckets %>
+<% chart = @stats.card_chart %>
 
-<section class="card dashboard-metrics mb-3" aria-label="<%= t("ui.daily_bill_stats") %>">
-  <dl class="metric-grid mb-0">
-    <% [
-         [:bills_today, @stats.bills_today, "photo", "primary", nil],
-         [:processed_today, @stats.processed_today, "checks", "green", nil],
-         [:needs_review, @stats.needs_review, "scan", "yellow", (can?(:manage, :reviews) ? admin_reviews_path : nil)],
-         [:hold, @stats.hold, "player-pause", "orange", (can?(:manage, :reviews) ? admin_reviews_path(queue: "hold") : nil)],
-         [:failed, @stats.failed, "alert-octagon", "red", (can?(:manage, :reviews) ? admin_reviews_path(queue: "failed") : nil)]
-       ].each do |key, value, icon_name, color, path| %>
-      <div class="dashboard-metric">
-        <dt class="metric-label"><%= icon(icon_name, "text-#{color}") %><%= t("dashboard.cards.#{key}") %></dt>
-        <dd class="metric-value"><%= path ? link_to(value, path, class: "text-reset", aria: { label: "#{t("dashboard.cards.#{key}")}: #{value}" }) : value %></dd>
-      </div>
-    <% end %>
-  </dl>
+<header class="overview-intro">
+  <div>
+    <h1><%= t("dashboard.title") %></h1>
+    <p><%= t("dashboard.description") %></p>
+  </div>
+  <div class="overview-controls">
+    <nav class="period-switch" aria-label="<%= t("dashboard.period_label") %>">
+      <% Dashboard::Stats::PERIODS.each do |period| %>
+        <%= link_to t("dashboard.periods.#{period}"), admin_root_path(period: period), class: "period-option", aria: { current: ("page" if period == @period) } %>
+      <% end %>
+    </nav>
+    <p class="overview-range"><%= t("dashboard.period_range", from: l(@stats.period_start), to: l(@stats.period_end)) %></p>
+  </div>
+</header>
+
+<section class="kpi-board" aria-label="<%= t("dashboard.title") %>">
+  <% [
+       [:gross, format_vnd(current[:gross]), period_delta(current[:gross], previous[:gross]), trends.map { |row| row[:gross] }, t("dashboard.kpis.gross_context"), true],
+       [:count, current[:count], period_delta(current[:count], previous[:count]), trends.map { |row| row[:count] }, t("dashboard.kpis.count_context", count: current[:approved_count]), false],
+       [:fee, format_vnd(current[:base_fee]), period_delta(current[:base_fee], previous[:base_fee]), trends.map { |row| row[:base_fee] }, t("dashboard.kpis.fee_context"), false],
+       [:after_fee, format_vnd(current[:after_fee]), period_delta(current[:after_fee], previous[:after_fee]), trends.map { |row| row[:after_fee] }, t("dashboard.kpis.after_fee_context"), false],
+       [:approval, share_percent(current[:approval_rate]), period_delta(current[:approval_rate], previous[:approval_rate], mode: :rate), trends.map { |row| row[:approval_rate].to_f }, current[:decided].zero? ? t("dashboard.kpis.approval_empty") : t("dashboard.kpis.approval_context", approved: current[:approved_count], decided: current[:decided]), false]
+     ].each do |key, value, delta, series, context, hero| %>
+    <article class="kpi-card<%= " is-hero" if hero %>">
+      <h2><%= t("dashboard.kpis.#{key}") %></h2>
+      <p class="kpi-value"><%= value %></p>
+      <p class="kpi-meta">
+        <span class="delta-pill delta-<%= delta[:direction] %>"><%= delta[:text] %></span>
+        <span class="kpi-context"><%= context %></span>
+      </p>
+      <div class="spark"><%= sparkline(series) %></div>
+    </article>
+  <% end %>
 </section>
 
-<div class="row row-deck row-cards mb-3">
-  <div class="col-md-6">
-    <div class="card">
+<div class="overview-split">
+  <section class="card overview-chart">
+    <div class="card-header">
+      <div>
+        <h2 class="card-title"><%= t("dashboard.chart_by_card") %></h2>
+        <div class="text-secondary small"><%= t("dashboard.chart_hint") %></div>
+      </div>
+    </div>
+    <% if chart[:buckets].any? { |bucket| bucket[:total].positive? } %>
       <div class="card-body">
-        <div class="amount-label"><%= t("dashboard.cards.total_amount_today") %></div>
-        <div class="amount-value money"><%= format_vnd(@stats.total_amount_today) %></div>
-        <div class="text-secondary small"><%= t("dashboard.cards.total_amount_hint") %></div>
-      </div>
-    </div>
-  </div>
-  <div class="col-md-6">
-    <div class="card">
-      <div class="card-body">
-        <div class="amount-label"><%= t("dashboard.cards.total_approved_amount_today") %></div>
-        <div class="amount-value money text-green"><%= format_vnd(@stats.total_approved_amount_today) %></div>
-        <div class="text-secondary small"><%= t("dashboard.cards.total_approved_hint") %></div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="row row-cards">
-  <div class="col-lg-8">
-    <div class="card">
-      <div class="card-header">
-        <h3 class="card-title"><%= t("dashboard.latest_transactions") %></h3>
-        <div class="card-actions"><%= link_to t("actions.view_all"), admin_transactions_path %></div>
-      </div>
-      <% transactions = @stats.latest_transactions %>
-      <% if transactions.any? %>
-        <div class="table-responsive">
-          <table class="table table-vcenter card-table">
-            <thead>
-              <tr>
-                <th><%= Transaction.human_attribute_name(:transaction_at) %></th>
-                <th><%= Transaction.human_attribute_name(:merchant) %></th>
-                <th class="text-end"><%= Transaction.human_attribute_name(:transaction_amount_vnd) %></th>
-                <th><%= Transaction.human_attribute_name(:status) %></th>
-              </tr>
-            </thead>
-            <tbody>
-              <% transactions.each do |transaction| %>
-                <tr>
-                  <td class="text-nowrap"><%= link_to format_datetime(transaction.transaction_at), admin_transaction_path(transaction) %></td>
-                  <td>
-                    <div><%= transaction.merchant&.name || content_tag(:span, transaction.raw_merchant_name || "—", class: "text-secondary") %></div>
-                    <div class="small text-secondary"><%= transaction.dealer&.name %></div>
-                  </td>
-                  <td class="text-end money"><%= format_vnd(transaction.transaction_amount_vnd) %></td>
-                  <td><%= status_badge(transaction.status) %></td>
-                </tr>
-              <% end %>
-            </tbody>
-          </table>
-        </div>
-      <% else %>
-        <div class="card-body"><%= empty_state t("dashboard.no_transactions") %></div>
-      <% end %>
-    </div>
-  </div>
-
-  <div class="col-lg-4">
-    <div class="card mb-3">
-      <div class="card-header"><h3 class="card-title"><%= t("dashboard.latest_review_items") %></h3></div>
-      <% items = @stats.latest_review_items %>
-      <% if items.any? %>
-        <div class="list-group list-group-flush">
-          <% items.each do |transaction| %>
-            <%= link_to (can?(:manage, :reviews) ? admin_review_path(transaction) : admin_transaction_path(transaction)), class: "list-group-item list-group-item-action" do %>
-              <div class="d-flex justify-content-between">
-                <span><%= transaction.merchant&.name || transaction.raw_merchant_name || t("common.unknown_merchant") %></span>
-                <span class="money"><%= format_vnd(transaction.transaction_amount_vnd) %></span>
-              </div>
-              <div class="small text-secondary">
-                <%= transaction.review_reason_codes.first(2).map { |code| review_reason_label(code) }.join(" · ") %>
-              </div>
-            <% end %>
+        <div class="chart-legend">
+          <% chart[:legend].each_with_index do |series, index| %>
+            <div class="chart-legend-item">
+              <span class="chart-legend-name">
+                <i style="background: <%= DashboardHelper::CHART_COLORS[index % DashboardHelper::CHART_COLORS.size] %>"></i>
+                <%= series[:name] %>
+              </span>
+              <span class="chart-legend-value"><%= format_vnd(series[:total]) %></span>
+            </div>
           <% end %>
         </div>
-      <% else %>
-        <div class="card-body"><%= empty_state t("dashboard.review_queue_empty"), nil, icon_name: "mood-happy" %></div>
-      <% end %>
-    </div>
+        <div class="chart-scroll"><%= stacked_amount_chart(chart) %></div>
+      </div>
+    <% else %>
+      <div class="card-body"><%= empty_state t("dashboard.empty_window") %></div>
+    <% end %>
+  </section>
 
-    <div class="card">
-      <div class="card-header"><h3 class="card-title"><%= t("dashboard.top_dealers") %></h3></div>
-      <% top = @stats.top_dealers %>
-      <% if top.any? %>
-        <div class="table-responsive">
-          <table class="table card-table table-vcenter">
-            <tbody>
-              <% top.each do |(_id, name, count, total)| %>
-                <tr>
-                  <td><%= name %><div class="small text-secondary"><%= t("dashboard.transaction_count", count: count) %></div></td>
-                  <td class="text-end money"><%= format_vnd(total) %></td>
-                </tr>
-              <% end %>
-            </tbody>
-          </table>
-        </div>
-      <% else %>
-        <div class="card-body"><%= empty_state t("common.no_data") %></div>
-      <% end %>
+  <aside class="card attention-card">
+    <div class="card-header">
+      <h2 class="card-title"><%= t("dashboard.attention") %></h2>
     </div>
-  </div>
+    <% queues = [] %>
+    <% if can?(:read, :reviews) %>
+      <% queues << [:needs_review, @stats.needs_review, admin_reviews_path, "warning"] %>
+      <% queues << [:hold, @stats.hold, admin_reviews_path(queue: "hold"), "orange"] %>
+      <% queues << [:failed, @stats.failed, admin_reviews_path(queue: "failed"), "danger"] %>
+    <% end %>
+    <% queues << [:unmatched, @stats.unmatched_albums, admin_bill_albums_path, "warning"] if !feature_hidden?(:bill_albums) && can?(:read, :bill_albums) %>
+    <% queues << [:transfers, @stats.transfers_needing_review, admin_remitter_transfers_path(queue: "needs_review"), "warning"] if can?(:read, :remitter_transfers) %>
+    <% if queues.any? %>
+      <ul class="attention-list">
+        <% queues.each do |key, count, url, tone| %>
+          <li>
+            <%= link_to url, class: "attention-row" do %>
+              <span class="attention-title"><%= t("dashboard.queues.#{key}") %></span>
+              <span class="attention-count tone-<%= tone %>"><%= count %></span>
+              <%= icon("chevron-right", "attention-chevron") %>
+            <% end %>
+          </li>
+        <% end %>
+      </ul>
+    <% else %>
+      <div class="card-body"><%= empty_state t("dashboard.attention_empty") %></div>
+    <% end %>
+  </aside>
+</div>
+
+<div class="overview-breakdowns">
+  <%= render "breakdown", title: t("dashboard.by_dealer"), rows: @stats.dealer_rows, filter_key: :dealer_id %>
+  <%= render "breakdown", title: t("dashboard.by_merchant"), rows: @stats.merchant_rows, filter_key: :merchant_id %>
 </div>

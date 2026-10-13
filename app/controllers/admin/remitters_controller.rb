@@ -5,11 +5,18 @@ module Admin
     before_action :set_remitter, only: %i[edit update destroy]
 
     def index
-      scope = Remitter.ordered
+      scope = Remitter.all
       if params[:q].present?
         q = "%#{Remitter.sanitize_sql_like(params[:q])}%"
         scope = scope.where("remitters.name ILIKE :q OR remitters.excel_key ILIKE :q OR remitters.telegram_username ILIKE :q", q: q)
       end
+      scope = apply_active_filter(scope)
+      scope = apply_sort(scope, {
+        "oldest" => { id: :asc },
+        "newest" => { id: :desc },
+        "name_asc" => { name: :asc, id: :asc },
+        "name_desc" => { name: :desc, id: :asc }
+      }, default: "oldest")
       @pagy, @remitters = pagy(scope)
     end
 

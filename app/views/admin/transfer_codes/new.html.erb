@@ -1,6 +1,6 @@
 <% content_for :title, t("transfer_codes.new.title") %>
 <% content_for :breadcrumbs do %>
-  <li class="breadcrumb-item"><%= link_to t("settings.title"), admin_settings_path(codes: 1, anchor: "transfer-codes") %></li>
+  <li class="breadcrumb-item"><%= link_to t("navigation.transfer_codes"), admin_transfer_codes_path %></li>
   <li class="breadcrumb-item active"><%= t("actions.new") %></li>
 <% end %>
 <div class="row"><div class="col-lg-8"><%= render "form", link: @link, candidates: @candidates %></div></div>

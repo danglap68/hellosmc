@@ -4,21 +4,21 @@
   window.helloSMCThemeInitialized = true
 
   const storageKey = "hellosmc-theme"
-  const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
-  const choices = ["light", "dark", "system"]
+  const choices = ["light", "dark"]
+  // Without a saved choice, start from the OS appearance once; afterwards only the user's choice counts.
+  const fallback = () => (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
   const readPreference = () => {
     try {
       const saved = localStorage.getItem(storageKey)
-      return choices.includes(saved) ? saved : "system"
+      return choices.includes(saved) ? saved : fallback()
     } catch {
-      return "system"
+      return fallback()
     }
   }
   let preference = readPreference()
 
   const applyTheme = () => {
-    const theme = preference === "system" ? (systemTheme.matches ? "dark" : "light") : preference
-    document.documentElement.setAttribute("data-bs-theme", theme)
+    document.documentElement.setAttribute("data-bs-theme", preference)
     document.documentElement.setAttribute("data-theme-preference", preference)
     document.querySelectorAll("[data-theme-value]").forEach((button) => {
       button.setAttribute("aria-pressed", String(button.dataset.themeValue === preference))
@@ -41,9 +41,6 @@
   document.addEventListener("DOMContentLoaded", applyTheme)
   document.addEventListener("turbo:load", applyTheme)
   document.addEventListener("turbo:before-render", applyTheme)
-  systemTheme.addEventListener("change", () => {
-    if (preference === "system") applyTheme()
-  })
   window.addEventListener("storage", (event) => {
     if (event.key === storageKey || event.key === null) {
       preference = readPreference()

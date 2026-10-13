@@ -1,7 +1,7 @@
 module Webhooks
-  # Production Telegram webhook. Verifies the secret
-  # token, enqueues the raw update and returns immediately; OCR never runs in
-  # the request.
+  # Production Telegram webhook. Verifies the secret token, stores the raw
+  # update, enqueues processing and returns immediately. OCR never runs here.
+  # A database error returns 500 so Telegram sends the update again.
   class TelegramController < ActionController::API
     def create
       return head :unauthorized unless authorized?
@@ -9,10 +9,13 @@ module Webhooks
       update = JSON.parse(request.raw_post)
       return head :bad_request unless update.is_a?(Hash)
 
-      ProcessTelegramUpdateJob.perform_later(update)
+      inbox_id = TelegramUpdate.store!(update)
+      ProcessTelegramUpdateJob.perform_later(inbox_id) if inbox_id
       head :ok
     rescue JSON::ParserError
       head :bad_request
+    rescue ActiveRecord::ActiveRecordError
+      head :internal_server_error
     end
 
     private

@@ -27,9 +27,8 @@ class AppSetting < ApplicationRecord
     Definition.new(key:, type:, default:, group:, min:, max:, options:, allow_blank:)
   end
 
-  # Only the decisions the client makes. Technical tuning lives in AppConfig
-  # (constants + ENV); rows stored for keys that used to be here stay in the
-  # table and are still read by AppConfig, so a deploy never changes behaviour.
+  # Only the decisions the client makes. Technical tuning is defined in
+  # AppConfig::TUNING and also stored here, edited through TuningForm.
   DEFINITIONS = [
     define("telegram_auto_activate_chats", :boolean, "false", "operations"),
     define("remitter_features_enabled", :boolean, "false", "operations")
@@ -46,7 +45,7 @@ class AppSetting < ApplicationRecord
 
   belongs_to :updated_by, class_name: "User", optional: true
 
-  validates :key, presence: true, uniqueness: true, inclusion: { in: DEFINITIONS.keys + CONNECTION_KEYS }
+  validates :key, presence: true, uniqueness: true, inclusion: { in: ->(_setting) { DEFINITIONS.keys + CONNECTION_KEYS + AppConfig::TUNING.keys } }
   validates :value, presence: true, unless: -> { DEFINITIONS[key]&.type == :string }
 
   after_commit { self.class.reset_cache! }

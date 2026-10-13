@@ -1,0 +1,11 @@
+<div class="palette" data-command-palette-target="dialog" hidden data-action="click->command-palette#backdrop">
+  <div class="palette-panel" role="dialog" aria-modal="true" aria-label="<%= t("palette.placeholder") %>">
+    <label class="palette-search">
+      <%= icon("search") %>
+      <input type="search" data-command-palette-target="input" data-action="input->command-palette#filter"
+             placeholder="<%= t("palette.placeholder") %>" autocomplete="off" spellcheck="false">
+      <kbd>Esc</kbd>
+    </label>
+    <div class="palette-list" data-command-palette-target="list"></div>
+  </div>
+</div>

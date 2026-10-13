@@ -1,6 +1,13 @@
 module ApplicationHelper
   include Pagy::Frontend
 
+  # Routes and controllers stay reachable by URL; only the UI entry points are hidden.
+  HIDDEN_FEATURES = %i[bill_albums bill_uploads].freeze
+
+  def feature_hidden?(feature)
+    HIDDEN_FEATURES.include?(feature)
+  end
+
   STATUS_COLORS = {
     "pending" => "secondary",
     "processing" => "blue",
@@ -274,7 +281,7 @@ module ApplicationHelper
   end
 
   AUDITABLE_MODELS = %w[Transaction FeeRule Merchant MerchantAlias Dealer TelegramChat TelegramMessage
-                        CardType ExcelExport User BillImage].freeze
+                        CardType ExcelExport User Role BillImage].freeze
 
   # Human model name for an audit entry; only known models are constantized.
   def auditable_label(type)

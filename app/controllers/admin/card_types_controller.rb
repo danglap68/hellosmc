@@ -5,7 +5,16 @@ module Admin
     before_action :set_card_type, only: %i[edit update destroy]
 
     def index
-      @card_types = CardType.ordered
+      scope = CardType.all
+      if params[:q].present?
+        q = "%#{CardType.sanitize_sql_like(params[:q])}%"
+        scope = scope.where("card_types.name ILIKE :q OR card_types.key ILIKE :q", q: q)
+      end
+      scope = apply_active_filter(scope)
+      @card_types = apply_sort(scope, {
+        "position" => { position: :asc, key: :asc },
+        "name_asc" => { name: :asc, id: :asc }
+      }, default: "position")
     end
 
     def new

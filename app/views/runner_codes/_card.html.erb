@@ -1,0 +1,16 @@
+<button type="button" class="codes-card" data-code-card data-tone="<%= card[:tone] %>" data-code="<%= card[:code] %>" data-search="<%= card[:search] %>"
+        data-action="codes-board#copy" <%= "hidden" unless card[:visible] %>
+        aria-label="<%= t("runner_codes.copy_label", code: card[:code], person: card[:person], hkd: card[:hkd_name], tid: card[:tid]) %>">
+  <span class="codes-rail" aria-hidden="true"></span>
+  <span class="codes-card__code" data-code-text><%= card[:code] %></span>
+  <span class="codes-card__line">
+    <span class="codes-chip" aria-hidden="true"></span>
+    <span class="codes-card__name"><%= card[:secondary] %></span>
+  </span>
+  <span class="codes-card__tid"><%= card[:tid] %></span>
+  <span class="codes-card__status" data-copy-status>
+    <i class="ti ti-check" data-status-icon="ok" aria-hidden="true"></i>
+    <i class="ti ti-x" data-status-icon="bad" aria-hidden="true"></i>
+    <span data-copy-label></span>
+  </span>
+</button>

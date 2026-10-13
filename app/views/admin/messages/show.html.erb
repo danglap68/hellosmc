@@ -1,0 +1,82 @@
+<% content_for :title, t("messages.show.title", id: @message.telegram_message_id) %>
+<% content_for :actions do %>
+  <%= link_to @message.telegram_chat.display_name, admin_messages_path(chat_id: @message.telegram_chat_id), class: "btn" %>
+<% end %>
+
+<div class="row row-cards">
+  <div class="col-lg-4">
+    <div class="card">
+      <div class="card-body">
+        <dl class="row mb-0">
+          <dt class="col-5"><%= t("activerecord.attributes.bill_image.source") %></dt>
+          <dd class="col-7"><span class="badge bg-blue-lt"><%= t("messages.sources.telegram") %></span></dd>
+          <dt class="col-5"><%= TelegramChat.model_name.human %></dt>
+          <dd class="col-7"><%= link_to @message.telegram_chat.display_name, admin_messages_path(chat_id: @message.telegram_chat_id) %></dd>
+          <dt class="col-5"><%= TelegramMessage.human_attribute_name(:sent_at) %></dt>
+          <dd class="col-7"><%= format_datetime(@message.sent_at) %></dd>
+          <dt class="col-5"><%= TelegramMessage.human_attribute_name(:sender_name) %></dt>
+          <dd class="col-7">
+            <%= @message.sender_name || "—" %>
+            <% if @message.telegram_username.present? %><div class="small text-secondary">@<%= @message.telegram_username %></div><% end %>
+          </dd>
+          <dt class="col-5"><%= TelegramMessage.human_attribute_name(:kind) %></dt>
+          <dd class="col-7"><%= enum_label(:telegram_message, :kind, @message.kind) %></dd>
+          <dt class="col-5"><%= TelegramMessage.human_attribute_name(:processing_status) %></dt>
+          <dd class="col-7"><%= enum_label(:telegram_message, :processing_status, @message.processing_status) %></dd>
+          <% if @message.edited_at %>
+            <dt class="col-5"><%= TelegramMessage.human_attribute_name(:edited_at) %></dt>
+            <dd class="col-7"><%= format_datetime(@message.edited_at) %></dd>
+          <% end %>
+          <% if @message.reply_to_message_id %>
+            <dt class="col-5"><%= TelegramMessage.human_attribute_name(:reply_to_message_id) %></dt>
+            <dd class="col-7"><%= @message.reply_to_message_id %></dd>
+          <% end %>
+          <% if @message.forwarded_from.present? %>
+            <dt class="col-5"><%= TelegramMessage.human_attribute_name(:forwarded_from) %></dt>
+            <dd class="col-7"><%= @message.forwarded_from %></dd>
+          <% end %>
+        </dl>
+      </div>
+    </div>
+    <div class="card mt-3">
+      <div class="card-header"><h3 class="card-title"><%= t("messages.index.title") %></h3></div>
+      <div class="card-body"><%= render "result", message: @message %></div>
+    </div>
+  </div>
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header"><h3 class="card-title"><%= TelegramMessage.human_attribute_name(:message_text) %></h3></div>
+      <div class="card-body">
+        <% if @message.message_text.present? %>
+          <p class="mb-0" style="white-space: pre-wrap"><%= @message.message_text %></p>
+        <% else %>
+          <p class="text-secondary mb-0"><%= @message.display_body %></p>
+        <% end %>
+      </div>
+    </div>
+    <% edits = Array(@message.raw_payload["edits"]) %>
+    <% if edits.any? %>
+      <div class="card mt-3">
+        <div class="card-header"><h3 class="card-title"><%= t("messages.show.edits") %></h3></div>
+        <div class="table-responsive">
+          <table class="table card-table table-vcenter">
+            <tbody>
+              <% edits.each do |edit| %>
+                <tr>
+                  <td class="text-nowrap text-secondary"><%= edit["received_at"] %></td>
+                  <td style="white-space: pre-wrap"><%= edit["text"] %></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    <% end %>
+    <% if current_user.admin? %>
+      <div class="card mt-3">
+        <div class="card-header"><h3 class="card-title"><%= t("messages.show.raw") %></h3></div>
+        <div class="card-body"><%= json_block(@message.raw_payload) %></div>
+      </div>
+    <% end %>
+  </div>
+</div>

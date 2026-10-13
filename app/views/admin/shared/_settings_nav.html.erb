@@ -1,0 +1,7 @@
+<% items = settings_subnav_items %>
+<nav class="settings-subnav" aria-label="<%= current_settings_tab&.dig(:label) %>"
+     <% if items.any? { |item| item[:anchor] } %>data-controller="settings-section"<% end %>>
+  <% items.each do |item| %>
+    <%= link_to item[:label], item[:url], aria: { current: ("page" if item[:active]) } %>
+  <% end %>
+</nav>

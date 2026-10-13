@@ -7,13 +7,50 @@ RSpec.describe "Settings" do
   context "as an admin" do
     before { sign_in create(:user, :admin) }
 
-    it "shows only the client's switches, the services and a read-only technical table (S1, S4)" do
+    it "shows the client's switches, the services and an editable technical table (S1, S4)" do
       get admin_settings_path
       expect(response).to have_http_status(:ok)
       expect(response.body).to include("Tự động kích hoạt nhóm Telegram mới", "Bật xử lý người chuyển tiền",
                                        "Kết nối dịch vụ", "OPENAI_API_KEY")
       expect(response.body).not_to include("test-openai-key", %(name="settings[ocr_auto_approve_threshold]"))
-      expect(response.body).to include("Thông số kỹ thuật", "OCR_AUTO_APPROVE_THRESHOLD", "Mặc định")
+      expect(response.body).to include("Thông số kỹ thuật", "OCR_AUTO_APPROVE_THRESHOLD", "Mặc định",
+                                       %(name="tuning[ocr_auto_approve_threshold]"))
+    end
+
+    describe "technical tuning" do
+      it "saves a value that wins over the environment variable, and audits it" do
+        ENV["DUPLICATE_WINDOW_MINUTES"] = "20"
+
+        patch tuning_admin_settings_path, params: { tuning: { "duplicate_window_minutes" => " 30 ", "vision_provider" => "gemini" } }
+
+        expect(response).to redirect_to(admin_settings_path(anchor: "tinh-chinh"))
+        expect(AppConfig.tuning("duplicate_window_minutes")).to eq([ 30, :stored ])
+        expect(AppConfig.vision_provider).to eq("gemini")
+        log = AuditLog.find_by!(action: "settings.tuning_updated")
+        expect(log.before_data).to eq("duplicate_window_minutes" => nil, "vision_provider" => nil)
+        expect(log.after_data).to eq("duplicate_window_minutes" => "30", "vision_provider" => "gemini")
+      end
+
+      it "falls back to the environment variable, then the default, when the field is cleared" do
+        AppSetting.create!(key: "duplicate_window_minutes", value: "30")
+        AppSetting.insert!({ key: "openai_vision_model", value: "gpt-4.1", created_at: Time.current, updated_at: Time.current })
+        AppSetting.create!(key: "primary_vision_model", value: "gpt-5")
+        ENV["DUPLICATE_WINDOW_MINUTES"] = "20"
+
+        patch tuning_admin_settings_path, params: { tuning: { "duplicate_window_minutes" => "", "primary_vision_model" => "" } }
+
+        expect(AppConfig.tuning("duplicate_window_minutes")).to eq([ 20, :env ])
+        expect(AppConfig.tuning("primary_vision_model")).to eq([ "gpt-6-luna", :default ])
+      end
+
+      it "rejects invalid or out-of-range values and saves nothing" do
+        patch tuning_admin_settings_path, params: { tuning: { "ocr_auto_approve_threshold" => "1.5", "max_ocr_attempts" => "9",
+                                                              "vision_provider" => "nope", "duplicate_window_minutes" => "15" } }
+
+        expect(response).to have_http_status(:unprocessable_content)
+        expect(response.body).to include("Ngưỡng tự động duyệt", "phải trong khoảng 1 – 3")
+        expect(AppSetting.where(key: AppConfig::TUNING.keys)).to be_empty
+      end
     end
 
     it "warns plainly when OCR cannot work" do
@@ -200,5 +237,9 @@ RSpec.describe "Settings" do
     patch spreadsheet_admin_settings_path, params: { spreadsheet_id: "1AbCdEfGhIjKlMnOpQrStUvWxYz0123456789_-aBc" }
     expect(response).to have_http_status(:forbidden)
     expect(AppSetting.where(key: "hello_smc_spreadsheet_id")).to be_empty
+
+    patch tuning_admin_settings_path, params: { tuning: { "duplicate_window_minutes" => "30" } }
+    expect(response).to have_http_status(:forbidden)
+    expect(AppSetting.where(key: "duplicate_window_minutes")).to be_empty
   end
 end

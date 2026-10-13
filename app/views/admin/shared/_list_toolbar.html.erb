@@ -1,0 +1,109 @@
+<%# locals: (url:, search:, filters:, chips:, sorts:, current_sort:, filter_names:) %>
+<div class="list-toolbar-wrap" data-controller="list-toolbar">
+  <div class="list-toolbar">
+    <%= form_with url: url, method: :get, class: "list-toolbar-search", data: { action: "submit->list-toolbar#compact turbo:submit-end->list-toolbar#restore" } do %>
+      <%= toolbar_hidden_fields(except: [search[:param]]) %>
+      <label class="visually-hidden" for="list-search"><%= t("toolbar.search") %></label>
+      <span class="list-search-icon" aria-hidden="true"><%= icon("search") %></span>
+      <input type="search" id="list-search" name="<%= search[:param] %>" value="<%= search[:value] %>" class="form-control" placeholder="<%= search[:placeholder] %>" autocomplete="off" enterkeyhint="search">
+    <% end %>
+
+    <div class="list-toolbar-filter">
+      <button type="button" class="toolbar-btn" data-list-toolbar-target="filterButton" data-action="list-toolbar#togglePanel" aria-expanded="false" aria-haspopup="dialog">
+        <%= icon("filter") %>
+        <span><%= chips.any? ? t("toolbar.filters_count", count: chips.size) : t("toolbar.filters") %></span>
+      </button>
+      <%= form_with url: url, method: :get, class: "filter-popover", data: { list_toolbar_target: "panel", action: "submit->list-toolbar#compact turbo:submit-end->list-toolbar#restore" }, html: { hidden: true } do %>
+        <%= toolbar_hidden_fields(except: filter_names) %>
+        <div class="filter-popover-head">
+          <span class="filter-popover-title"><%= t("toolbar.filters") %></span>
+          <button type="button" class="btn-close" data-action="list-toolbar#togglePanel" aria-label="<%= t("actions.close") %>"></button>
+        </div>
+        <div class="filter-category-list" data-list-toolbar-target="categoryList">
+          <% filters.each do |filter| %>
+            <button type="button" class="filter-category" data-action="list-toolbar#openCategory" data-category="<%= filter[:key] %>" data-label="<%= filter[:label] %>">
+              <span class="filter-category-copy">
+                <span class="filter-category-label"><%= filter[:label] %></span>
+                <span class="filter-category-summary"><%= filter[:summary] %></span>
+              </span>
+              <% if filter[:chip] %><span class="filter-category-count">1</span><% end %>
+              <%= icon("chevron-right", "filter-category-chevron") %>
+            </button>
+          <% end %>
+        </div>
+        <div class="filter-detail" data-list-toolbar-target="detail" hidden>
+          <button type="button" class="filter-detail-back" data-action="list-toolbar#showCategories">
+            <%= icon("chevron-left") %>
+            <span data-list-toolbar-target="detailTitle"></span>
+          </button>
+          <% filters.each do |filter| %>
+            <div class="filter-detail-body" data-category="<%= filter[:key] %>" data-list-toolbar-target="detailBody" hidden>
+              <% case filter[:type] %>
+              <% when :single %>
+                <div class="filter-choices" role="radiogroup" aria-label="<%= filter[:label] %>">
+                  <% filter[:choices].each do |choice| %>
+                    <label class="filter-choice">
+                      <%= radio_button_tag filter[:name], choice[:value], choice[:selected], data: { filter_control: true } %>
+                      <span><%= choice[:label] %></span>
+                    </label>
+                  <% end %>
+                </div>
+              <% when :text %>
+                <label class="visually-hidden" for="filter-<%= filter[:key] %>"><%= filter[:label] %></label>
+                <input type="search" id="filter-<%= filter[:key] %>" name="<%= filter[:name] %>" value="<%= filter[:value] %>" class="form-control" data-filter-control>
+              <% when :date_range %>
+                <div class="filter-range">
+                  <label for="filter-<%= filter[:key] %>-from"><%= t("toolbar.from") %></label>
+                  <input type="date" id="filter-<%= filter[:key] %>-from" name="<%= filter[:from_name] %>" value="<%= filter[:from_value] %>" class="form-control" data-filter-control>
+                  <label for="filter-<%= filter[:key] %>-to"><%= t("toolbar.to") %></label>
+                  <input type="date" id="filter-<%= filter[:key] %>-to" name="<%= filter[:to_name] %>" value="<%= filter[:to_value] %>" class="form-control" data-filter-control>
+                </div>
+              <% when :amount_range %>
+                <div class="filter-range">
+                  <label for="filter-<%= filter[:key] %>-min"><%= t("toolbar.amount_from") %></label>
+                  <input type="text" inputmode="numeric" id="filter-<%= filter[:key] %>-min" name="<%= filter[:min_name] %>" value="<%= filter[:min_value] %>" class="form-control" data-controller="amount-input" data-action="input->amount-input#format" data-filter-control>
+                  <label for="filter-<%= filter[:key] %>-max"><%= t("toolbar.amount_to") %></label>
+                  <input type="text" inputmode="numeric" id="filter-<%= filter[:key] %>-max" name="<%= filter[:max_name] %>" value="<%= filter[:max_value] %>" class="form-control" data-controller="amount-input" data-action="input->amount-input#format" data-filter-control>
+                </div>
+              <% when :boolean %>
+                <label class="filter-choice">
+                  <%= check_box_tag filter[:name], filter[:checked_value], filter[:checked], data: { filter_control: true } %>
+                  <span><%= filter[:option_label] %></span>
+                </label>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+        <div class="filter-popover-footer">
+          <button type="button" class="btn" data-action="list-toolbar#resetFilters"><%= t("toolbar.reset") %></button>
+          <button type="submit" class="btn btn-primary"><%= t("toolbar.apply") %></button>
+        </div>
+      <% end %>
+    </div>
+
+    <div class="list-toolbar-sort">
+      <button type="button" class="toolbar-btn" data-list-toolbar-target="sortButton" data-action="list-toolbar#toggleSort" aria-expanded="false" aria-haspopup="menu">
+        <span><%= current_sort[:label] %></span>
+        <%= icon("chevron-down") %>
+      </button>
+      <div class="sort-menu" hidden data-list-toolbar-target="sortMenu" role="menu" aria-label="<%= t("toolbar.sort") %>">
+        <% sorts.each do |sort| %>
+          <%= link_to sort[:label], sort[:url], class: "sort-option #{'is-current' if sort[:current]}", role: "menuitem", aria: { current: (sort[:current] ? "true" : nil) } %>
+        <% end %>
+      </div>
+    </div>
+  </div>
+
+  <% if chips.any? %>
+    <div class="filter-chips">
+      <% chips.each do |chip| %>
+        <%= link_to toolbar_path(url, except: chip[:drop]), class: "filter-chip" do %>
+          <span><%= chip[:text] %></span>
+          <%= icon("x") %>
+          <span class="visually-hidden"><%= t("toolbar.remove_filter") %></span>
+        <% end %>
+      <% end %>
+      <%= link_to t("toolbar.clear_all"), toolbar_path(url, except: filter_names), class: "filter-clear" %>
+    </div>
+  <% end %>
+</div>

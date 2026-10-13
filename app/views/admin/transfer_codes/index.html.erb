@@ -1,0 +1,72 @@
+<% content_for :title, t("transfer_codes.index.title") %>
+<% content_for :actions do %>
+  <% if can?(:manage, :transfer_codes) %>
+    <%= link_to new_admin_transfer_code_path, class: "btn btn-primary" do %><%= icon("plus") %> <%= t("transfer_codes.index.new") %><% end %>
+  <% end %>
+<% end %>
+
+<div class="d-flex align-items-center gap-2 mb-3 text-secondary small">
+  <span><%= t("transfer_codes.index.help") %></span>
+  <% if @agents_without_code.positive? %>
+    <span class="badge bg-yellow-lt text-nowrap"><%= t("transfer_codes.index.without_code", count: @agents_without_code) %></span>
+  <% end %>
+</div>
+
+<%= list_toolbar(
+      url: admin_settings_organization_transfer_codes_path,
+      search: { param: "q", value: params[:q], placeholder: t("transfer_codes.index.search") },
+      default_sort: "code_asc",
+      sorts: [
+        { key: "code_asc", label: t("transfer_codes.index.sorts.code_asc") },
+        { key: "code_desc", label: t("transfer_codes.index.sorts.code_desc") },
+        { key: "merchant_asc", label: t("transfer_codes.index.sorts.merchant_asc") }
+      ],
+      filters: [
+        { type: :single, name: "active", label: t("toolbar.active_state"), value: params[:active], options: [[t("common.active"), "1"], [t("common.inactive"), "0"]] }
+      ]
+    ) %>
+
+<div class="card">
+  <% if @links.any? %>
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table">
+        <thead>
+          <tr>
+            <th><%= MerchantDealer.human_attribute_name(:transfer_code) %></th>
+            <th><%= t("transfer_codes.merchant") %></th>
+            <th><%= t("transfer_codes.agent") %></th>
+            <th><%= MerchantDealer.human_attribute_name(:tid_key) %></th>
+            <th><%= MerchantDealer.human_attribute_name(:active) %></th>
+            <th class="w-1"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @links.each do |link| %>
+            <tr>
+              <td class="text-nowrap">
+                <code class="fs-4"><%= link.transfer_code %></code>
+                <button type="button" class="btn btn-sm btn-ghost-secondary btn-icon ms-1"
+                        title="<%= t('transfer_codes.index.copy', code: link.transfer_code) %>"
+                        aria-label="<%= t('transfer_codes.index.copy', code: link.transfer_code) %>"
+                        data-controller="clipboard" data-action="clipboard#copy"
+                        data-clipboard-text-value="<%= link.transfer_code %>"
+                        data-clipboard-copied-value="<%= t('transfer_codes.index.copied') %>">
+                  <%= icon("copy") %>
+                </button>
+              </td>
+              <td><%= link_to link.merchant.name, admin_merchant_path(link.merchant) %></td>
+              <td><%= link.dealer.name %></td>
+              <td><code><%= link.tid_key %></code></td>
+              <td><%= active_badge(link.active?) %></td>
+              <%= render "admin/shared/row_actions", resource: :transfer_codes, edit_path: edit_admin_transfer_code_path(link),
+                         delete_path: admin_transfer_code_path(link), confirm: t("transfer_codes.confirm_delete", code: link.transfer_code) %>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+    <%= pagination(@pagy) %>
+  <% else %>
+    <div class="card-body"><%= empty_state t("transfer_codes.index.empty") %></div>
+  <% end %>
+</div>

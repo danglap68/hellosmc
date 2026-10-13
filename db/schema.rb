@@ -10,9 +10,10 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_13_110000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_13_180000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
+  enable_extension "pg_trgm"
 
   create_table "active_storage_attachments", force: :cascade do |t|
     t.string "name", null: false
@@ -97,8 +98,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_13_110000) do
     t.index ["telegram_chat_id", "media_group_id"], name: "index_bill_albums_on_chat_and_media_group", unique: true
     t.index ["telegram_chat_id"], name: "index_bill_albums_on_telegram_chat_id"
     t.index ["transfer_bill_image_id"], name: "index_bill_albums_on_transfer_bill_image_id"
-    t.check_constraint "reconciliation_status IS NULL OR (reconciliation_status::text = ANY (ARRAY['matched'::character varying::text, 'mismatched'::character varying::text, 'multiple_transfers'::character varying::text, 'missing_bills'::character varying::text, 'no_transfer'::character varying::text, 'transfer_duplicate'::character varying::text, 'incomplete'::character varying::text, 'settlement_complete'::character varying::text]))", name: "bill_albums_reconciliation_status_check"
-    t.check_constraint "status::text = ANY (ARRAY['collecting'::character varying::text, 'processing'::character varying::text, 'reconciled'::character varying::text, 'needs_review'::character varying::text, 'skipped'::character varying::text, 'failed'::character varying::text])", name: "bill_albums_status_check"
+    t.check_constraint "reconciliation_status IS NULL OR (reconciliation_status::text = ANY (ARRAY['matched'::character varying, 'mismatched'::character varying, 'multiple_transfers'::character varying, 'missing_bills'::character varying, 'no_transfer'::character varying, 'transfer_duplicate'::character varying, 'incomplete'::character varying, 'settlement_complete'::character varying]::text[]))", name: "bill_albums_reconciliation_status_check"
+    t.check_constraint "status::text = ANY (ARRAY['collecting'::character varying, 'processing'::character varying, 'reconciled'::character varying, 'needs_review'::character varying, 'skipped'::character varying, 'failed'::character varying]::text[])", name: "bill_albums_status_check"
   end
 
   create_table "bill_images", force: :cascade do |t|
@@ -133,8 +134,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_13_110000) do
     t.index ["telegram_file_unique_id"], name: "index_bill_images_on_telegram_file_unique_id", unique: true, where: "(telegram_file_unique_id IS NOT NULL)"
     t.index ["telegram_message_id"], name: "index_bill_images_on_telegram_message_id"
     t.index ["uploaded_by_id"], name: "index_bill_images_on_uploaded_by_id"
-    t.check_constraint "ocr_status::text = ANY (ARRAY['pending'::character varying::text, 'processing'::character varying::text, 'completed'::character varying::text, 'needs_review'::character varying::text, 'failed'::character varying::text, 'duplicate'::character varying::text])", name: "bill_images_ocr_status_check"
-    t.check_constraint "source::text = ANY (ARRAY['telegram'::character varying::text, 'manual_upload'::character varying::text])", name: "bill_images_source_check"
+    t.check_constraint "ocr_status::text = ANY (ARRAY['pending'::character varying, 'processing'::character varying, 'completed'::character varying, 'needs_review'::character varying, 'failed'::character varying, 'duplicate'::character varying]::text[])", name: "bill_images_ocr_status_check"
+    t.check_constraint "source::text = ANY (ARRAY['telegram'::character varying, 'manual_upload'::character varying]::text[])", name: "bill_images_source_check"
   end
 
   create_table "card_types", force: :cascade do |t|
@@ -176,8 +177,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_13_110000) do
     t.index ["export_date"], name: "index_excel_exports_on_export_date"
     t.index ["generated_by_id"], name: "index_excel_exports_on_generated_by_id"
     t.check_constraint "end_date >= export_date", name: "excel_exports_date_range"
-    t.check_constraint "layout::text = ANY (ARRAY['legacy'::character varying::text, 'ket_toan_phi_goc'::character varying::text])", name: "excel_exports_layout_check"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'processing'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text])", name: "excel_exports_status_check"
+    t.check_constraint "layout::text = ANY (ARRAY['legacy'::character varying, 'ket_toan_phi_goc'::character varying]::text[])", name: "excel_exports_layout_check"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'processing'::character varying, 'completed'::character varying, 'failed'::character varying]::text[])", name: "excel_exports_status_check"
   end
 
   create_table "fee_rule_card_types", force: :cascade do |t|
@@ -228,7 +229,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_13_110000) do
     t.index ["alias_type", "normalized_alias"], name: "index_merchant_aliases_on_alias_type_and_normalized_alias"
     t.index ["merchant_id"], name: "index_merchant_aliases_on_merchant_id"
     t.index ["normalized_alias"], name: "index_merchant_aliases_on_normalized_alias"
-    t.check_constraint "alias_type::text = ANY (ARRAY['receipt_name'::character varying::text, 'telegram_name'::character varying::text, 'merchant_id'::character varying::text, 'terminal_id'::character varying::text, 'terminal_name'::character varying::text, 'manual'::character varying::text])", name: "merchant_aliases_alias_type_check"
+    t.check_constraint "alias_type::text = ANY (ARRAY['receipt_name'::character varying, 'telegram_name'::character varying, 'merchant_id'::character varying, 'terminal_id'::character varying, 'terminal_name'::character varying, 'manual'::character varying]::text[])", name: "merchant_aliases_alias_type_check"
   end
 
   create_table "merchant_dealers", force: :cascade do |t|
@@ -297,7 +298,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_13_110000) do
     t.index ["status"], name: "index_remitter_transfers_on_status"
     t.index ["telegram_message_id"], name: "index_remitter_transfers_on_telegram_message_id", unique: true
     t.check_constraint "amount_vnd IS NULL OR amount_vnd > 0", name: "remitter_transfers_amount_positive"
-    t.check_constraint "status::text = ANY (ARRAY['processing'::character varying::text, 'needs_review'::character varying::text, 'approved'::character varying::text, 'rejected'::character varying::text, 'failed'::character varying::text])", name: "remitter_transfers_status_check"
+    t.check_constraint "status::text = ANY (ARRAY['processing'::character varying, 'needs_review'::character varying, 'approved'::character varying, 'rejected'::character varying, 'failed'::character varying]::text[])", name: "remitter_transfers_status_check"
   end
 
   create_table "remitters", force: :cascade do |t|
@@ -311,6 +312,28 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_13_110000) do
     t.index ["excel_key"], name: "index_remitters_on_excel_key", unique: true
     t.index ["telegram_user_id"], name: "index_remitters_on_telegram_user_id", unique: true, where: "(telegram_user_id IS NOT NULL)"
     t.index ["telegram_username"], name: "index_remitters_on_telegram_username", unique: true, where: "(telegram_username IS NOT NULL)"
+  end
+
+  create_table "role_permissions", force: :cascade do |t|
+    t.bigint "role_id", null: false
+    t.string "resource", null: false
+    t.string "ability", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["role_id", "resource", "ability"], name: "index_role_permissions_on_role_resource_ability", unique: true
+    t.index ["role_id"], name: "index_role_permissions_on_role_id"
+    t.check_constraint "ability::text = ANY (ARRAY['read'::character varying, 'manage'::character varying]::text[])", name: "role_permissions_ability_check"
+  end
+
+  create_table "roles", force: :cascade do |t|
+    t.string "key", null: false
+    t.string "name", null: false
+    t.boolean "system", default: false, null: false
+    t.integer "position", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index "lower((name)::text)", name: "index_roles_on_lower_name", unique: true
+    t.index ["key"], name: "index_roles_on_key", unique: true
   end
 
   create_table "telegram_chats", force: :cascade do |t|
@@ -338,12 +361,32 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_13_110000) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.string "telegram_username"
+    t.string "kind", default: "text", null: false
+    t.bigint "reply_to_message_id"
+    t.string "forwarded_from"
+    t.datetime "edited_at"
     t.index ["created_at"], name: "index_telegram_messages_on_created_at"
     t.index ["media_group_id"], name: "index_telegram_messages_on_media_group_id"
+    t.index ["message_text"], name: "index_telegram_messages_on_message_text_trgm", opclass: :gin_trgm_ops, using: :gin
+    t.index ["sent_at"], name: "index_telegram_messages_on_sent_at", order: :desc
+    t.index ["telegram_chat_id", "sent_at"], name: "index_telegram_messages_on_chat_id_and_sent_at", order: { sent_at: :desc }
     t.index ["telegram_chat_id", "telegram_message_id"], name: "index_telegram_messages_on_chat_and_message", unique: true
     t.index ["telegram_chat_id"], name: "index_telegram_messages_on_telegram_chat_id"
     t.index ["telegram_sender_id"], name: "index_telegram_messages_on_telegram_sender_id"
     t.index ["telegram_update_id"], name: "index_telegram_messages_on_telegram_update_id"
+  end
+
+  create_table "telegram_updates", force: :cascade do |t|
+    t.bigint "update_id", null: false
+    t.jsonb "payload", default: {}, null: false
+    t.string "status", default: "received", null: false
+    t.integer "attempts", default: 0, null: false
+    t.datetime "received_at", null: false
+    t.datetime "processed_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["status", "updated_at"], name: "index_telegram_updates_on_status_and_updated_at"
+    t.index ["update_id"], name: "index_telegram_updates_on_update_id", unique: true
   end
 
   create_table "transaction_reviews", force: :cascade do |t|
@@ -361,7 +404,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_13_110000) do
     t.index ["reviewed_by_id"], name: "index_transaction_reviews_on_reviewed_by_id"
     t.index ["status"], name: "index_transaction_reviews_on_status"
     t.index ["transaction_id"], name: "index_transaction_reviews_on_transaction_id"
-    t.check_constraint "status::text = ANY (ARRAY['open'::character varying::text, 'approved'::character varying::text, 'rejected'::character varying::text, 'held'::character varying::text, 'superseded'::character varying::text])", name: "transaction_reviews_status_check"
+    t.check_constraint "status::text = ANY (ARRAY['open'::character varying, 'approved'::character varying, 'rejected'::character varying, 'held'::character varying, 'superseded'::character varying]::text[])", name: "transaction_reviews_status_check"
   end
 
   create_table "transactions", force: :cascade do |t|
@@ -407,7 +450,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_13_110000) do
     t.index ["tags"], name: "index_transactions_on_tags", using: :gin
     t.index ["telegram_message_id"], name: "index_transactions_on_telegram_message_id"
     t.index ["transaction_at"], name: "index_transactions_on_transaction_at"
-    t.check_constraint "(status::text <> ALL (ARRAY['approved'::character varying::text, 'exported'::character varying::text])) OR dealer_id IS NOT NULL AND merchant_id IS NOT NULL AND card_type_id IS NOT NULL AND transaction_at IS NOT NULL AND transaction_amount_vnd IS NOT NULL AND applied_base_fee_rate IS NOT NULL AND amount_after_base_fee_vnd IS NOT NULL", name: "transactions_approved_complete"
+    t.check_constraint "(status::text <> ALL (ARRAY['approved'::character varying, 'exported'::character varying]::text[])) OR dealer_id IS NOT NULL AND merchant_id IS NOT NULL AND card_type_id IS NOT NULL AND transaction_at IS NOT NULL AND transaction_amount_vnd IS NOT NULL AND applied_base_fee_rate IS NOT NULL AND amount_after_base_fee_vnd IS NOT NULL", name: "transactions_approved_complete"
     t.check_constraint "applied_card_base_fee_rate IS NULL OR applied_card_base_fee_rate >= 0::numeric AND applied_card_base_fee_rate < 1::numeric", name: "transactions_applied_card_base_fee_rate_range"
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'processing'::character varying::text, 'needs_review'::character varying::text, 'approved'::character varying::text, 'rejected'::character varying::text, 'hold'::character varying::text, 'exported'::character varying::text, 'failed'::character varying::text, 'excluded'::character varying::text])", name: "transactions_status_check"
     t.check_constraint "transaction_amount_vnd IS NULL OR transaction_amount_vnd > 0", name: "transactions_amount_positive"
@@ -434,8 +477,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_13_110000) do
     t.datetime "updated_at", null: false
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
+    t.index ["role"], name: "index_users_on_role"
     t.index ["unlock_token"], name: "index_users_on_unlock_token", unique: true
-    t.check_constraint "role::text = ANY (ARRAY['admin'::character varying::text, 'operator'::character varying::text, 'viewer'::character varying::text])", name: "users_role_check"
   end
 
   create_table "workbook_entries", force: :cascade do |t|
@@ -482,6 +525,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_13_110000) do
   add_foreign_key "remitter_transfers", "remitters"
   add_foreign_key "remitter_transfers", "telegram_messages"
   add_foreign_key "remitter_transfers", "users", column: "reviewed_by_id"
+  add_foreign_key "role_permissions", "roles"
   add_foreign_key "telegram_messages", "telegram_chats"
   add_foreign_key "transaction_reviews", "transactions"
   add_foreign_key "transaction_reviews", "users", column: "reviewed_by_id"
@@ -493,5 +537,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_13_110000) do
   add_foreign_key "transactions", "merchants"
   add_foreign_key "transactions", "telegram_messages"
   add_foreign_key "transactions", "users", column: "approved_by_id"
+  add_foreign_key "users", "roles", column: "role", primary_key: "key", name: "fk_users_role"
   add_foreign_key "workbook_entries", "transactions"
 end

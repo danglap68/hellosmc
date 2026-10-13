@@ -1,5 +1,23 @@
 <% content_for :title, t("bill_albums.index.title") %>
 
+<%= list_toolbar(
+      url: admin_bill_albums_path,
+      search: { param: "q", value: params[:q], placeholder: t("bill_albums.index.title") },
+      default_sort: "newest",
+      sorts: [
+        { key: "newest", label: t("toolbar.sorts.newest") },
+        { key: "oldest", label: t("toolbar.sorts.oldest") },
+        { key: "amount_desc", label: t("toolbar.sorts.amount_desc") },
+        { key: "amount_asc", label: t("toolbar.sorts.amount_asc") }
+      ],
+      filters: [
+        { type: :single, name: "status", label: BillAlbum.human_attribute_name(:status), value: params[:status], options: enum_options(:bill_album, :status, BillAlbum::STATUSES) },
+        { type: :single, name: "reconciliation_status", label: BillAlbum.human_attribute_name(:reconciliation_status), value: params[:reconciliation_status], options: enum_options(:bill_album, :reconciliation_status, BillAlbum::RECONCILIATION_STATUSES) },
+        { type: :single, name: "telegram_chat_id", label: BillAlbum.human_attribute_name(:telegram_chat), value: params[:telegram_chat_id], options: TelegramChat.ordered.map { |chat| [chat.display_name, chat.id] } },
+        { type: :date_range, key: "dates", label: BillAlbum.human_attribute_name(:created_at), from_name: "date_from", to_name: "date_to", from_value: params[:date_from], to_value: params[:date_to] }
+      ]
+    ) %>
+
 <div class="card">
   <% if @bill_albums.any? %>
     <div class="table-responsive">

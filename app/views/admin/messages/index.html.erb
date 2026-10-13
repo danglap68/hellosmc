@@ -1,0 +1,80 @@
+<% content_for :title, t("messages.index.title") %>
+<% content_for :bare_page, "1" %>
+
+<% if @health.privacy_warning || @health.silent_rows.any? || @missing_ids %>
+  <p class="chat-note">
+    <% if @health.privacy_warning %><span><%= t("messages.health.privacy") %></span><% end %>
+    <% if @health.silent_rows.any? %>
+      <span><%= t("messages.health.silent", names: @health.silent_rows.map { |row| row.chat.display_name }.join(", ")) %></span>
+    <% end %>
+    <% if @missing_ids %>
+      <span><%= t("messages.health.missing_ids", ids: @missing_ids.join(", ").presence || "—") %></span>
+    <% end %>
+  </p>
+<% end %>
+
+<div class="chat-app">
+  <aside class="chat-conv-list" aria-label="<%= t("messages.index.groups") %>">
+    <% if @conversations.any? %>
+      <% @conversations.each do |row| %>
+        <% preview = @previews[row.chat.id] %>
+        <%= link_to admin_messages_path(chat_id: row.chat.id), class: "chat-conv", aria: { current: ("page" if @chat&.id == row.chat.id) } do %>
+          <span class="chat-conv-title">
+            <span class="chat-conv-name"><%= row.chat.display_name %></span>
+            <span class="chat-platform"><%= t("messages.sources.telegram") %></span>
+          </span>
+          <time class="chat-conv-time" datetime="<%= preview&.sent_at&.iso8601 %>"><%= chat_time(preview&.sent_at) %></time>
+          <span class="chat-conv-preview"><%= chat_preview(preview) %></span>
+        <% end %>
+      <% end %>
+    <% else %>
+      <p class="chat-empty"><%= t("messages.index.no_groups") %></p>
+    <% end %>
+  </aside>
+
+  <section class="chat-stage" aria-label="<%= @chat ? @chat.display_name : t("messages.index.title") %>">
+    <% if @chat %>
+      <header class="chat-stage-head">
+        <h1><%= @chat.display_name %></h1>
+        <span class="chat-platform"><%= t("messages.sources.telegram") %></span>
+        <% gap = @health.rows.find { |row| row.chat.id == @chat.id } %>
+        <% if gap&.missing_count.to_i.positive? && @missing_ids.nil? %>
+          <%= link_to t("messages.health.missing_short", count: gap.missing_count), admin_messages_path(chat_id: @chat.id, gaps: 1), class: "chat-gap" %>
+        <% end %>
+      </header>
+      <% if @has_older && @messages.any? %>
+        <div class="chat-older">
+          <%= link_to t("messages.index.older"), admin_messages_path(chat_id: @chat.id, before_id: @messages.first.id) %>
+        </div>
+      <% end %>
+      <% if @messages.any? %>
+        <ol class="chat-log" data-controller="chat-thread">
+          <% @messages.each do |message| %>
+            <li class="chat-bubble chat-tone-<%= chat_tone(message) %>">
+              <div class="chat-bubble-head">
+                <span class="chat-avatar" aria-hidden="true"><%= chat_initial(message) %></span>
+                <span class="chat-sender"><%= message.sender_name.presence || t("messages.index.unknown_sender") %></span>
+                <%= link_to chat_time(message.sent_at), admin_message_path(message), class: "chat-detail" %>
+              </div>
+              <p class="chat-text"><%= message.display_body %></p>
+              <% if message.reply_to_message_id %>
+                <p class="chat-aside"><%= t("messages.show.reply", id: message.reply_to_message_id) %></p>
+              <% end %>
+              <% if message.forwarded_from.present? %>
+                <p class="chat-aside"><%= t("messages.show.forward", name: message.forwarded_from) %></p>
+              <% end %>
+              <% if message.edited_at %>
+                <p class="chat-aside"><%= t("messages.show.edited") %></p>
+              <% end %>
+            </li>
+          <% end %>
+        </ol>
+      <% else %>
+        <p class="chat-empty"><%= t("messages.index.thread_empty") %></p>
+      <% end %>
+    <% else %>
+      <p class="chat-empty"><%= t("messages.index.pick") %></p>
+    <% end %>
+  </section>
+</div>
+<p class="chat-note chat-note-quiet"><%= t("messages.index.limits") %></p>

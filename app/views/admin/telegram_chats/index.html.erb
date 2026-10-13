@@ -7,14 +7,21 @@
 
 <div class="alert alert-info"><%= icon("info-circle") %> <%= t("telegram_chats.index.help") %></div>
 
+<%= list_toolbar(
+      url: admin_settings_organization_telegram_chats_path,
+      search: { param: "q", value: params[:q], placeholder: t("telegram_chats.index.title") },
+      default_sort: "name_asc",
+      sorts: [
+        { key: "name_asc", label: t("toolbar.sorts.name_asc") },
+        { key: "name_desc", label: t("toolbar.sorts.name_desc") },
+        { key: "newest", label: t("toolbar.sorts.newest") }
+      ],
+      filters: [
+        { type: :single, name: "filter", label: t("toolbar.active_state"), value: params[:filter], options: [[t("common.active"), "active"], [t("common.inactive"), "inactive"]] }
+      ]
+    ) %>
+
 <div class="card">
-  <div class="card-header">
-    <ul class="nav nav-tabs card-header-tabs">
-      <% [nil, "inactive"].each do |filter| %>
-        <li class="nav-item"><%= link_to t("telegram_chats.filters.#{filter || 'all'}"), admin_telegram_chats_path(filter: filter), class: "nav-link #{'active' if params[:filter] == filter}" %></li>
-      <% end %>
-    </ul>
-  </div>
   <% if @telegram_chats.any? %>
     <div class="table-responsive">
       <table class="table table-vcenter card-table">

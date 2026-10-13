@@ -1,0 +1,66 @@
+<div class="codes-shell"
+     data-controller="codes-board"
+     data-codes-board-group-value="<%= @group %>"
+     data-codes-board-copied-value="<%= t("runner_codes.copied") %>"
+     data-codes-board-failed-value="<%= t("runner_codes.copy_failed") %>">
+  <header class="codes-bar" data-codes-board-target="bar">
+    <div class="codes-wrap codes-bar__grid">
+      <div class="codes-brand">
+        <h1 class="codes-title"><%= t("runner_codes.title") %></h1>
+        <p class="codes-hint"><%= t("runner_codes.hint") %></p>
+      </div>
+
+      <form class="codes-search-field" role="search" action="<%= runner_codes_path %>" method="get" data-action="submit->codes-board#submit">
+        <label class="codes-label" for="runner-code-query"><%= t("runner_codes.search_label") %></label>
+        <div class="codes-search-shell">
+          <i class="ti ti-search codes-search-icon" aria-hidden="true"></i>
+          <input id="runner-code-query" class="codes-search" type="search" name="q" value="<%= @query %>"
+                 placeholder="<%= t("runner_codes.search_placeholder") %>"
+                 autocomplete="off" autocapitalize="none" spellcheck="false" enterkeyhint="search"
+                 data-codes-board-target="query" data-action="input->codes-board#filter">
+          <button type="button" class="codes-clear<%= " is-idle" if @query.blank? %>" data-codes-board-target="clear" data-action="codes-board#clearQuery"
+                  aria-label="<%= t("runner_codes.clear_label") %>" <% if @query.blank? %>disabled aria-hidden="true"<% end %>>
+            <i class="ti ti-x" aria-hidden="true"></i>
+          </button>
+        </div>
+        <input type="hidden" name="nhom" value="<%= @group == "hkd" ? "hkd" : "" %>" data-codes-board-target="groupField">
+      </form>
+
+      <div class="codes-group-field">
+        <span class="codes-label" id="codes-group-label"><%= t("runner_codes.group_label") %></span>
+        <div class="codes-groups" role="group" aria-labelledby="codes-group-label">
+          <button type="button" data-codes-board-target="groupButton" data-group="person" data-action="codes-board#showGroup"
+                  aria-pressed="<%= @group == "person" %>" aria-label="<%= t("runner_codes.group_person_label") %>">
+            <%= t("runner_codes.group_person") %>
+          </button>
+          <button type="button" data-codes-board-target="groupButton" data-group="hkd" data-action="codes-board#showGroup"
+                  aria-pressed="<%= @group == "hkd" %>" aria-label="<%= t("runner_codes.group_hkd_label") %>">
+            <%= t("runner_codes.group_hkd") %>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="codes-wrap codes-main" id="main-content" tabindex="-1">
+    <p class="codes-live" data-codes-board-target="live" aria-live="polite" aria-atomic="true"></p>
+    <% if @people.empty? %>
+      <div class="codes-empty-state" role="status">
+        <p class="codes-empty-state__title"><%= t("runner_codes.empty") %></p>
+      </div>
+    <% else %>
+      <div class="codes-flow" data-codes-board-target="board" data-group="person" <%= "hidden" if @group != "person" %>>
+        <%= render partial: "group", collection: @people, as: :group %>
+      </div>
+      <div class="codes-flow" data-codes-board-target="board" data-group="hkd" <%= "hidden" if @group != "hkd" %>>
+        <%= render partial: "group", collection: @households, as: :group %>
+      </div>
+      <div class="codes-empty-state" role="status" data-codes-board-target="empty" <%= "hidden" if @any_visible %>>
+        <span class="codes-empty-state__mark" aria-hidden="true"><i class="ti ti-search"></i></span>
+        <p class="codes-empty-state__title"><%= t("runner_codes.no_results") %></p>
+        <p class="codes-empty-state__hint"><%= t("runner_codes.no_results_hint") %></p>
+        <button type="button" class="codes-empty-state__clear" data-action="codes-board#clearQuery"><%= t("runner_codes.clear") %></button>
+      </div>
+    <% end %>
+  </main>
+</div>

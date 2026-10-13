@@ -9,33 +9,45 @@ RSpec.describe "Transfer codes" do
   context "as an admin" do
     before { sign_in admin }
 
-    it "lists every code with its HKD, agent and TID in a card on Cài đặt" do
-      get admin_settings_path
+    it "lists every code with its HKD, agent and TID under Cài đặt › Tổ chức" do
+      get admin_settings_organization_transfer_codes_path
 
       expect(response).to have_http_status(:ok)
-      expect(response.body).to include('id="transfer-codes"', "Mã chuyển tiền", "TK01", "NM03", "Chương", "tid1", "Thêm mã")
+      expect(response.body).to include("Mã chuyển tiền", "TK01", "NM03", "Chương", "tid1", "Thêm mã")
       expect(response.body).to include(edit_admin_transfer_code_path(tk01))
+      expect(Nokogiri::HTML(response.body).at_css('.settings-tab[aria-current="page"]').text.strip).to eq("Tổ chức")
     end
 
-    it "is collapsed by default and opens again after a change" do
-      get admin_settings_path
-      expect(Nokogiri::HTML(response.body).at_css("details#transfer-codes").key?("open")).to be(false)
+    it "puts a copy button next to each code" do
+      get admin_settings_organization_transfer_codes_path
 
-      get admin_settings_path(codes: 1)
-      expect(Nokogiri::HTML(response.body).at_css("details#transfer-codes").key?("open")).to be(true)
+      button = Nokogiri::HTML(response.body).at_css('button[data-controller="clipboard"][data-clipboard-text-value="TK01"]')
+      expect(button).to be_present
+      expect(button["type"]).to eq("button")
+      expect(button["aria-label"]).to eq("Chép mã TK01")
+      expect(button["data-clipboard-copied-value"]).to eq("Đã chép")
+      expect(button.at_css("i.ti-copy")).to be_present
     end
 
-    it "has no menu entry or page of its own" do
-      get admin_settings_path
+    it "moves the old address and the card off the Ứng dụng page" do
+      get admin_transfer_codes_path
+      expect(response).to redirect_to(admin_settings_organization_transfer_codes_path)
 
-      expect(response.body).not_to include('href="/admin/transfer_codes"')
-      expect { Rails.application.routes.recognize_path("/admin/transfer_codes", method: :get) }.to raise_error(ActionController::RoutingError)
+      get admin_settings_organization_transfer_codes_path
+      expect(response.body).not_to include('id="transfer-codes"', 'href="/admin/settings#ma-chuyen"')
+    end
+
+    it "finds a code by HKD or agent name" do
+      get admin_settings_organization_transfer_codes_path(q: "Chương")
+
+      expect(response.body).to include("TK01")
+      expect(response.body).not_to include(">NM03<")
     end
 
     it "changes a code, and the matcher follows at once" do
       patch admin_transfer_code_path(tk01), params: { merchant_dealer: { transfer_code: "tk 77" } }
 
-      expect(response).to redirect_to(admin_settings_path(codes: 1, anchor: "transfer-codes"))
+      expect(response).to redirect_to(admin_settings_organization_transfer_codes_path)
       expect(flash[:notice]).to eq("Đã lưu mã TK77.")
       expect(tk01.reload.transfer_code).to eq("TK77")
       expect(RemitterTransfers::CodeMatcher.call("Lap chuyen tien TK77").code).to eq("TK77")
@@ -60,7 +72,7 @@ RSpec.describe "Transfer codes" do
 
       post admin_transfer_codes_path, params: { merchant_dealer: { id: row.id, transfer_code: "tk09" } }
 
-      expect(response).to redirect_to(admin_settings_path(codes: 1, anchor: "transfer-codes"))
+      expect(response).to redirect_to(admin_settings_organization_transfer_codes_path)
       expect(row.reload.transfer_code).to eq("TK09")
     end
 
@@ -77,7 +89,7 @@ RSpec.describe "Transfer codes" do
     it "clears the code on Xoá and keeps the agent row" do
       delete admin_transfer_code_path(tk01)
 
-      expect(response).to redirect_to(admin_settings_path(codes: 1, anchor: "transfer-codes"))
+      expect(response).to redirect_to(admin_settings_organization_transfer_codes_path)
       expect(tk01.reload.transfer_code).to be_nil
       expect(tk01).to be_active
       expect(RemitterTransfers::Codes.codes).not_to include("TK01")
@@ -87,7 +99,7 @@ RSpec.describe "Transfer codes" do
     it "tells how many active agents still have no code" do
       Merchant.find_by!(code: "001").merchant_dealers.find_by!(tid_key: "tid1").update!(transfer_code: nil)
 
-      get admin_settings_path
+      get admin_settings_organization_transfer_codes_path
 
       expect(response.body).to include("1 đại lý đang hoạt động chưa có mã")
     end

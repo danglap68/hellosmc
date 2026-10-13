@@ -40,6 +40,11 @@ namespace :hellosmc do
     RetryFailedExtractionJob.perform_now
   end
 
+  desc "Re-enqueue Telegram updates stuck in the webhook inbox, and drop processed copies older than 14 days"
+  task retry_stuck_telegram_updates: :environment do
+    RetryStuckTelegramUpdatesJob.perform_now
+  end
+
   desc "Build the clean \"thu chi mẫu\" tab from the newest day tab (SOURCE=\"thu chi 1110\" to pick one); day tabs are then made from it"
   task build_thu_chi_template: :environment do
     client = Workbook::GoogleSheetClient.new(spreadsheet_id: AppConfig.hello_smc_spreadsheet_id)
@@ -99,24 +104,24 @@ namespace :hellosmc do
 end
 
 namespace :hellosmc do
-  # Wipes everything a bill produced, keeps configuration.
+  # Wipes everything a bill produced. Keeps configuration and the message log,
+  # so a purge of accounting data does not erase the reconciliation history.
   #
   # Deleted: transactions, reviews, workbook entries, remitter transfers, bill images (and their
-  # files on R2), albums, Telegram messages, Excel exports, the audit log of
-  # those records, and every queued/retrying/scheduled Sidekiq job.
-  # Kept: users, settings, secrets (bot token, webhook), card types, dealers,
-  # merchants + aliases, merchant_dealers (TID mapping), fee rules, remitters,
-  # Telegram groups and their HKD mapping.
+  # files on R2), albums, Excel exports, the audit log of those records, and every
+  # queued/retrying/scheduled Sidekiq job.
+  # Kept: users, settings, secrets, card types, dealers, merchants and aliases,
+  # merchant_dealers, fee rules, remitters, Telegram groups, and Telegram messages.
   #
   # The Google Sheet is NOT touched: rows already written stay there.
   #
   #   CONFIRM=yes bin/rails hellosmc:purge_transaction_data
   PURGE_DATA_TABLES = %w[workbook_entries transaction_reviews transactions remitter_transfers bill_images bill_albums
-                   telegram_messages excel_exports].freeze
+                   excel_exports].freeze
   PURGE_RECORD_TYPES = %w[Transaction TransactionReview WorkbookEntry RemitterTransfer BillImage BillAlbum
-                         TelegramMessage ExcelExport].freeze
+                         ExcelExport].freeze
 
-  desc "Delete all transaction data (bills, transactions, messages, exports) but keep configuration. CONFIRM=yes required"
+  desc "Delete transaction data (bills, transactions, exports) but keep configuration and Telegram messages. CONFIRM=yes required"
   task purge_transaction_data: :environment do
     require "sidekiq/api"
 

@@ -52,6 +52,7 @@ RSpec.describe Telegram::UpdateReceiver do
       expect(message.message_text).to eq("Napas")
       expect(message.raw_payload.dig("message", "caption")).to eq("MB")
       expect(message.raw_payload["edits"].first["text"]).to eq("Napas")
+      expect(message.edited_at).to be_present
       log = AuditLog.find_by!(action: "telegram_message.edited")
       expect(log.before_data["message_text"]).to eq("MB")
       expect(DownloadTelegramAttachmentJob).to have_been_enqueued.once
@@ -64,6 +65,45 @@ RSpec.describe Telegram::UpdateReceiver do
       album = BillAlbum.find_by!(telegram_chat: chat, media_group_id: "mg-1")
       expect(album.metadata["message_ids"]).to be_present
     end
+
+    it "stores a voice message without downloading it" do
+      voice = { "update_id" => 15, "message" => { "message_id" => 16, "chat" => { "id" => chat.telegram_chat_id, "type" => "group" },
+                                                  "date" => Time.current.to_i, "voice" => { "file_id" => "v", "duration" => 3 } } }
+      result = described_class.call(voice)
+      expect(result.status).to eq(:stored_text)
+      expect(result.telegram_message.kind).to eq("voice")
+      expect(DownloadTelegramAttachmentJob).not_to have_been_enqueued
+    end
+
+    it "stores a reply and a forward" do
+      payload = { "update_id" => 16, "message" => { "message_id" => 17, "chat" => { "id" => chat.telegram_chat_id, "type" => "group" },
+                                                    "date" => Time.current.to_i, "text" => "ok",
+                                                    "reply_to_message" => { "message_id" => 3 },
+                                                    "forward_sender_name" => "Ẩn danh" } }
+      message = described_class.call(payload).telegram_message
+      expect(message.reply_to_message_id).to eq(3)
+      expect(message.forwarded_from).to eq("Ẩn danh")
+    end
+
+    it "downloads an edited photo whose original was never stored" do
+      edit = { "update_id" => 18, "edited_message" => update["message"].merge("edit_date" => Time.current.to_i) }
+      result = described_class.call(edit)
+      expect(result.status).to eq(:queued)
+      expect(result.telegram_message.edited_at).to be_present
+      expect(AuditLog.where(action: "telegram_message.created_from_edit")).to exist
+      expect(DownloadTelegramAttachmentJob).to have_been_enqueued.once
+    end
+  end
+
+  it "stores text from an inactive chat and does not download it" do
+    text = { "update_id" => 19, "message" => { "message_id" => 20,
+                                               "chat" => { "id" => -1001234567890, "type" => "group", "title" => "Anh Trân - Bill" },
+                                               "date" => Time.current.to_i, "text" => "nhóm tắt" } }
+    result = described_class.call(text)
+    expect(result.status).to eq(:ignored_inactive_chat)
+    expect(result.telegram_message).to be_processing_ignored
+    expect(result.telegram_message.message_text).to eq("nhóm tắt")
+    expect(DownloadTelegramAttachmentJob).not_to have_been_enqueued
   end
 
   it "ignores updates without a message" do

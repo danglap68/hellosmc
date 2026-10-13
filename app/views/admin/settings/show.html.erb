@@ -1,11 +1,11 @@
-<% content_for :title, t("settings.title") %>
+<% content_for :title, t("navigation.settings_app") %>
 
 <div class="row row-cards">
   <div class="col-lg-8">
     <% unless @services.fetch(AppConfig.vision_provider.to_sym, true) %>
       <div class="alert alert-danger"><%= icon("alert-triangle") %> <%= t("settings.ocr_not_working") %></div>
     <% end %>
-    <div class="card mb-3">
+    <div class="card mb-3" id="ket-noi">
       <div class="card-header">
         <div>
           <h3 class="card-title"><%= icon("plug-connected") %> <%= t("settings.connections.title") %></h3>
@@ -52,9 +52,7 @@
       </div>
     </div>
 
-    <%= render "admin/transfer_codes/card", links: @transfer_codes, without_code: @agents_without_code, open: params[:codes].present? %>
-
-    <%= form_with url: admin_settings_path, method: :patch, scope: :settings do |form| %>
+    <%= form_with url: admin_settings_path, method: :patch, scope: :settings, html: { id: "van-hanh" } do |form| %>
       <% if @form.errors.any? %>
         <div class="alert alert-danger">
           <h4 class="alert-title"><%= t("forms.error_summary", count: @form.errors.count) %></h4>
@@ -73,7 +71,7 @@
           <div class="card-body">
             <div class="row">
               <% AppSetting::DEFINITIONS.values.select { |definition| definition.group == group }.each do |definition| %>
-                <div class="<%= definition.type == :boolean ? 'col-12' : 'col-md-6' %>">
+                <div class="col-12">
                   <%= render "field", form: form, definition: definition %>
                 </div>
               <% end %>
@@ -83,9 +81,10 @@
       <% end %>
 
       <div class="card">
-        <div class="card-body d-flex align-items-center gap-3">
+        <div class="card-body settings-save">
+          <span class="text-secondary small me-auto"><%= t("settings.apply_delay") %></span>
+          <%= link_to t("actions.cancel"), admin_settings_path, class: "btn" %>
           <button type="submit" class="btn btn-primary"><%= icon("device-floppy") %> <%= t("actions.save") %></button>
-          <span class="text-secondary small"><%= t("settings.apply_delay") %></span>
           <% if @last_change %>
             <span class="text-secondary small ms-auto">
               <%= t("settings.last_change", user: @last_change.actor_name || t("audit_logs.system"), at: l(@last_change.created_at.in_time_zone, format: :short)) %>
@@ -96,29 +95,78 @@
       </div>
     <% end %>
 
-    <details class="card mt-3">
+    <% editable = can?(:manage, :settings) %>
+    <details class="card mt-3" id="tinh-chinh" <%= "open" if @tuning_form.errors.any? || params[:action] == "tuning" %>>
       <summary class="card-header"><span class="card-title"><%= icon("adjustments") %> <%= t("settings.tuning.title") %></span></summary>
-      <div class="card-body small text-secondary"><%= t("settings.tuning.help") %></div>
-      <div class="table-responsive">
-        <table class="table card-table table-sm">
-          <thead><tr><th><%= t("settings.tuning.name") %></th><th><%= t("settings.tuning.env") %></th><th><%= t("settings.tuning.value") %></th><th><%= t("settings.tuning.source") %></th></tr></thead>
-          <tbody>
-            <% @tuning.each do |row| %>
+      <%= form_with url: tuning_admin_settings_path, method: :patch, scope: :tuning do |form| %>
+        <div class="card-body small text-secondary"><%= t("settings.tuning.help") %></div>
+        <% if @tuning_form.errors.any? %>
+          <div class="card-body pt-0">
+            <div class="alert alert-danger mb-0">
+              <h4 class="alert-title"><%= t("forms.error_summary", count: @tuning_form.errors.count) %></h4>
+              <ul class="mb-0"><% @tuning_form.errors.full_messages.uniq.each do |message| %><li><%= message %></li><% end %></ul>
+            </div>
+          </div>
+        <% end %>
+        <div class="table-responsive">
+          <table class="table card-table table-sm table-vcenter">
+            <thead>
               <tr>
-                <td><%= t("settings.keys.#{row[:key]}", default: row[:key]) %></td>
-                <td><code><%= row[:env] %></code></td>
-                <td><code><%= row[:value].to_s.presence || "—" %></code></td>
-                <td><%= t("settings.tuning.sources.#{row[:source]}") %></td>
+                <th><%= t("settings.tuning.name") %></th>
+                <th><%= t("settings.tuning.override") %></th>
+                <th><%= t("settings.tuning.value") %></th>
+                <th><%= t("settings.tuning.env") %></th>
+                <th><%= t("settings.tuning.default") %></th>
               </tr>
-            <% end %>
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              <% @tuning.each do |row| %>
+                <% key = row[:key] %>
+                <% spec = row[:spec] %>
+                <% invalid = @tuning_form.errors[key].any? %>
+                <% fallback = row[:env_value] || spec[:default] %>
+                <tr>
+                  <td><label for="tuning_<%= key %>"><%= t("settings.keys.#{key}", default: key) %></label></td>
+                  <td style="min-width: 11rem">
+                    <% css = "form-control form-control-sm #{'is-invalid' if invalid}" %>
+                    <% if spec[:type] == :boolean || spec[:options] %>
+                      <% choices = spec[:options] || %w[true false] %>
+                      <%= select_tag "tuning[#{key}]",
+                            options_for_select([ [ t("settings.tuning.unset", value: fallback), "" ] ] + choices.map { |choice| [ choice, choice ] }, @tuning_form[key]),
+                            class: "form-select form-select-sm #{'is-invalid' if invalid}", id: "tuning_#{key}", disabled: !editable %>
+                    <% else %>
+                      <%= text_field_tag "tuning[#{key}]", @tuning_form[key], class: css, id: "tuning_#{key}", placeholder: fallback,
+                            autocomplete: "off", spellcheck: false, disabled: !editable,
+                            inputmode: (%i[integer rate].include?(spec[:type]) ? "decimal" : nil) %>
+                    <% end %>
+                    <% if invalid %><div class="invalid-feedback d-block"><%= @tuning_form.errors[key].uniq.to_sentence %></div><% end %>
+                  </td>
+                  <td>
+                    <code><%= row[:value].to_s.presence || "—" %></code>
+                    <div class="small text-secondary"><%= t("settings.tuning.sources.#{row[:source]}") %></div>
+                  </td>
+                  <td>
+                    <code><%= spec[:env] %></code>
+                    <div class="small text-secondary text-break"><%= row[:env_value] || t("settings.tuning.env_unset") %></div>
+                  </td>
+                  <td><code><%= spec[:default] %></code></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+        <% if editable %>
+          <div class="card-body settings-save">
+            <span class="text-secondary small me-auto"><%= t("settings.apply_delay") %></span>
+            <button type="submit" class="btn btn-primary"><%= icon("device-floppy") %> <%= t("actions.save") %></button>
+          </div>
+        <% end %>
+      <% end %>
     </details>
   </div>
 
   <div class="col-lg-4">
-    <div class="card mb-3">
+    <div class="card mb-3" id="telegram">
       <div class="card-header">
         <div>
           <h3 class="card-title"><%= icon("brand-telegram") %> <%= t("settings.telegram.title") %></h3>
@@ -195,7 +243,9 @@
     <div class="card">
       <div class="card-header"><h3 class="card-title"><%= t("settings.tools") %></h3></div>
       <div class="list-group list-group-flush">
-        <a href="/admin/sidekiq" class="list-group-item list-group-item-action" target="_blank" rel="noopener"><%= icon("server-cog") %> <%= t("settings.sidekiq") %></a>
+        <% if current_user.admin? %>
+          <a href="/admin/sidekiq" class="list-group-item list-group-item-action" target="_blank" rel="noopener"><%= icon("server-cog") %> <%= t("settings.sidekiq") %></a>
+        <% end %>
         <a href="/health" class="list-group-item list-group-item-action" target="_blank" rel="noopener"><%= icon("heartbeat") %> <%= t("settings.health") %></a>
       </div>
     </div>

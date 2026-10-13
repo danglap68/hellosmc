@@ -14,36 +14,35 @@ module AppConfig
   # Feature flag for remitter transfers ("người đi tiền").
   def remitter_features_enabled? = AppSetting.get("remitter_features_enabled")
 
-  # --- Technical tuning (developers only, never shown to the client) -------
+  # --- Technical tuning (edited by admins under "Thông số kỹ thuật") -------
   #
-  # Each value comes from, in order: an environment variable on the server,
-  # the value an admin stored back when it was on the settings page (so a
-  # deploy never changes what production does), then the default here.
-  # docs/SPEC_SIMPLIFY_SETTINGS.md §3.2. Invalid values fall back to the
-  # default and are logged.
+  # Each value comes from, in order: the value an admin saved on the settings
+  # page (TuningForm), an environment variable on the server, then the
+  # default here. Invalid values fall back to the next source and are logged.
+  # :range is only enforced when an admin saves; readers clamp on their own.
   TUNING = {
-    "vision_provider" => { env: "OCR_PROVIDER", default: "openai", type: :string },
-    "primary_vision_model" => { env: "OCR_PRIMARY_MODEL", default: "gpt-6-luna", type: :string },
+    "vision_provider" => { env: "OCR_PROVIDER", default: "openai", type: :string, options: %w[openai gemini fake] },
+    "primary_vision_model" => { env: "OCR_PRIMARY_MODEL", default: "gpt-6-luna", type: :string, legacy: "openai_vision_model" },
     "validator_vision_model" => { env: "OCR_VALIDATOR_MODEL", default: "gpt-6.1-sol", type: :string },
     "vision_validation_enabled" => { env: "OCR_VALIDATION_ENABLED", default: "true", type: :boolean },
     "gemini_vision_model" => { env: "GEMINI_VISION_MODEL", default: "gemini-2.5-flash", type: :string },
     "ocr_auto_approve_threshold" => { env: "OCR_AUTO_APPROVE_THRESHOLD", default: "0.92", type: :rate },
     "ocr_review_threshold" => { env: "OCR_REVIEW_THRESHOLD", default: "0.70", type: :rate },
-    "vision_timeout_seconds" => { env: "OCR_TIMEOUT_SECONDS", default: "60", type: :integer },
-    "max_ocr_attempts" => { env: "OCR_MAX_ATTEMPTS", default: "3", type: :integer },
+    "vision_timeout_seconds" => { env: "OCR_TIMEOUT_SECONDS", default: "60", type: :integer, range: 10..300 },
+    "max_ocr_attempts" => { env: "OCR_MAX_ATTEMPTS", default: "3", type: :integer, range: 1..3 },
     "merchant_fuzzy_threshold" => { env: "MERCHANT_FUZZY_THRESHOLD", default: "0.88", type: :rate },
     "merchant_auto_accept_score" => { env: "MERCHANT_AUTO_ACCEPT_SCORE", default: "0.90", type: :rate },
-    "duplicate_window_minutes" => { env: "DUPLICATE_WINDOW_MINUTES", default: "10", type: :integer },
-    "max_receipt_age_days" => { env: "MAX_RECEIPT_AGE_DAYS", default: "45", type: :integer },
-    "album_collect_window_seconds" => { env: "ALBUM_COLLECT_WINDOW_SECONDS", default: "15", type: :integer },
-    "max_bill_image_mb" => { env: "MAX_BILL_IMAGE_MB", default: "20", type: :integer },
+    "duplicate_window_minutes" => { env: "DUPLICATE_WINDOW_MINUTES", default: "10", type: :integer, range: 1..1440 },
+    "max_receipt_age_days" => { env: "MAX_RECEIPT_AGE_DAYS", default: "45", type: :integer, range: 1..3650 },
+    "album_collect_window_seconds" => { env: "ALBUM_COLLECT_WINDOW_SECONDS", default: "15", type: :integer, range: 3..300 },
+    "max_bill_image_mb" => { env: "MAX_BILL_IMAGE_MB", default: "20", type: :integer, range: 1..20 },
     "mailer_sender" => { env: "MAILER_SENDER", default: "no-reply@hellosmc.com", type: :string }
   }.freeze
 
-  # [value, source] with source :env, :stored or :default.
+  # [value, source] with source :stored, :env or :default.
   def tuning(key)
     spec = TUNING.fetch(key)
-    [ [ ENV[spec[:env]], :env ], [ legacy_stored(key), :stored ] ].each do |raw, source|
+    [ [ stored_tuning(key), :stored ], [ ENV[spec[:env]], :env ] ].each do |raw, source|
       next if raw.blank?
 
       value = cast_tuning(spec, raw)
@@ -56,10 +55,10 @@ module AppConfig
 
   def tuned(key) = tuning(key).first
 
-  def legacy_stored(key)
-    stored = AppSetting.stored_values
-    # Old installs chose the primary model under "openai_vision_model".
-    key == "primary_vision_model" ? stored[key].presence || stored["openai_vision_model"].presence : stored[key].presence
+  # The admin's saved value, or one saved under the key's old name.
+  def stored_tuning(key, stored = AppSetting.stored_values)
+    legacy = TUNING.fetch(key)[:legacy]
+    stored[key].presence || (legacy && stored[legacy].presence)
   end
 
   def cast_tuning(spec, raw)

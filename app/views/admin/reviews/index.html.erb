@@ -1,23 +1,27 @@
 <% content_for :title, t("reviews.index.title") %>
 <% content_for :actions do %>
-  <% if can?(:manage, :bill_uploads) %>
+  <% if !feature_hidden?(:bill_uploads) && can?(:manage, :bill_uploads) %>
     <%= link_to new_admin_bill_upload_path, class: "btn btn-outline-primary" do %><%= icon("upload") %> <%= t("navigation.bill_uploads") %><% end %>
   <% end %>
 <% end %>
 
+<%= list_toolbar(
+      url: admin_reviews_path,
+      search: { param: "q", value: params[:q], placeholder: t("transactions.filters.q_placeholder") },
+      default_sort: "queue",
+      sorts: [
+        { key: "queue", label: t("toolbar.sorts.queue") },
+        { key: "newest", label: t("toolbar.sorts.newest") }
+      ],
+      filters: [
+        { type: :single, name: "queue", label: t("toolbar.queue"), include_blank: false, chip: params[:queue].present?, value: @queue,
+          options: Admin::ReviewsController::QUEUES.keys.map { |queue| ["#{t("reviews.queues.#{queue}")} (#{@counts[queue].to_i})", queue] } },
+        { type: :single, name: "dealer_id", label: Transaction.human_attribute_name(:dealer), value: params[:dealer_id], options: dealer_options },
+        { type: :date_range, key: "dates", label: t("toolbar.received_date"), from_name: "date_from", to_name: "date_to", from_value: params[:date_from], to_value: params[:date_to] }
+      ]
+    ) %>
+
 <div class="card">
-  <div class="card-header">
-    <ul class="nav nav-tabs card-header-tabs">
-      <% Admin::ReviewsController::QUEUES.each_key do |queue| %>
-        <li class="nav-item">
-          <%= link_to admin_reviews_path(queue: queue), class: "nav-link #{'active' if @queue == queue}" do %>
-            <%= t("reviews.queues.#{queue}") %>
-            <span class="badge bg-<%= ApplicationHelper::STATUS_COLORS[queue] %>-lt ms-2"><%= @counts[queue].to_i %></span>
-          <% end %>
-        </li>
-      <% end %>
-    </ul>
-  </div>
   <% if @transactions.any? %>
     <div class="table-responsive">
       <table class="table table-vcenter card-table">

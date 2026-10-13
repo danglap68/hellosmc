@@ -14,7 +14,21 @@ module Admin
     def index
       @queue = QUEUES.key?(params[:queue]) ? params[:queue] : "needs_review"
       @counts = Transaction.where(status: QUEUES.values.flatten).group(:status).count
-      scope = Transaction.where(status: QUEUES[@queue]).includes(:dealer, :merchant, :bill_image, :reviews).order(:created_at)
+      scope = Transaction.where(status: QUEUES[@queue]).includes(:dealer, :merchant, :bill_image, :reviews)
+      scope = scope.where(dealer_id: params[:dealer_id]) if params[:dealer_id].present?
+      scope = apply_time_range(scope, :created_at)
+      if params[:q].present?
+        like = "%#{Transaction.sanitize_sql_like(params[:q])}%"
+        matched = Transaction.left_joins(:merchant).where(
+          "merchants.name ILIKE :q OR transactions.lot_number ILIKE :q OR transactions.id::text = :id",
+          q: like, id: params[:q].strip
+        ).select(:id)
+        scope = scope.where(id: matched)
+      end
+      scope = apply_sort(scope, {
+        "queue" => { created_at: :asc, id: :asc },
+        "newest" => { created_at: :desc, id: :desc }
+      }, default: "queue")
       @pagy, @transactions = pagy(scope)
     end
 

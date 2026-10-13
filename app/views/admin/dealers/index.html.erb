@@ -5,15 +5,22 @@
   <% end %>
 <% end %>
 
+<%= list_toolbar(
+      url: admin_settings_organization_dealers_path,
+      search: { param: "q", value: params[:q], placeholder: t("dealers.index.title") },
+      default_sort: "name_asc",
+      sorts: [
+        { key: "name_asc", label: t("toolbar.sorts.name_asc") },
+        { key: "name_desc", label: t("toolbar.sorts.name_desc") },
+        { key: "code", label: t("toolbar.sorts.code") },
+        { key: "newest", label: t("toolbar.sorts.newest") }
+      ],
+      filters: [
+        { type: :single, name: "active", label: t("toolbar.active_state"), value: params[:active], options: [[t("common.active"), "1"], [t("common.inactive"), "0"]] }
+      ]
+    ) %>
+
 <div class="card">
-  <div class="card-header">
-    <%= form_with url: admin_dealers_path, method: :get, class: "ms-auto" do %>
-      <div class="input-icon">
-        <input type="search" name="q" value="<%= params[:q] %>" class="form-control" placeholder="<%= t('actions.search') %>">
-        <span class="input-icon-addon"><%= icon("search") %></span>
-      </div>
-    <% end %>
-  </div>
   <% if @dealers.any? %>
     <div class="table-responsive">
       <table class="table table-vcenter card-table">

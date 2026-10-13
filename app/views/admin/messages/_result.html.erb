@@ -1,0 +1,12 @@
+<div class="small">
+  <% message.transactions.each do |transaction| %>
+    <div><%= link_to t("messages.results.transaction", id: transaction.id), admin_transaction_path(transaction) %></div>
+  <% end %>
+  <% if message.remitter_transfer %>
+    <div><%= link_to t("messages.results.transfer", id: message.remitter_transfer.id), admin_remitter_transfer_path(message.remitter_transfer) %></div>
+  <% end %>
+  <% message.bill_images.filter_map(&:bill_album).uniq.each do |album| %>
+    <div><%= link_to t("messages.results.album", id: album.id), admin_bill_album_path(album) %></div>
+  <% end %>
+  <div class="text-secondary"><%= enum_label(:telegram_message, :processing_status, message.processing_status) %></div>
+</div>

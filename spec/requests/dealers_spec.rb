@@ -19,6 +19,7 @@ RSpec.describe "Dealers" do
 
   it "counts distinct HKDs on the index" do
     get admin_dealers_path
+    follow_redirect!
     expect(response).to have_http_status(:ok)
     expect(controller.instance_variable_get(:@merchant_counts)[hue.id]).to eq(1)
   end

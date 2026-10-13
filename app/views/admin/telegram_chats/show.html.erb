@@ -35,7 +35,14 @@
   </div>
   <div class="col-lg-8">
     <div class="card">
-      <div class="card-header"><h3 class="card-title"><%= t("telegram_chats.show.recent_messages") %></h3></div>
+      <div class="card-header">
+        <h3 class="card-title"><%= t("telegram_chats.show.recent_messages") %></h3>
+        <% if can?(:read, :messages) %>
+          <div class="card-actions">
+            <%= link_to t("actions.view_all"), admin_messages_path(chat_id: @telegram_chat.id) %>
+          </div>
+        <% end %>
+      </div>
       <% if @recent_messages.any? %>
         <div class="table-responsive">
           <table class="table card-table table-vcenter">

@@ -4,115 +4,129 @@
     <title><%= content_for?(:title) ? "#{yield(:title)} · #{t('app.name')}" : t("app.name") %></title>
     <%= render "layouts/head" %>
   </head>
-  <body class="app-ui admin-layout">
+  <body class="app-ui admin-layout"
+        data-controller="command-palette"
+        data-command-palette-items-value="<%= command_palette_items.to_json %>"
+        data-command-palette-labels-value="<%= command_palette_labels.to_json %>">
     <a href="#main-content" class="skip-link"><%= t("ui.skip_to_content") %></a>
     <div class="page">
-      <aside class="navbar navbar-vertical navbar-expand-lg app-sidebar" aria-label="<%= t("ui.main_navigation") %>">
-        <div class="container-fluid">
-          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#sidebar-menu"
-                  aria-controls="sidebar-menu" aria-expanded="false" aria-label="<%= t('navigation.toggle') %>">
-            <span class="navbar-toggler-icon"></span>
-          </button>
-          <div class="navbar-brand">
-            <%= link_to admin_root_path, class: "app-brand text-reset text-decoration-none" do %>
-              <span class="brand-mark"><%= icon("receipt-2") %></span><span><%= t("app.name") %></span>
+      <aside class="navbar navbar-vertical navbar-expand-lg shell-sidebar" aria-label="<%= t("ui.main_navigation") %>">
+        <div class="shell-sidebar-inner">
+          <div class="shell-brand-row">
+            <%= link_to admin_root_path, class: "shell-brand" do %>
+              <span class="shell-mark">S</span>
+              <span>
+                <span class="shell-name"><%= t("app.name") %></span>
+                <span class="shell-product"><%= t("navigation.product") %></span>
+              </span>
             <% end %>
+            <button class="navbar-toggler shell-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#sidebar-menu"
+                    aria-controls="sidebar-menu" aria-expanded="false" aria-label="<%= t('navigation.toggle') %>">
+              <span class="navbar-toggler-icon"></span>
+            </button>
           </div>
-          <div class="collapse navbar-collapse" id="sidebar-menu">
-            <ul class="navbar-nav">
-              <%= nav_section t("navigation.sections.overview") %>
-              <%= nav_link t("navigation.dashboard"), admin_root_path, "layout-dashboard", resource: :dashboard, active: current_page?(admin_root_path) %>
-              <%= nav_link t("navigation.transactions"), admin_transactions_path, "arrows-exchange", resource: :transactions %>
-              <%= nav_link t("navigation.reviews"), admin_reviews_path, "scan", resource: :reviews %>
-              <%= nav_link t("navigation.bill_albums"), admin_bill_albums_path, "photo", resource: :bill_albums %>
-              <%= nav_link t("navigation.remitter_transfers"), admin_remitter_transfers_path, "cash", resource: :remitter_transfers %>
-              <%= nav_link t("navigation.bill_uploads"), new_admin_bill_upload_path, "upload", resource: :bill_uploads %>
 
-              <% if can?(:read, :dealers) || can?(:read, :merchants) || can?(:read, :fee_rules) %>
-                <%= nav_section t("navigation.sections.configuration") %>
-              <% end %>
-              <%= nav_link t("navigation.dealers"), admin_dealers_path, "users", resource: :dealers %>
-              <%= nav_link t("navigation.telegram_chats"), admin_telegram_chats_path, "brand-telegram", resource: :telegram_chats %>
-              <%= nav_link t("navigation.merchants"), admin_merchants_path, "building-store", resource: :merchants %>
-              <%= nav_link t("navigation.fee_rules"), admin_fee_rules_path, "percentage", resource: :fee_rules %>
-              <%= nav_link t("navigation.remitters"), admin_remitters_path, "user-dollar", resource: :remitters %>
+          <div class="collapse navbar-collapse shell-collapse" id="sidebar-menu">
+            <button type="button" class="shell-search" data-action="command-palette#open">
+              <%= icon("search") %>
+              <span><%= t("navigation.palette_placeholder") %></span>
+              <kbd data-command-palette-target="hint">⌘K</kbd>
+            </button>
 
-              <% if can?(:read, :excel_exports) || can?(:read, :audit_logs) %>
-                <%= nav_section t("navigation.sections.operations") %>
-              <% end %>
-              <%= nav_link t("navigation.excel_exports"), admin_excel_exports_path, "file-spreadsheet", resource: :excel_exports %>
-              <%= nav_link t("navigation.audit_logs"), admin_audit_logs_path, "history", resource: :audit_logs %>
+            <div class="shell-scroll"
+                 data-controller="nav-pins"
+                 data-nav-pins-cookie-value="<%= SettingsNavHelper::NAV_PINS_COOKIE %>"
+                 data-nav-pins-labels-value="<%= { pin: t("navigation.pin"), unpin: t("navigation.unpin"), pin_short: t("navigation.pin_short"), unpin_short: t("navigation.unpin_short") }.to_json %>">
+              <% pinned = shell_pinned_items %>
+              <section class="shell-pins" data-nav-pins-target="section">
+                <div class="shell-label"><%= t("navigation.pinned") %></div>
+                <p class="shell-pins-empty" data-nav-pins-target="empty" <%= "hidden" if pinned.any? %>><%= t("navigation.pins_empty") %></p>
+                <nav class="shell-nav" aria-label="<%= t("navigation.pinned") %>" data-nav-pins-target="pinned">
+                  <% pinned.each do |item| %>
+                    <%= render "layouts/shell_nav_item", item: item %>
+                  <% end %>
+                </nav>
+              </section>
 
-              <% if can?(:read, :users) || can?(:read, :settings) %>
-                <%= nav_section t("navigation.sections.system") %>
-              <% end %>
-              <%= nav_link t("navigation.users"), admin_users_path, "user-cog", resource: :users %>
-              <%= nav_link t("navigation.card_types"), admin_card_types_path, "credit-card", resource: :card_types %>
-              <%= nav_link t("navigation.settings"), admin_settings_path, "settings", resource: :settings %>
-            </ul>
-            <div class="sidebar-footer d-none d-lg-block"><%= t("app.tagline") %></div>
-          </div>
-        </div>
-      </aside>
+              <div class="shell-label"><%= t("navigation.pages") %></div>
+              <nav class="shell-nav" aria-label="<%= t("ui.main_navigation") %>" data-nav-pins-target="list">
+                <% shell_main_items.each do |item| %>
+                  <%= render "layouts/shell_nav_item", item: item %>
+                <% end %>
+              </nav>
+            </div>
 
-      <div class="page-wrapper">
-        <header class="navbar navbar-expand-md app-topbar d-print-none">
-          <div class="container-xl">
-            <div class="navbar-nav flex-row order-md-last ms-auto align-items-center gap-3">
-              <%= render "layouts/theme_switcher" %>
-              <div class="nav-item dropdown">
-                <button type="button" class="btn account-trigger d-flex lh-1 text-reset" data-bs-toggle="dropdown" aria-expanded="false" aria-label="<%= t('navigation.account') %>">
-                  <span class="avatar avatar-sm account-avatar"><%= current_user.display_name.first.upcase %></span>
-                  <span class="d-none d-xl-block ps-2 text-start">
-                    <span class="d-block"><%= current_user.display_name %></span>
-                    <span class="d-block mt-1 small text-secondary"><%= enum_label(:user, :role, current_user.role) %></span>
+            <div class="shell-bottom">
+              <%= settings_nav_link %>
+              <div class="dropdown dropup shell-user">
+                <button type="button" class="shell-user-trigger" data-bs-toggle="dropdown" aria-expanded="false" aria-label="<%= t('navigation.account') %>">
+                  <span class="shell-avatar"><%= current_user.display_name.first.upcase %></span>
+                  <span class="shell-user-text">
+                    <span class="shell-user-name"><%= current_user.display_name %></span>
+                    <span class="shell-user-role"><%= current_user.role_name %></span>
                   </span>
                 </button>
-                <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
+                <div class="dropdown-menu dropdown-menu-end shell-user-menu">
                   <span class="dropdown-header"><%= current_user.email %></span>
+                  <div class="dropdown-item-text"><%= render "layouts/theme_switcher" %></div>
                   <%= button_to destroy_user_session_path, method: :delete, class: "dropdown-item", form: { data: { turbo: false } } do %>
                     <%= icon("logout", "dropdown-item-icon") %> <%= t("navigation.logout") %>
                   <% end %>
                 </div>
               </div>
             </div>
-            <div class="navbar-nav d-none d-md-flex">
-              <span class="text-secondary small"><%= icon("clock") %> <%= l(Time.current, format: :short) %> (<%= t("app.timezone_label") %>)</span>
-            </div>
-          </div>
-        </header>
-
-        <div class="page-header d-print-none">
-          <div class="container-xl">
-            <div class="row g-2 align-items-center">
-              <div class="col">
-                <% if content_for?(:breadcrumbs) %>
-                  <ol class="breadcrumb breadcrumb-arrows mb-2" aria-label="<%= t("ui.breadcrumbs") %>"><%= yield :breadcrumbs %></ol>
-                <% end %>
-                <h1 class="page-title"><%= yield :title %></h1>
-              </div>
-              <% if content_for?(:actions) %>
-                <div class="col-auto ms-auto d-print-none">
-                  <div class="btn-list"><%= yield :actions %></div>
-                </div>
-              <% end %>
-            </div>
           </div>
         </div>
+      </aside>
 
+      <div class="page-wrapper">
         <main class="page-body" id="main-content" tabindex="-1">
           <div class="container-xl">
             <%= render "layouts/flash" %>
-            <%= yield %>
+            <% if settings_context? && settings_tabs.any? %>
+              <div class="settings-page">
+                <header class="settings-intro">
+                  <div>
+                    <h1><%= t("navigation.settings") %></h1>
+                    <p><%= t("navigation.settings_description") %></p>
+                  </div>
+                </header>
+                <nav class="settings-tabs" aria-label="<%= t("navigation.settings") %>">
+                  <% settings_tabs.each do |tab| %>
+                    <% current = tab[:key] == current_settings_tab&.dig(:key) %>
+                    <%= link_to tab[:label], tab[:url], class: "settings-tab", aria: { current: ("page" if current) } %>
+                  <% end %>
+                </nav>
+                <div class="settings-body">
+                  <%= render "admin/shared/settings_nav" %>
+                  <div class="settings-main">
+                    <div class="settings-main-head">
+                      <h2><%= content_for(:title) %></h2>
+                      <% if content_for?(:actions) %>
+                        <div class="btn-list"><%= yield :actions %></div>
+                      <% end %>
+                    </div>
+                    <%= yield %>
+                  </div>
+                </div>
+              </div>
+            <% else %>
+              <% unless content_for?(:bare_page) %>
+                <div class="page-intro">
+                  <div>
+                    <h1 class="page-title"><%= yield :title %></h1>
+                  </div>
+                  <% if content_for?(:actions) %>
+                    <div class="page-intro-actions btn-list"><%= yield :actions %></div>
+                  <% end %>
+                </div>
+              <% end %>
+              <%= yield %>
+            <% end %>
           </div>
         </main>
-
-        <footer class="footer footer-transparent d-print-none">
-          <div class="container-xl text-secondary small">
-            <%= t("app.name") %> · <%= t("app.footer") %>
-          </div>
-        </footer>
       </div>
     </div>
+    <%= render "admin/shared/command_palette" %>
   </body>
 </html>

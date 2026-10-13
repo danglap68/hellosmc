@@ -5,6 +5,21 @@
   <% end %>
 <% end %>
 
+<%= list_toolbar(
+      url: admin_excel_exports_path,
+      search: { param: "q", value: params[:q], placeholder: t("excel_exports.index.title") },
+      default_sort: "newest",
+      sorts: [
+        { key: "newest", label: t("toolbar.sorts.newest") },
+        { key: "oldest", label: t("toolbar.sorts.oldest") }
+      ],
+      filters: [
+        { type: :single, name: "status", label: ExcelExport.human_attribute_name(:status), value: params[:status], options: enum_options(:excel_export, :status, ExcelExport::STATUSES) },
+        { type: :single, name: "layout", label: ExcelExport.human_attribute_name(:layout), value: params[:layout], options: export_layout_options },
+        { type: :date_range, key: "dates", label: t("excel_exports.date_range"), from_name: "date_from", to_name: "date_to", from_value: params[:date_from], to_value: params[:date_to] }
+      ]
+    ) %>
+
 <div class="card">
   <% if @excel_exports.any? %>
     <div class="table-responsive">

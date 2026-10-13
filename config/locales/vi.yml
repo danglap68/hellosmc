@@ -20,6 +20,7 @@ vi:
     account: "Tài khoản"
     logout: "Đăng xuất"
     dashboard: "Tổng quan"
+    messages: "Tin nhắn"
     transactions: "Giao dịch"
     reviews: "Kiểm tra OCR"
     bill_uploads: "Tải bill lên"
@@ -33,12 +34,32 @@ vi:
     excel_exports: "Xuất Excel"
     audit_logs: "Nhật ký thay đổi"
     users: "Người dùng"
+    roles: "Phân quyền"
     card_types: "Loại thẻ"
+    transfer_codes: "Mã chuyển tiền"
     settings: "Cài đặt"
+    settings_app: "Ứng dụng"
+    product: "Quản trị"
+    pinned: "Ghim"
+    pages: "Trang"
+    pins_empty: "Bấm ngôi sao để ghim trang lên đây."
+    pin: "Ghim %{name} lên đầu"
+    unpin: "Bỏ ghim %{name}"
+    pin_short: "Ghim lên đầu"
+    unpin_short: "Bỏ ghim"
+    palette_placeholder: "Tìm hoặc chuyển trang"
+    settings_general: "Chung"
+    settings_description: "Tổ chức, phí, thẻ và cấu hình của hệ thống."
+    settings_connections: "Kết nối"
+    settings_telegram: "Telegram"
+    settings_operations: "Vận hành"
+    settings_tuning: "Tinh chỉnh"
     sections:
       overview: "Tổng quan"
       configuration: "Cấu hình"
       operations: "Vận hành"
+      organization: "Tổ chức"
+      fees: "Phí & thẻ"
       system: "Hệ thống"
 
   actions:
@@ -70,6 +91,42 @@ vi:
     more: "Thao tác khác"
     manage: "Quản lý"
     confirm_delete: "Bạn chắc chắn muốn xoá?"
+
+  toolbar:
+    search: "Tìm kiếm"
+    filters: "Bộ lọc"
+    filters_count: "Bộ lọc (%{count})"
+    apply: "Áp dụng"
+    reset: "Đặt lại"
+    clear_all: "Xoá tất cả"
+    remove_filter: "Bỏ bộ lọc này"
+    sort: "Sắp xếp"
+    all: "Tất cả"
+    from: "Từ ngày"
+    to: "Đến ngày"
+    amount_from: "Số tiền từ"
+    amount_to: "Số tiền đến"
+    not_set: "Chưa chọn"
+    "off": "Không"
+    queue: "Hàng chờ"
+    transaction_date: "Ngày giao dịch"
+    received_date: "Ngày nhận"
+    amount: "Số tiền"
+    active_state: "Hoạt động"
+    sorts:
+      newest: "Mới nhất"
+      oldest: "Cũ nhất"
+      amount_desc: "Số tiền cao"
+      amount_asc: "Số tiền thấp"
+      name_asc: "Tên A-Z"
+      name_desc: "Tên Z-A"
+      code: "Theo mã"
+      priority: "Theo ưu tiên"
+      queue: "Vào hàng sớm"
+      email: "Theo email"
+      position: "Theo thứ tự"
+      when_desc: "Ngày giao dịch mới"
+      when_asc: "Ngày giao dịch cũ"
 
   common:
     active: "Đang hoạt động"
@@ -149,8 +206,56 @@ vi:
         message_html: "Mật khẩu của tài khoản <strong>%{email}</strong> trên %{app} đã được thay đổi lúc %{time}."
         warning: "Nếu không phải bạn thực hiện, hãy liên hệ quản trị viên ngay."
 
+  palette:
+    placeholder: "Tìm trang, cài đặt, thao tác"
+    recent: "Gần đây"
+    pages: "Trang"
+    actions: "Thao tác"
+    empty: "Không có kết quả"
+    open_review: "Mở hàng chờ kiểm tra"
+    upload_bill: "Tải bill lên"
+    new_export: "Tạo file Excel"
+    filter_review: "Lọc giao dịch cần kiểm tra"
+    filter_approved: "Lọc giao dịch đã duyệt"
+    open_settings: "Mở %{name}"
+
   dashboard:
     title: "Tổng quan"
+    description: "Doanh số, phí và hàng chờ tính từ giao dịch đã ghi."
+    period_label: "Kỳ thống kê"
+    periods:
+      7d: "7 ngày"
+      30d: "30 ngày"
+      90d: "90 ngày"
+      12m: "12 tháng"
+    delta_up: "tăng"
+    delta_down: "giảm"
+    delta_flat: "không đổi so với kỳ trước"
+    delta_new: "kỳ trước chưa có số liệu"
+    delta_percent: "%{direction} %{amount}% so với kỳ trước"
+    delta_points: "%{direction} %{amount} điểm so với kỳ trước"
+    kpis:
+      gross: "Doanh số"
+      gross_context: "Không tính từ chối, xử lý lỗi và bill đã bỏ qua"
+      count: "Số giao dịch"
+      count_context: "%{count} đã duyệt hoặc đã xuất"
+      fee: "Phí gốc"
+      fee_context: "Số tiền giao dịch trừ số tiền sau phí gốc, trên giao dịch đã duyệt hoặc đã xuất"
+      after_fee: "Số tiền sau phí"
+      after_fee_context: "Trên giao dịch đã duyệt hoặc đã xuất"
+      approval: "Tỷ lệ duyệt"
+      approval_context: "%{approved} trên %{decided} giao dịch đã chốt"
+      approval_empty: "Chưa có giao dịch đã chốt"
+    chart_by_card: "Doanh số theo loại thẻ"
+    attention: "Cần xử lý"
+    attention_empty: "Không có việc đang chờ"
+    empty_window: "Chưa có giao dịch trong kỳ này."
+    queues:
+      needs_review: "Chờ kiểm tra OCR"
+      hold: "Tạm giữ"
+      failed: "OCR hoặc xử lý lỗi"
+      unmatched: "Album chưa khớp"
+      transfers: "Chuyển tiền cần kiểm tra"
     open_review: "Mở hàng chờ kiểm tra"
     latest_transactions: "Giao dịch mới nhất"
     latest_review_items: "Đang chờ kiểm tra"
@@ -170,6 +275,31 @@ vi:
       total_amount_hint: "Mọi giao dịch có ngày giao dịch hôm nay, trừ bị từ chối và xử lý lỗi"
       total_approved_amount_today: "Tổng số tiền đã duyệt hôm nay"
       total_approved_hint: "Giao dịch đã duyệt hoặc đã xuất Excel"
+    chart_title: "Số tiền giao dịch 14 ngày"
+    chart_hint: "Theo ngày giao dịch. Không tính từ chối, xử lý lỗi hoặc bill đã bỏ qua."
+    chart_empty: "Chưa có giao dịch trong 14 ngày này."
+    period: "30 ngày gần nhất"
+    period_range: "%{from} - %{to}"
+    by_dealer: "Theo đại lý"
+    by_merchant: "Theo hộ kinh doanh"
+    by_card_type: "Theo loại thẻ"
+    by_status: "Theo trạng thái"
+    approved_column: "Đã duyệt"
+    profit_column: "Lợi nhuận"
+    count_column: "Giao dịch"
+    amount_column: "Số tiền"
+    period_gross: "Đã duyệt trong 30 ngày"
+    period_gross_hint: "Tổng số tiền giao dịch đã duyệt hoặc đã xuất Excel."
+    period_fee: "Phí gốc trong 30 ngày"
+    period_fee_hint: "Tổng số tiền giao dịch trừ số tiền sau phí gốc, trên các giao dịch đã duyệt hoặc đã xuất."
+    period_profit: "Lợi nhuận trong 30 ngày"
+    period_profit_hint: "Tổng cột lợi nhuận đã ghi trên giao dịch đã duyệt hoặc đã xuất."
+    period_dealer: "Tiền đại lý trong 30 ngày"
+    empty_period: "Chưa có giao dịch trong 30 ngày này."
+    unassigned:
+      dealer: "Chưa gán đại lý"
+      merchant: "Chưa gán hộ kinh doanh"
+      card_type: "Chưa gán loại thẻ"
 
   transactions:
     index:
@@ -348,7 +478,7 @@ vi:
     text_from_album: "Lấy từ tin nhắn đầu của album (chỉ tin đó có chữ)."
 
   transfer_codes:
-    manage: "Quản lý mã chuyển tiền (Cài đặt)"
+    manage: "Quản lý mã chuyển tiền (Cài đặt › Tổ chức)"
     merchant: "Hộ kinh doanh"
     agent: "Đại lý"
     agent_row: "Đại lý của hộ kinh doanh"
@@ -361,6 +491,13 @@ vi:
       help: "Mỗi mã chỉ một đại lý của một hộ kinh doanh. Người đi tiền ghi mã trong tin nhắn gửi kèm ảnh chuyển tiền để hệ thống biết tiền đi cho đại lý nào."
       without_code: "%{count} đại lý đang hoạt động chưa có mã."
       empty: "Chưa có mã chuyển tiền"
+      search: "Mã, hộ kinh doanh hoặc đại lý"
+      copy: "Chép mã %{code}"
+      copied: "Đã chép"
+      sorts:
+        code_asc: "Mã A-Z"
+        code_desc: "Mã Z-A"
+        merchant_asc: "Theo hộ kinh doanh"
     new:
       title: "Thêm mã chuyển tiền"
     edit:
@@ -413,6 +550,49 @@ vi:
     flash:
       activate_first: "Hãy bật hoạt động cho nhóm trước."
       processing_stored: "Đang xử lý %{count} ảnh đã lưu."
+
+  messages:
+    sources:
+      telegram: "Telegram"
+    index:
+      title: "Tin nhắn"
+      groups: "Các nhóm"
+      pick: "Chọn một nhóm để xem lịch sử nói chuyện."
+      no_groups: "Chưa có nhóm nào."
+      no_preview: "Chưa có tin"
+      thread_empty: "Nhóm này chưa có tin nhắn."
+      unknown_sender: "Không rõ người gửi"
+      older: "Tin cũ hơn"
+      limits: "Bot không nhận tin đã xoá, tin của bot khác, và tin gửi trước khi bot vào nhóm. Số «có thể thiếu» chỉ là gợi ý, vì tin bị xoá cũng tạo khoảng trống."
+    health:
+      silent: "Nhóm đang bật nhưng không có tin trong 24 giờ: %{names}."
+      privacy: "Bot chưa đọc được mọi tin nhắn nhóm: tắt Privacy mode trong BotFather hoặc đặt bot làm admin nhóm."
+      missing_ids: "Message id có thể thiếu trong 7 ngày (tối đa 50): %{ids}."
+      missing_short: "Có thể thiếu %{count}"
+    kinds:
+      bracket:
+        text: "[Văn bản]"
+        photo: "[Ảnh]"
+        document: "[File]"
+        video: "[Video]"
+        voice: "[Voice]"
+        audio: "[Audio]"
+        sticker: "[Sticker]"
+        location: "[Vị trí]"
+        contact: "[Danh bạ]"
+        service: "[Hệ thống]"
+        other: "[Khác]"
+    show:
+      title: "Tin nhắn #%{id}"
+      reply: "Trả lời tin %{id}"
+      forward: "Chuyển tiếp từ %{name}"
+      edited: "Đã sửa"
+      raw: "JSON thô"
+      edits: "Lịch sử sửa"
+    results:
+      transaction: "Giao dịch #%{id}"
+      transfer: "Chuyển tiền #%{id}"
+      album: "Album #%{id}"
 
   merchants:
     aliases: "Tên gọi khác (alias)"
@@ -592,8 +772,12 @@ vi:
       user_updated: "Sửa người dùng"
       user_destroyed: "Xoá người dùng"
       user_password_reset_sent: "Gửi link đặt lại mật khẩu"
+      role_created: "Tạo vai trò"
+      role_permissions_updated: "Cập nhật phân quyền"
+      role_destroyed: "Xoá vai trò"
       bill_image_uploaded: "Tải bill lên"
       settings_updated: "Thay đổi cài đặt"
+      settings_tuning_updated: "Thay đổi thông số kỹ thuật"
       telegram_token_updated: "Cập nhật token bot Telegram"
       telegram_webhook_registered: "Kết nối webhook Telegram"
       remitter_transfer_evaluated: "Đọc lệnh chuyển tiền"
@@ -611,7 +795,7 @@ vi:
       title: "Người dùng"
       new: "Thêm người dùng"
     form:
-      role_hint: "Quản trị: toàn quyền. Vận hành: xử lý giao dịch, kiểm tra OCR, xuất Excel, xem cấu hình. Chỉ xem: xem tổng quan và báo cáo."
+      role_hint: "Quyền cụ thể của từng vai trò được chỉnh trong Phân quyền."
       password_keep_hint: "Để trống nếu không đổi."
       password_new_hint: "Để trống để hệ thống gửi email cho người dùng tự đặt mật khẩu."
       active_hint: "Người dùng ngừng hoạt động không thể đăng nhập."
@@ -624,6 +808,99 @@ vi:
       has_history: "Người dùng đã có lịch sử thao tác, hãy tắt hoạt động thay vì xoá."
       reset_sent: "Đã gửi link đặt lại mật khẩu tới %{email}."
 
+  roles:
+    abilities:
+      read: "Xem"
+      manage: "Quản lý"
+    groups:
+      daily: "Công việc hằng ngày"
+      organization: "Tổ chức"
+      fees: "Phí và thẻ"
+      system: "Hệ thống"
+    resources:
+      dashboard:
+        name: "Tổng quan"
+        hint: "Số liệu và hàng chờ trên trang chủ"
+      messages:
+        name: "Tin nhắn"
+        hint: "Lịch sử tin nhắn từng nhóm, nguồn Telegram"
+      transactions:
+        name: "Giao dịch"
+        hint: "Sửa, duyệt, giữ, từ chối hoặc xử lý lại"
+      reviews:
+        name: "Kiểm tra OCR"
+        hint: "Hàng chờ bill cần người xem"
+      remitter_transfers:
+        name: "Chuyển tiền"
+        hint: "Duyệt lệnh của người đi tiền"
+      bill_albums:
+        name: "Album bill"
+        hint: "Album ảnh và kết quả đối chiếu"
+      bill_images:
+        name: "Ảnh bill"
+        hint: "Xem từng ảnh bill đã tải"
+      bill_uploads:
+        name: "Tải bill lên"
+        hint: "Đưa bill mới vào hệ thống"
+      excel_exports:
+        name: "Xuất Excel"
+        hint: "Tạo và tải file Excel"
+      dealers:
+        name: "Đại lý"
+        hint: "Danh sách đại lý"
+      telegram_chats:
+        name: "Nhóm Telegram"
+        hint: "Nhóm nhận bill"
+      merchants:
+        name: "Hộ kinh doanh"
+        hint: "Hộ kinh doanh và alias"
+      remitters:
+        name: "Người đi tiền"
+        hint: "Danh sách người đi tiền"
+      transfer_codes:
+        name: "Mã chuyển tiền"
+        hint: "Mã dùng khi đi tiền"
+      fee_rules:
+        name: "Quy tắc phí"
+        hint: "Phí gốc và phí đại lý"
+      card_types:
+        name: "Loại thẻ"
+        hint: "Loại thẻ và từ khoá nhận diện"
+      settings:
+        name: "Cài đặt"
+        hint: "Kết nối, OCR và vận hành"
+      users:
+        name: "Người dùng"
+        hint: "Tạo tài khoản và gán vai trò"
+      roles:
+        name: "Phân quyền"
+        hint: "Chọn vai trò rồi bật tắt quyền của vai trò đó"
+      audit_logs:
+        name: "Nhật ký"
+        hint: "Lịch sử thay đổi cấu hình"
+    index:
+      title: "Phân quyền"
+      lead: "Chọn một vai trò, rồi bật hoặc tắt quyền xem và quản lý của vai trò đó. Vai trò quản trị luôn có toàn quyền, để không khoá mất hệ thống."
+      select: "Vai trò"
+      add: "Thêm vai trò"
+      add_submit: "Thêm vai trò"
+      name: "Tên vai trò"
+      name_placeholder: "Ví dụ: Ca tối"
+      save: "Lưu phân quyền"
+      manage_implies_read: "Bật Quản lý thì Xem cũng bật. Tắt Xem thì Quản lý tắt theo."
+      user_count: "%{count} người dùng"
+      locked: "Toàn quyền"
+      system: "Có sẵn"
+      custom: "Vai trò tự thêm"
+      delete: "Xoá vai trò"
+      delete_blocked: "Đang có người dùng, hãy đổi vai trò của họ trước khi xoá."
+    confirm_delete: "Xoá vai trò %{name}? Việc này không xoá người dùng."
+    flash:
+      created: "Đã thêm vai trò %{name}."
+      updated: "Đã lưu phân quyền."
+      destroyed: "Đã xoá vai trò %{name}."
+      missing: "Không tìm thấy vai trò."
+
   settings:
     title: "Cài đặt"
     tools: "Công cụ"
@@ -634,14 +911,18 @@ vi:
     ocr_not_working: "Đọc bill (OCR) chưa hoạt động vì máy chủ chưa có khoá dịch vụ. Bill mới sẽ không được đọc – vui lòng liên hệ kỹ thuật."
     tuning:
       title: "Thông số kỹ thuật (dành cho kỹ thuật viên)"
-      help: "Chỉ để xem. Kỹ thuật viên đổi bằng biến môi trường trên máy chủ rồi khởi động lại; không cần thay đổi gì ở đây."
+      help: "Giá trị nhập ở đây được ưu tiên hơn biến môi trường trên máy chủ; để trống thì dùng biến môi trường, không có thì dùng mặc định. Không cần khởi động lại."
       name: "Thông số"
+      override: "Đặt ở đây"
       env: "Biến môi trường"
+      env_unset: "chưa đặt"
+      default: "Mặc định"
       value: "Đang dùng"
-      source: "Nguồn"
+      unset: "Không đặt (%{value})"
+      saved: "Đã lưu thông số kỹ thuật."
       sources:
+        stored: "Đặt ở đây"
         env: "Biến môi trường"
-        stored: "Đã lưu trước đây"
         default: "Mặc định"
     last_change: "Thay đổi gần nhất: %{user}, %{at}"
     flash:
@@ -978,6 +1259,7 @@ vi:
   activerecord:
     models:
       user: "Người dùng"
+      role: "Vai trò"
       dealer: "Đại lý"
       telegram_chat: "Nhóm Telegram"
       merchant: "Hộ kinh doanh"
@@ -1004,6 +1286,10 @@ vi:
         password_confirmation: "Xác nhận mật khẩu"
         remember_me: "Ghi nhớ đăng nhập"
         last_sign_in_at: "Đăng nhập lần cuối"
+      role:
+        name: "Tên"
+        key: "Mã"
+        position: "Thứ tự"
       dealer:
         name: "Tên đại lý"
         code: "Mã"
@@ -1093,6 +1379,10 @@ vi:
         sent_at: "Gửi lúc"
         message_text: "Nội dung"
         processing_status: "Trạng thái xử lý"
+        kind: "Loại"
+        reply_to_message_id: "Trả lời tin"
+        forwarded_from: "Chuyển tiếp từ"
+        edited_at: "Sửa lúc"
       bill_image:
         image: "Ảnh bill"
         ocr_status: "Trạng thái OCR"
@@ -1156,6 +1446,13 @@ vi:
         generated_at: "Tạo lúc"
         error_message: "Lỗi"
         layout: "Loại file"
+    errors:
+      models:
+        role:
+          attributes:
+            base:
+              system_role: "Không xoá được vai trò có sẵn của hệ thống"
+              assigned: "Vai trò đang được gán cho người dùng"
     enums:
       remitter_transfer:
         status:
@@ -1239,6 +1536,18 @@ vi:
           queued: "Đang xếp hàng"
           processed: "Đã xử lý"
           failed: "Lỗi"
+        kind:
+          text: "Văn bản"
+          photo: "Ảnh"
+          document: "File"
+          video: "Video"
+          voice: "Voice"
+          audio: "Audio"
+          sticker: "Sticker"
+          location: "Vị trí"
+          contact: "Danh bạ"
+          service: "Hệ thống"
+          other: "Khác"
       extraction:
         document_type:
           settlement: "Bill kết toán"
