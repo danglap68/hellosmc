@@ -6,8 +6,8 @@ module BillVision
     def initialize(api_key: AppConfig.openai_api_key, model: AppConfig.primary_vision_model,
                    max_output_tokens: CallBudget::MAX_OUTPUT_TOKENS, base_url: DEFAULT_BASE_URL)
       raise PermanentError, "OPENAI_API_KEY is not configured" if api_key.blank?
-      unless max_output_tokens.is_a?(Integer) && max_output_tokens.between?(1, CallBudget::MAX_OUTPUT_TOKENS)
-        raise PermanentError, "OpenAI output limit must be between 1 and #{CallBudget::MAX_OUTPUT_TOKENS}"
+      unless max_output_tokens.is_a?(Integer) && max_output_tokens.between?(1, CallBudget::MAX_VALIDATOR_OUTPUT_TOKENS)
+        raise PermanentError, "OpenAI output limit must be between 1 and #{CallBudget::MAX_VALIDATOR_OUTPUT_TOKENS}"
       end
 
       @api_key = api_key
@@ -73,7 +73,7 @@ module BillVision
       # Reasoning models only accept the default temperature.
       body[:temperature] = 0 unless model.match?(/\A(o\d|gpt-[56])/)
       # A small factual JSON answer needs no reasoning on Luna; Sol requires
-      # at least low. Reasoning shares the same fixed completion-token cap.
+      # at least low. The validator has a larger fixed cap for that reasoning.
       body[:reasoning_effort] = "none" if model.start_with?("gpt-6-luna")
       body[:reasoning_effort] = "low" if model.start_with?("gpt-6.1-sol")
       body

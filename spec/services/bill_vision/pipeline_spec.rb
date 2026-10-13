@@ -57,7 +57,7 @@ RSpec.describe BillVision::Pipeline do
     expect(bill_image.documents.first["validation_confirmed_fields"]).to include("total_amount_vnd")
     expect(validator.with { |req|
       body = JSON.parse(req.body)
-      body["max_completion_tokens"] == 700 && body["reasoning_effort"] == "low" &&
+      body["max_completion_tokens"] == 4096 && body["reasoning_effort"] == "low" &&
         body["messages"].size == 2 && body.dig("messages", 0, "content") == BillVision::Prompt::SYSTEM &&
         body.dig("messages", 1, "content", 0, "text") == BillVision::Prompt::USER
     }).to have_been_requested.once
@@ -207,6 +207,44 @@ RSpec.describe BillVision::Pipeline do
     expect(metadata["validation_result"]).to eq("validator_failed")
     expect(metadata.dig("validator", "raw_output", "choices", 0, "message", "content")).to eq("not JSON")
     expect(metadata.dig("validator", "usage", "total_tokens")).to eq(500)
+  end
+
+  it "gives the independent validator room to reason and emit JSON for multiple settlements" do
+    data = clean.deep_dup
+    data["documents"] << data["documents"].first.merge("lot_number" => "000117", "total_amount_vnd" => 5_000_000)
+    primary = stub_model("gpt-6-luna", data: data)
+    usage = token_usage.merge("completion_tokens" => 2200, "total_tokens" => 2500,
+                              "completion_tokens_details" => { "reasoning_tokens" => 1600 })
+    validator = stub_request(:post, endpoint).with { |request|
+      body = JSON.parse(request.body)
+      body["model"] == "gpt-6.1-sol" && body["max_completion_tokens"] == 4096
+    }.to_return(body: { "model" => "gpt-6.1-sol", "usage" => usage,
+                       "choices" => [ { "finish_reason" => "stop", "message" => { "content" => data.to_json } } ] }.to_json)
+
+    analyze
+
+    expect(primary).to have_been_requested.once
+    expect(validator).to have_been_requested.once
+    expect(metadata["calls"]).to eq("primary" => 1, "validator" => 1)
+    expect(metadata["validation_reason"]).to include("multiple_settlement_documents")
+    expect(metadata["validation_result"]).to eq("agreed")
+    expect(metadata.dig("validator", "usage")).to include("output_tokens" => 2200, "reasoning_tokens" => 1600)
+    expect(bill_image.documents.size).to eq(2)
+  end
+
+  it "keeps a truncated validator in review without retrying or raising its fixed cap" do
+    primary = stub_model("gpt-6-luna", data: blurry)
+    validator = stub_model("gpt-6.1-sol", content: "", finish_reason: "length")
+
+    AnalyzeBillImageJob.perform_now(bill_image.id)
+
+    expect(primary).to have_been_requested.once
+    expect(validator).to have_been_requested.once
+    expect(AnalyzeBillImageJob).not_to have_been_enqueued
+    expect(metadata["calls"]).to eq("primary" => 1, "validator" => 1)
+    expect(metadata["validation_result"]).to eq("validator_failed")
+    expect(metadata.dig("validator", "raw_output", "choices", 0, "finish_reason")).to eq("length")
+    expect(Transactions::Builder.call(bill_image: bill_image).sole.review_reason_codes).to include("validator_failed")
   end
 
   it "keeps review when the validator is still unreadable after one call" do

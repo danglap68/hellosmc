@@ -7,6 +7,9 @@ module BillVision
     MAX_MODEL_CALLS_PER_RUN = 2
     MAX_OCR_RUNS_PER_BILL = 3
     MAX_OUTPUT_TOKENS = 700
+    # Sol must reason before emitting JSON; that reasoning consumes the same
+    # completion budget. Keep a separate, fixed allowance for its single read.
+    MAX_VALIDATOR_OUTPUT_TOKENS = 4096
 
     def initialize(bill_image: nil, run_id: nil)
       @bill_image, @run_id = bill_image, run_id

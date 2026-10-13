@@ -50,7 +50,7 @@ RSpec.describe BillVision::OpenaiProvider do
   end
 
   it "refuses token limits outside the hard envelope before sending a request" do
-    [ 0, 701, "700" ].each do |limit|
+    [ 0, 4097, "700" ].each do |limit|
       expect { described_class.new(api_key: "test", max_output_tokens: limit) }.to raise_error(BillVision::PermanentError)
     end
   end

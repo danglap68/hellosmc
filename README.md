@@ -170,9 +170,11 @@ the HTTP client has no hidden retries. Validator errors end the run in review an
 Thus a bill makes at most 6 model requests, even across job retries or worker crashes. Permanent
 authentication/model/request failures are not picked up by automatic housekeeping retries.
 
-Both OpenAI requests use `max_completion_tokens: 700` with strict JSON-schema output. This cap includes
-reasoning tokens, so a truncated/refused result goes to review with no dynamic increase or retry.
-Luna uses reasoning `none`; Sol uses `low`. The timeout remains an admin setting (default 60 seconds).
+OpenAI requests use strict JSON-schema output and fixed `max_completion_tokens` caps: 700 for the primary,
+4096 for the validator. Sol uses reasoning `low`, which shares the completion budget with the JSON answer;
+the larger validator cap leaves room for both, including photos with multiple receipts. Luna uses
+reasoning `none`. A truncated/refused result still goes to review with no dynamic increase or retry.
+The timeout remains an admin setting (default 60 seconds); reasoning-token usage is retained separately.
 
 The current primary/validator raw and normalized results, validation reasons/outcome, reserved call counts
 and response token usage live in `BillImage.metadata["vision_pipeline"]`. Prior runs are retained in

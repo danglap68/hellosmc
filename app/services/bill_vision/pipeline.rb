@@ -65,7 +65,7 @@ module BillVision
         if stage == :primary
           @extractor.call(image: @image)
         else
-          Extractor.call(image: @image, provider: OpenaiProvider.new(model: model, max_output_tokens: CallBudget::MAX_OUTPUT_TOKENS))
+          Extractor.call(image: @image, provider: OpenaiProvider.new(model: model, max_output_tokens: CallBudget::MAX_VALIDATOR_OUTPUT_TOKENS))
         end
       log("#{event}.result", request_type: stage, model: vision.model, **usage(vision.raw))
       vision
@@ -173,8 +173,9 @@ module BillVision
     def usage(raw)
       values = raw.is_a?(Hash) && raw["usage"].is_a?(Hash) ? raw["usage"] : {}
       cached = values["prompt_tokens_details"].is_a?(Hash) ? values["prompt_tokens_details"]["cached_tokens"] : nil
+      reasoning = values["completion_tokens_details"].is_a?(Hash) ? values["completion_tokens_details"]["reasoning_tokens"] : nil
       { input_tokens: values["prompt_tokens"], cached_input_tokens: cached,
-        output_tokens: values["completion_tokens"], total_tokens: values["total_tokens"] }.compact
+        output_tokens: values["completion_tokens"], reasoning_tokens: reasoning, total_tokens: values["total_tokens"] }.compact
     end
 
     def log(event, **fields)
