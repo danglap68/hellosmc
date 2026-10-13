@@ -53,6 +53,27 @@ RSpec.describe "Album with its child bills dropped" do
     expect(response.body).not_to include("Chênh lệch")
   end
 
+  it "gives each of several complete bills kết its own transaction, each page showing its own photo alone" do
+    several = create(:bill_album, telegram_chat: chat)
+    complete = ->(amount) { document("settlement", amount).merge("lot_number" => "00#{amount / 1000}", "terminal_or_merchant_id" => "000000123456") }
+    [ complete.call(5_003_000), complete.call(4_995_000) ].each do |doc|
+      normalized = BillVision::Normalizer.call({ "documents" => [ doc ] }, provider: "openai", model: "gpt-test")
+      create(:bill_image, bill_album: several, telegram_message: create(:telegram_message, telegram_chat: chat),
+                          normalized_extraction: normalized, ocr_status: "completed")
+    end
+    BillAlbums::Reconciler.call(several)
+    transactions = several.reload.transactions.order(:id).to_a
+    expect(transactions.size).to eq(2)
+
+    get admin_transaction_path(transactions.first)
+    expect(response.body).to include("5.003.000")
+    expect(response.body).not_to include("4.995.000", "Album #", "Nhiều ảnh tổng kết")
+    expect(Nokogiri::HTML(response.body).css(".bill-viewer img").size).to eq(1)
+
+    get admin_bill_album_path(several)
+    expect(response).to have_http_status(:ok)
+  end
+
   it "still shows the child bills of an album that was reconciled against them" do
     other = create(:bill_album, telegram_chat: chat)
     normalized = ->(docs) { BillVision::Normalizer.call({ "documents" => docs }, provider: "openai", model: "gpt-test") }

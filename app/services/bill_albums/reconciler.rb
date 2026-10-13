@@ -1,6 +1,6 @@
 module BillAlbums
   # After every image of an album is OCR'd: sums the child bills (child_receipt,
-  # evidence only), builds the single "tổng kết" transaction from a settlement
+  # evidence only), builds the "tổng kết" transaction from a settlement
   # (POS batch closing) or a transfer (bank transfer) — either one accepted
   # dynamically — and reconciles sum(child bills) against that total.
   # Decision + persistence only; never changes transaction amounts.
@@ -123,12 +123,14 @@ module BillAlbums
       end
     end
 
+    # Every bill kết of the album printed everything (one, or several): each stands alone as
+    # its own transaction and the child bills are dropped.
     def settlement_complete?
-      @total_docs.one? && Transactions::Builder.complete_settlement?(@total_docs.first)
+      @total_docs.any? && @total_docs.all? { |doc| Transactions::Builder.complete_settlement?(doc) }
     end
 
     def persist
-      Transactions::Flagger.call(transactions: @album.transactions, reason: @flag_reason) if @flag_reason
+      flag_album_transactions if @flag_reason
 
       total_amount = @total_count == 1 ? @total_amounts.first : nil
       total_image = @total_count == 1 ? @total_image : nil
@@ -163,6 +165,13 @@ module BillAlbums
       )
       StructuredLog.info("bill_album.reconciled", bill_album_id: @album.id, status: @status,
                                                  reconciliation_status: @reconciliation_status)
+    end
+
+    # A complete bill kết of an album with several totals needs no check against the
+    # child bills: only the transactions that do are sent back to a person.
+    def flag_album_transactions
+      transactions = @album.transactions.reject { |transaction| Transactions::Builder.complete_settlement?(transaction.extraction) }
+      Transactions::Flagger.call(transactions: transactions, reason: @flag_reason)
     end
 
     def difference_vnd(total_amount)
