@@ -75,6 +75,39 @@ RSpec.describe BillAlbums::Reconciler do
     expect(album).to have_attributes(child_count: 0, child_total_vnd: nil, match_difference_vnd: nil, transfer_amount_vnd: 600_000_000)
   end
 
+  def complete_settlement(amount)
+    analyzed_image(raw_document("settlement", amount).merge("lot_number" => "00#{amount / 1000}", "terminal_or_merchant_id" => "000000123456"))
+  end
+
+  it "splits an album of several complete bills kết into one transaction each, child bills dropped" do
+    child_bill(15_003_000)
+    complete_settlement(5_003_000)
+    complete_settlement(4_995_000)
+    complete_settlement(5_005_000)
+
+    reconcile
+
+    expect(album.status).to eq("reconciled")
+    expect(album.reconciliation_status).to eq("settlement_complete")
+    expect(album.metadata["children_dropped"]).to be(true)
+    expect(album).to have_attributes(transfer_count: 3, child_count: 0, child_total_vnd: nil, transfer_amount_vnd: nil)
+    expect(album.transactions.order(:id).map(&:transaction_amount_vnd)).to match_array([ 5_003_000, 4_995_000, 5_005_000 ])
+    expect(album.transactions.flat_map(&:review_reason_codes)).not_to include("album_total_review", "album_multiple_transfers")
+  end
+
+  it "keeps the album in review when one of several bills kết is incomplete, without flagging the complete ones" do
+    child_bill(10_000_000)
+    complete_settlement(5_000_000)
+    analyzed_image(raw_document("settlement", 5_000_000).merge("transaction_time" => nil))
+
+    reconcile
+
+    expect(album.reconciliation_status).to eq("multiple_transfers")
+    complete, incomplete = album.transactions.order(:id).to_a
+    expect(complete.review_reason_codes).not_to include("album_multiple_transfers")
+    expect(incomplete.review_reason_codes).to include("album_multiple_transfers")
+  end
+
   it "skips a child whose OCR failed when the settlement is complete" do
     child_bill(100_000_000)
     failed = create(:bill_image, bill_album: album, telegram_message: create(:telegram_message, telegram_chat: chat),
