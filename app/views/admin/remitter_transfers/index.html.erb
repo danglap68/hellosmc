@@ -20,7 +20,6 @@
           <tr>
             <th>ID</th>
             <th><%= RemitterTransfer.human_attribute_name(:slip_at) %></th>
-            <th><%= RemitterTransfer.human_attribute_name(:transferred_at) %></th>
             <th><%= RemitterTransfer.human_attribute_name(:remitter) %></th>
             <th><%= RemitterTransfer.human_attribute_name(:transfer_code) %></th>
             <th><%= RemitterTransfer.human_attribute_name(:merchant) %></th>
@@ -36,7 +35,6 @@
             <tr>
               <td><%= link_to "##{transfer.id}", admin_remitter_transfer_path(transfer) %></td>
               <td class="text-nowrap"><%= remitter_slip_datetime(transfer) %></td>
-              <td class="text-nowrap"><%= format_datetime(transfer.transferred_at) %></td>
               <td><%= transfer.remitter&.name || content_tag(:span, t("remitter_transfers.unknown_remitter"), class: "text-orange") %></td>
               <td><%= transfer.transfer_code ? content_tag(:code, transfer.transfer_code) : "—" %></td>
               <td><%= transfer.merchant_dealer&.merchant&.name || "—" %></td>

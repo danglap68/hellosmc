@@ -62,6 +62,37 @@ RSpec.describe "Excluded transactions" do
     expect(booked.reload).not_to be_excluded
   end
 
+  it "explains why a bill cannot be taken in, and leaves it as it was" do
+    allow(Transactions::Builder).to receive(:call).and_return([])
+
+    post include_excluded_admin_transaction_path(skipped)
+
+    expect(flash[:alert]).to eq("Bill này không ở trạng thái bỏ qua hoặc không còn dữ liệu để xử lý")
+    skipped.reload
+    expect(skipped).to be_excluded
+    expect(skipped.tags).to eq([ "smart_pos" ])
+    expect(skipped.source_data["force_include"]).to be_nil
+  end
+
+  it "is for people who may manage transactions, not viewers" do
+    sign_in create(:user, :viewer)
+
+    post include_excluded_admin_transaction_path(skipped)
+
+    expect(response).to have_http_status(:forbidden)
+    expect(skipped.reload).to be_excluded
+  end
+
+  it "cannot be approved, edited or held through the review page" do
+    get admin_review_path(skipped)
+    expect(response).to have_http_status(:ok)
+
+    patch admin_review_path(skipped), params: { decision: "approve" }
+    expect(skipped.reload).to be_excluded
+    patch admin_review_path(skipped), params: { decision: "hold" }
+    expect(skipped.reload).to be_excluded
+  end
+
   it "is not counted on the dashboard" do
     stats = Dashboard::Stats.new
 

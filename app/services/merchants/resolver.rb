@@ -31,13 +31,45 @@ module Merchants
     # Prefer the strongest match across attempts: exact → fuzzy → ambiguous →
     # the first attempt (none). This keeps a fuzzy hit from the stripped name
     # ("GẮT TẠM ĐÂY COFFEE 2" → "Gat Tan Day Coffe") instead of discarding it.
+    #
+    # With a bank brand on the bill ("MBV"), "<bank> <name>" ("MBV HKD NCT") is tried first and
+    # only an exact hit counts: that is how two HKDs printing the same name on different banks'
+    # slips are told apart (an alias "MBV HKD NCT" on one of them).
     def self.for_document(document)
-      name = document["merchant_name"]
-      names = [ Workbook::TidParser.strip(name), Workbook::TidParser.strip_bare_number(name) ].uniq
-      results = names.map do |candidate|
-        call(merchant_name: candidate, merchant_identifier: document["terminal_or_merchant_id"])
+      names = candidate_names(document)
+      bank = document["bill_bank_name"].to_s.strip
+      if bank.present?
+        banked = names.map { |name| call(merchant_name: "#{bank} #{name}", merchant_identifier: document["terminal_or_merchant_id"]) }
+        exact = banked.find(&:exact?)
+        return exact if exact
       end
+
+      results = names.map { |name| call(merchant_name: name, merchant_identifier: document["terminal_or_merchant_id"]) }
       results.find(&:exact?) || results.find(&:fuzzy?) || results.find(&:ambiguous?) || results.first
+    end
+
+    # Another HKD has an alias "<bank> <this name>" (one or two words before the name): a bill of
+    # that name without its bank cannot be told from the other HKD's.
+    def self.bank_variants_exist?(document, merchant)
+      candidate_names(document).any? do |name|
+        normalized = VietnameseText.normalize(name)
+        next false if normalized.blank?
+
+        MerchantAlias.active.names.joins(:merchant).merge(Merchant.active)
+          .where.not(merchant_id: merchant.id)
+          .where("merchant_aliases.normalized_alias LIKE ?", "% #{sanitize_sql_like(normalized)}")
+          .pluck(:normalized_alias)
+          .any? { |alias_name| alias_name.delete_suffix(" #{normalized}").split.size.between?(1, 2) }
+      end
+    end
+
+    def self.candidate_names(document)
+      name = document["merchant_name"]
+      [ Workbook::TidParser.strip(name), Workbook::TidParser.strip_bare_number(name) ].uniq
+    end
+
+    def self.sanitize_sql_like(text)
+      ActiveRecord::Base.sanitize_sql_like(text)
     end
 
     def initialize(merchant_name:, merchant_identifier:)

@@ -9,6 +9,10 @@ module BillVision
     # the money. Not a critical field and has no confidence of its own; it only
     # hints at the agent (Dealers::Resolver) and never decides alone.
     RECIPIENT_FIELD = "recipient_name".freeze
+    # The bank brand at the top of a POS slip (MB, MBV, NAPAS…). No confidence of its own:
+    # Merchants::Resolver tries "<bank> <merchant name>" first, so two HKDs that print the
+    # same name on different banks' slips can be told apart by an alias.
+    BANK_FIELD = "bill_bank_name".freeze
     # Two facts read from the image that decide whether a "transfer" really is a
     # completed bank transfer (Normalizer): the wording that says it succeeded,
     # and a QR code (a request to be paid, never a transfer).
@@ -55,8 +59,13 @@ module BillVision
       - merchant_name: the merchant / business name exactly as printed, keeping Vietnamese diacritics.
         Read every visible character; never truncate with "..." or an ellipsis. If only part of the
         name is visible, return that part verbatim (without adding "...").
+        On MB / MBV style slips it is the value printed after TÊN ĐẠI LÝ / MERCHANT NAME: the value may
+        sit to the right of or below the label, and a trailing "-3" is part of it (HKD NCT-3). It is
+        never the bank logo, the address, or the APP VER / REF ID line.
       - terminal_or_merchant_id: the merchant ID (MID) if visible, otherwise the terminal ID (TID), as printed.
 
+      - bill_bank_name: the bank brand printed as the logo/header of the slip, exactly as shown (MB, MBV,
+        NAPAS…), never a merchant name. Null when no bank brand is visible.
       - recipient_name: only for "transfer": the receiving account holder name (ĐẾN TÀI KHOẢN / NGƯỜI NHẬN /
         TÊN NGƯỜI THỤ HƯỞNG) exactly as printed. Null for every other document type or when not visible.
 
@@ -88,7 +97,7 @@ module BillVision
           items: {
             type: "object",
             additionalProperties: false,
-            required: FIELDS + [ RECIPIENT_FIELD ] + FLAGS + [ "confidence" ],
+            required: FIELDS + [ RECIPIENT_FIELD, BANK_FIELD ] + FLAGS + [ "confidence" ],
             properties: {
               document_type: { type: "string", enum: DOCUMENT_TYPES },
               total_amount_vnd: { type: %w[integer null] },
@@ -98,6 +107,7 @@ module BillVision
               merchant_name: { type: %w[string null] },
               terminal_or_merchant_id: { type: %w[string null] },
               recipient_name: { type: %w[string null] },
+              bill_bank_name: { type: %w[string null] },
               shows_success_message: { type: %w[boolean null] },
               shows_qr_code: { type: %w[boolean null] },
               shows_smart_pos: { type: %w[boolean null] },

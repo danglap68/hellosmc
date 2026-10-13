@@ -13,11 +13,12 @@ RSpec.describe "Remitter transfers" do
                                transferred_at: Time.zone.local(2026, 10, 12, 18, 0, 0))
   end
 
-  it "shows the date and time on the bank slip next to when it was posted" do
+  it "shows one time column: the date and time on the bank slip, not when it was posted" do
     transfer
     get admin_remitter_transfers_path
 
-    expect(response.body).to include("Ngày giờ chuyển khoản", "Gửi lúc", "12/10/2026 10:23:25", "12/10/2026 18:00:00")
+    expect(response.body).to include("Ngày giờ chuyển khoản", "12/10/2026 10:23:25")
+    expect(response.body).not_to include("Gửi lúc", "12/10/2026 18:00:00")
   end
 
   it "shows it on the transfer page too" do
