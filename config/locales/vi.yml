@@ -870,6 +870,7 @@ vi:
     merchant_not_found: "Không tìm thấy hộ kinh doanh phù hợp"
     merchant_ambiguous: "Có nhiều hộ kinh doanh phù hợp"
     merchant_fuzzy_match: "Hộ kinh doanh gần đúng – cần xác nhận"
+    merchant_bank_missing: "Không đọc được ngân hàng trên bill, có HKD cùng tên ở ngân hàng khác – cần chọn HKD"
     merchant_low_confidence: "Độ tin cậy tên hộ kinh doanh thấp"
     merchant_unreadable: "Tên hộ kinh doanh không rõ"
     merchant_dealer_mismatch: "Hộ kinh doanh không thuộc đại lý của nhóm"

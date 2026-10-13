@@ -5,6 +5,17 @@ RSpec.describe BillVision::Normalizer do
     described_class.call(data, provider: "openai", model: "gpt-test")
   end
 
+  describe "the bank brand" do
+    it "is kept, trimmed, on any document and null when absent" do
+      data = extraction_fixture("normal_settlement")
+      data["documents"].first["bill_bank_name"] = "  MBV "
+      expect(normalize(data)["documents"].first["bill_bank_name"]).to eq("MBV")
+
+      data["documents"].first.delete("bill_bank_name")
+      expect(normalize(data)["documents"].first["bill_bank_name"]).to be_nil
+    end
+  end
+
   describe "a transfer that is not a confirmed transfer" do
     def transfer(**flags)
       data = extraction_fixture("transfer")

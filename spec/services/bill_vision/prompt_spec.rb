@@ -14,6 +14,11 @@ RSpec.describe BillVision::Prompt do
     expect(described_class::SYSTEM).to include("QUÉT ĐỂ THANH TOÁN", "CHUYỂN TIỀN THÀNH CÔNG", "shows_qr_code", "shows_success_message")
   end
 
+  it "asks for the bank brand apart from the merchant name, and the name after TÊN ĐẠI LÝ" do
+    expect(described_class::SYSTEM).to include("bill_bank_name", "TÊN ĐẠI LÝ", "never the bank logo")
+    expect(document_schema.dig(:properties, :bill_bank_name, :type)).to eq(%w[string null])
+  end
+
   it "keeps every schema property required (OpenAI strict mode)" do
     expect(document_schema[:required].sort).to eq(document_schema[:properties].keys.map(&:to_s).sort)
   end

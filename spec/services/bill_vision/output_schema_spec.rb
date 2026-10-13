@@ -34,6 +34,17 @@ RSpec.describe BillVision::OutputSchema do
     expect(described_class.valid?(data)).to be(false)
   end
 
+  it "accepts the bank brand as a string or null, and nothing else" do
+    data = extraction_fixture("normal_settlement")
+    [ "MBV", nil ].each do |value|
+      data["documents"].first["bill_bank_name"] = value
+      expect(described_class.valid?(data)).to be(true)
+    end
+
+    data["documents"].first["bill_bank_name"] = 5
+    expect(described_class.valid?(data)).to be(false)
+  end
+
   it "still rejects unknown extra keys" do
     data = extraction_fixture("transfer")
     data["documents"].first["beneficiary"] = "x"

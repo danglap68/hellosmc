@@ -79,6 +79,7 @@ module BillVision
       values.merge(
         "index" => index,
         "recipient_name" => recipient_name,
+        "bill_bank_name" => clean_string(doc[Prompt::BANK_FIELD]),
         "shows_success_message" => flag(doc, "shows_success_message"),
         "shows_qr_code" => flag(doc, "shows_qr_code"),
         "shows_smart_pos" => flag(doc, Prompt::SMART_POS_FLAG),

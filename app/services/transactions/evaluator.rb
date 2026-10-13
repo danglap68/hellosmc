@@ -105,6 +105,7 @@ module Transactions
     def check_merchant
       result = resolve_merchant
 
+      @reasons << "merchant_bank_missing" if bank_missing?(result)
       if result.exact? || accepted_near_match?(result)
         source_field = result.method == :identifier ? "terminal_or_merchant_id" : "merchant_name"
         flag_confidence(source_field, "merchant")
@@ -119,6 +120,12 @@ module Transactions
       end
 
       [ result.merchant, result ]
+    end
+
+    # Another HKD prints the same name on a bank's slips (alias "<bank> <name>") and this bill shows
+    # no bank: which of the two it is cannot be told, a person decides.
+    def bank_missing?(result)
+      result.exact? && @doc["bill_bank_name"].blank? && Merchants::Resolver.bank_variants_exist?(@doc, result.merchant)
     end
 
     # A near name match this close is taken as the HKD; below it a person confirms.
