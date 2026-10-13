@@ -565,6 +565,7 @@ vi:
       no_preview: "Chưa có tin"
       thread_empty: "Nhóm này chưa có tin nhắn."
       unknown_sender: "Không rõ người gửi"
+      preview: "Xem ảnh"
       older: "Tin cũ hơn"
       limits: "Bot không nhận tin đã xoá, tin của bot khác, và tin gửi trước khi bot vào nhóm. Số «có thể thiếu» chỉ là gợi ý, vì tin bị xoá cũng tạo khoảng trống."
     health:

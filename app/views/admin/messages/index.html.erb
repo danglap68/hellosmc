@@ -32,7 +32,7 @@
     <% end %>
   </aside>
 
-  <section class="chat-stage" aria-label="<%= @chat ? @chat.display_name : t("messages.index.title") %>">
+  <section class="chat-stage" data-controller="chat-preview" aria-label="<%= @chat ? @chat.display_name : t("messages.index.title") %>">
     <% if @chat %>
       <header class="chat-stage-head">
         <h1><%= @chat.display_name %></h1>
@@ -59,9 +59,9 @@
                 <%= link_to chat_time(message.sent_at), admin_message_path(message), class: "chat-detail" %>
               </div>
               <% if photo %>
-                <%= link_to admin_bill_image_path(photo), class: "chat-photo-link", target: "_blank", rel: "noopener" do %>
+                <button type="button" class="chat-photo-link" data-action="chat-preview#open" data-chat-preview-src-param="<%= admin_bill_image_path(photo) %>" aria-label="<%= t("messages.index.preview") %>">
                   <%= image_tag admin_bill_image_path(photo), class: "chat-photo", alt: "", loading: "lazy" %>
-                <% end %>
+                </button>
               <% end %>
               <% body = message.message_text.presence || (photo ? nil : message.display_body) %>
               <% if body.present? %>
@@ -82,6 +82,10 @@
       <% else %>
         <p class="chat-empty"><%= t("messages.index.thread_empty") %></p>
       <% end %>
+      <dialog class="chat-preview" data-chat-preview-target="dialog" data-action="click->chat-preview#backdrop close->chat-preview#closed" aria-label="<%= t("messages.index.preview") %>">
+        <button type="button" class="chat-preview-close" data-action="chat-preview#close" aria-label="<%= t("actions.close") %>"><%= icon("x") %></button>
+        <img data-chat-preview-target="image" alt="">
+      </dialog>
     <% else %>
       <p class="chat-empty"><%= t("messages.index.pick") %></p>
     <% end %>

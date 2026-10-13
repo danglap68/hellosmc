@@ -84,6 +84,8 @@ RSpec.describe "Admin messages" do
     downloaded = bubbles.find { |node| node.at_css(".chat-sender").text == "Lan" }
     missing = bubbles.find { |node| node.at_css(".chat-sender").text == "Minh" }
     expect(downloaded.at_css("img.chat-photo")["src"]).to eq(admin_bill_image_path(image))
+    expect(downloaded.at_css("a[target=_blank]")).to be_nil
+    expect(downloaded.at_css("button.chat-photo-link")["data-chat-preview-src-param"]).to eq(admin_bill_image_path(image))
     expect(downloaded.text).not_to include("[Ảnh]")
     expect(missing.at_css("img")).to be_nil
     expect(missing.text).to include("[Ảnh]")
