@@ -148,7 +148,7 @@ Trong mỗi sheet, sort `transaction_at` tăng dần, rồi `id` tăng dần.
 Giữ bộ lọc hiện tại của `Exports::ExcelGenerator#scope`:
 
 - `transaction_at` nằm trong `export_date`..`end_date`, ngày theo `Asia/Ho_Chi_Minh`, tới hết `end_date`.
-- `status` thuộc `approved`, `exported`, `hold`.
+- `status` thuộc `approved`, `hold`.
 
 Thêm điều kiện để được ghi một dòng. So sánh phần trăm bằng `BigDecimal`, không dùng Float. Một tỷ lệ chỉ khớp khi nhân 100 đã đúng 2 chữ số thập phân: `0.012100` là 1,21. `0.01211` là 1,211 và không khớp.
 
@@ -162,7 +162,7 @@ Thẻ `mb` hoặc `napas`:
 1. Sheet lấy từ quy tắc đang hiệu lực của cùng merchant, không gắn loại thẻ hoặc gắn loại thẻ `normal`, có phí gốc `1.21` / `1.17` / `1.15`. Không tìm thấy, hoặc các quy tắc cùng mức trỏ hai sheet khác nhau, thì không ghi dòng.
 2. Một quy tắc loại thẻ được chọn theo mục 4, phí gốc của quy tắc đó là mức phần trăm đúng 2 chữ số, và có phí đại lý: `dealer_rate` của quy tắc, nếu quy tắc để trống thì `applied_dealer_rate` của giao dịch. Thiếu một trong ba thì không ghi dòng.
 
-Không ghi, và không chuyển sang `exported`:
+Không ghi, và không gắn `exported_at`:
 
 - `needs_review`, `rejected`, `failed`, `pending`, `processing`.
 - Thẻ thường có phí gốc ngoài ba mức sheet.
@@ -173,18 +173,18 @@ Những dòng bị bỏ ghi vào `excel_exports.metadata["skipped"]`: mảng `{ 
 
 `transaction_count` = số dòng đã ghi, không tính dòng bị bỏ.
 
-`hold` vẫn được ghi nếu đủ điều kiện trên. File mới không có cột trạng thái, nên dòng hold trông giống dòng đã duyệt. Giữ hành vi cũ: hold không bị chuyển sang `exported`.
+`hold` vẫn được ghi nếu đủ điều kiện trên. File mới không có cột trạng thái, nên dòng hold trông giống dòng đã duyệt. Hold vẫn là `hold`, không gắn `exported_at`.
 
-Giao dịch `approved` đã ghi vào file thì chuyển `exported` như hiện tại. Giao dịch bị bỏ không chuyển trạng thái.
+Xuất file không đổi trạng thái giao dịch. Giao dịch `approved` đã ghi vào file vẫn là `approved`, chỉ được gắn `exported_at` và `excel_export_id`. Giao dịch bị bỏ không được gắn gì.
 
 ## 6. Solution
 
 `Exports::ExcelGenerator` đọc `excel_export.layout` rồi dựng đúng một workbook.
 
 - `legacy`: giữ `Exports::LegacyLayout` và hai sheet hiện tại. Tên file giữ nguyên.
-- `ket_toan_phi_goc`: `Exports::KetToanPhiGocLayout` viết ba sheet. Chỉ ghi A, D, F, G, H, I, J và công thức B, C, E. Ghi `metadata["skipped"]`. `transaction_count` chỉ đếm dòng đã ghi. Không `mark_exported` dòng bị bỏ.
+- `ket_toan_phi_goc`: `Exports::KetToanPhiGocLayout` viết ba sheet. Chỉ ghi A, D, F, G, H, I, J và công thức B, C, E. Ghi `metadata["skipped"]`. `transaction_count` chỉ đếm dòng đã ghi. Không `record_export` dòng bị bỏ.
 
-Giữ khóa dòng, Active Storage, `mark_exported` cho dòng đã ghi, và audit `export.generated`.
+Giữ khóa dòng, Active Storage, `record_export` cho dòng đã ghi, và audit `export.generated`.
 
 `ExcelExport#filename` nhận layout và giờ tạo. Form `/admin/excel_exports/new` gửi `layout`. Cron không gửi layout, nên bản ghi lịch vẫn là `legacy`.
 
@@ -245,7 +245,7 @@ Hai sheet kia chỉ có header.
 
 ### 8.3 Nhiều sheet trong một file
 
-Ba giao dịch cùng ngày, phí gốc lần lượt 1,21%, 1,17%, 1,15%, đều có phí đại lý. Mỗi sheet đúng một dòng dữ liệu. `transaction_count` = 3. Cả ba `approved` chuyển `exported`.
+Ba giao dịch cùng ngày, phí gốc lần lượt 1,21%, 1,17%, 1,15%, đều có phí đại lý. Mỗi sheet đúng một dòng dữ liệu. `transaction_count` = 3. Cả ba vẫn `approved`, có `exported_at`.
 
 ### 8.4 MB nằm trên sheet của hộ, tính theo quy tắc thẻ
 
@@ -268,8 +268,8 @@ Cả hai dòng vào sheet `1,21`. C và E dùng `0.88%`. D = `0.012`. Snapshot t
 Giữ các case đang có trong `excel_generator_spec`:
 
 - Giao dịch ngày khác khoảng export không được ghi.
-- Giao dịch `needs_review` không được ghi và không sang `exported`.
-- `approved` trong khoảng thì sang `exported`, gắn `excel_export_id`.
+- Giao dịch `needs_review` không được ghi và không có `exported_at`.
+- `approved` trong khoảng vẫn là `approved`, gắn `exported_at` và `excel_export_id`.
 - `hold` trong khoảng, nếu đủ phí, thì được ghi và vẫn là `hold`.
 
 Thêm:

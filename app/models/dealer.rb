@@ -1,4 +1,6 @@
 class Dealer < ApplicationRecord
+  has_paper_trail
+
   belongs_to :default_card_type, class_name: "CardType", optional: true
 
   has_many :merchant_dealers, dependent: :restrict_with_error

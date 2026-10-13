@@ -24,7 +24,14 @@ RSpec.describe "Transaction approval and export" do
     export = ExcelExport.last
     expect(export).to be_completed
     expect(export.transaction_count).to eq(1)
-    expect(transaction.reload).to be_exported
+    expect(transaction.reload).to be_approved
+    expect(transaction.exported_at).to be_present
+
+    visit admin_transaction_path(transaction)
+    within(".card", text: "Lịch sử trạng thái") do
+      expect(page).to have_content("Cần kiểm tra Đã duyệt")
+      expect(page).to have_content(admin.display_name)
+    end
 
     visit admin_excel_export_path(export)
     click_link "Tải xuống"

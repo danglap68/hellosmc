@@ -23,13 +23,13 @@ module Transactions
     def flag(transaction)
       Transaction.transaction do
         transaction.lock!
-        next nil unless transaction.status.in?(%w[approved exported needs_review hold failed])
+        next nil unless transaction.status.in?(%w[approved needs_review hold failed])
 
         before = transaction.audit_snapshot
         reasons = (transaction.review_reason_codes | [ @reason ])
         transaction.source_data = transaction.source_data.merge("review_reasons" => reasons)
 
-        if transaction.status.in?(%w[approved exported])
+        if transaction.approved?
           transaction.transition_to!("hold")
           transaction.reviews.create!(status: "held", reason: @reason, reason_codes: [ @reason ], original_values: {})
         else

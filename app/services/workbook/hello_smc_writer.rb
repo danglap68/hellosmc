@@ -315,7 +315,7 @@ module Workbook
       client.ensure_rows(UNIDENTIFIED_SHEET, n) if index >= rows.length
 
       rate = @transaction.base_fee_rate_used || BigDecimal("0.0088")
-      status = (@transaction.approved? || @transaction.exported?) ? "Thành công" : "Cần kiểm tra"
+      status = @transaction.approved? ? "Thành công" : "Cần kiểm tra"
       values = [ [
         text_cell(@transaction.raw_merchant_name.presence || "—"),
         "=C#{n}-(C#{n}*D#{n})",

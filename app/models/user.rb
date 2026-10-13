@@ -3,6 +3,10 @@ class User < ApplicationRecord
   devise :database_authenticatable, :recoverable, :rememberable, :validatable,
          :trackable, :lockable, :timeoutable
 
+  has_paper_trail skip: %i[encrypted_password reset_password_token unlock_token],
+    ignore: %i[updated_at sign_in_count current_sign_in_at last_sign_in_at current_sign_in_ip last_sign_in_ip
+               remember_created_at reset_password_sent_at failed_attempts locked_at]
+
   belongs_to :access_role, class_name: "Role", foreign_key: :role, primary_key: :key, optional: true, inverse_of: :users
 
   has_many :approved_transactions, class_name: "Transaction", foreign_key: :approved_by_id,

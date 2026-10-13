@@ -7,6 +7,8 @@ class ApplicationController < ActionController::Base
 
   layout :layout_by_resource
 
+  before_action :set_paper_trail_whodunnit
+
   private
 
   def layout_by_resource

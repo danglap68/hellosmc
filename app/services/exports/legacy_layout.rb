@@ -6,7 +6,6 @@ module Exports
   module LegacyLayout
     STATUS_LABELS = {
       "approved" => "Thành công",
-      "exported" => "Thành công",
       "hold" => "bill hold"
     }.freeze
     EXPORTABLE_STATUSES = STATUS_LABELS.keys.freeze

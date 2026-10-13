@@ -1,4 +1,6 @@
 class FeeRule < ApplicationRecord
+  has_paper_trail
+
   # Ordered from most to least specific. The resolver picks the first level
   # with matching rules; inside a level the lowest priority number wins.
   SPECIFICITY_LEVELS = %w[merchant_card_type dealer_card_type merchant dealer card_type system_default].freeze

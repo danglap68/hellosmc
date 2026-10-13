@@ -320,6 +320,11 @@
       <% end %>
     </div>
 
+    <div class="card mb-3">
+      <div class="card-header"><h3 class="card-title"><%= icon("timeline") %> <%= t("transactions.show.status_history") %></h3></div>
+      <%= render "admin/transactions/status_history", versions: @status_versions, users: @version_users %>
+    </div>
+
     <div class="card">
       <div class="card-header"><h3 class="card-title"><%= icon("history") %> <%= t("navigation.audit_logs") %></h3></div>
       <%= render "admin/audit_logs/timeline", audit_logs: @audit_logs %>

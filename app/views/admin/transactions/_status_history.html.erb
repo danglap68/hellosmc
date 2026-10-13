@@ -1,0 +1,24 @@
+<%# locals: (versions:, users:) %>
+<% if versions.any? %>
+  <div class="list-group list-group-flush">
+    <% versions.each do |version| %>
+      <% from, to = version.object_changes["status"] %>
+      <div class="list-group-item">
+        <div class="d-flex justify-content-between">
+          <span>
+            <% if from %>
+              <%= enum_label(:transaction, :status, from) %> <%= icon("arrow-right") %>
+            <% end %>
+            <strong><%= enum_label(:transaction, :status, to) %></strong>
+          </span>
+          <span class="text-secondary small text-nowrap"><%= format_datetime(version.created_at) %></span>
+        </div>
+        <div class="small text-secondary">
+          <%= users[version.whodunnit]&.display_name || t("transactions.show.status_history_system") %>
+        </div>
+      </div>
+    <% end %>
+  </div>
+<% else %>
+  <div class="card-body text-secondary"><%= t("common.no_data") %></div>
+<% end %>

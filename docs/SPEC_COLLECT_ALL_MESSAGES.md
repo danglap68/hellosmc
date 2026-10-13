@@ -167,7 +167,7 @@ Thay đổi hành vi vừa làm ở `bfa854d` (chưa push, chưa deploy nên **k
 
 | | Vai trò |
 |---|---|
-| `status = "excluded"` | An toàn: mọi nơi đang chọn theo trạng thái (hàng đợi duyệt `needs_review`, Excel `approved/exported`, ghi sheet `approved`) tự động không thấy bản ghi này, không phải sửa từng nơi |
+| `status = "excluded"` | An toàn: mọi nơi đang chọn theo trạng thái (hàng đợi duyệt `needs_review`, Excel `approved/hold`, ghi sheet `approved`) tự động không thấy bản ghi này, không phải sửa từng nơi |
 | `tags` (text[], GIN index) | Lý do và cách lọc: `smart_pos`, `skip_merchant`. Thêm tag khác sau này không cần đổi trạng thái |
 
 **Cột/bảng.** `transactions.tags text[] not null default '{}'` + GIN index; thêm `excluded` vào `STATUSES`, check constraint `transactions_status_check` và `TRANSITIONS`:

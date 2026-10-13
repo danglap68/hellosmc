@@ -10,8 +10,30 @@ RSpec.describe Transaction do
 
     it "refuses arbitrary transitions" do
       transaction = create(:transaction, status: "needs_review")
-      expect { transaction.transition_to!("exported") }.to raise_error(Transaction::InvalidTransition)
+      expect { transaction.transition_to!("excluded") }.to raise_error(Transaction::InvalidTransition)
       expect(transaction.reload).to be_needs_review
+    end
+
+    it "no longer accepts the retired exported status in the database" do
+      transaction = create(:transaction, :calculated, status: "approved")
+      expect {
+        transaction.update_columns(status: "exported")
+      }.to raise_error(ActiveRecord::StatementInvalid, /transactions_status_check/)
+    end
+  end
+
+  describe "version history" do
+    it "keeps the previous status and who changed it" do
+      user = create(:user)
+      transaction = create(:transaction, :calculated, status: "needs_review")
+
+      PaperTrail.request(whodunnit: user.id) { transaction.transition_to!("approved", approved_at: Time.current) }
+
+      version = transaction.versions.last
+      expect(version.object_changes["status"]).to eq(%w[needs_review approved])
+      expect(version.whodunnit).to eq(user.id.to_s)
+      expect(version.object).not_to have_key("source_data")
+      expect(version.reify.status).to eq("needs_review")
     end
 
     it "treats rejected as terminal" do

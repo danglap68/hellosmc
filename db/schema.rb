@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_13_180000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_13_190100) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -450,9 +450,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_13_180000) do
     t.index ["tags"], name: "index_transactions_on_tags", using: :gin
     t.index ["telegram_message_id"], name: "index_transactions_on_telegram_message_id"
     t.index ["transaction_at"], name: "index_transactions_on_transaction_at"
-    t.check_constraint "(status::text <> ALL (ARRAY['approved'::character varying, 'exported'::character varying]::text[])) OR dealer_id IS NOT NULL AND merchant_id IS NOT NULL AND card_type_id IS NOT NULL AND transaction_at IS NOT NULL AND transaction_amount_vnd IS NOT NULL AND applied_base_fee_rate IS NOT NULL AND amount_after_base_fee_vnd IS NOT NULL", name: "transactions_approved_complete"
+    t.check_constraint "(status::text <> ALL (ARRAY['approved'::character varying::text])) OR dealer_id IS NOT NULL AND merchant_id IS NOT NULL AND card_type_id IS NOT NULL AND transaction_at IS NOT NULL AND transaction_amount_vnd IS NOT NULL AND applied_base_fee_rate IS NOT NULL AND amount_after_base_fee_vnd IS NOT NULL", name: "transactions_approved_complete"
     t.check_constraint "applied_card_base_fee_rate IS NULL OR applied_card_base_fee_rate >= 0::numeric AND applied_card_base_fee_rate < 1::numeric", name: "transactions_applied_card_base_fee_rate_range"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'processing'::character varying::text, 'needs_review'::character varying::text, 'approved'::character varying::text, 'rejected'::character varying::text, 'hold'::character varying::text, 'exported'::character varying::text, 'failed'::character varying::text, 'excluded'::character varying::text])", name: "transactions_status_check"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'processing'::character varying::text, 'needs_review'::character varying::text, 'approved'::character varying::text, 'rejected'::character varying::text, 'hold'::character varying::text, 'failed'::character varying::text, 'excluded'::character varying::text])", name: "transactions_status_check"
     t.check_constraint "transaction_amount_vnd IS NULL OR transaction_amount_vnd > 0", name: "transactions_amount_positive"
   end
 
@@ -479,6 +479,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_13_180000) do
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
     t.index ["role"], name: "index_users_on_role"
     t.index ["unlock_token"], name: "index_users_on_unlock_token", unique: true
+  end
+
+  create_table "versions", force: :cascade do |t|
+    t.string "item_type", null: false
+    t.bigint "item_id", null: false
+    t.string "event", null: false
+    t.string "whodunnit"
+    t.jsonb "object"
+    t.jsonb "object_changes"
+    t.datetime "created_at"
+    t.index ["created_at"], name: "index_versions_on_created_at"
+    t.index ["item_type", "item_id"], name: "index_versions_on_item_type_and_item_id"
   end
 
   create_table "workbook_entries", force: :cascade do |t|

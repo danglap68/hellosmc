@@ -1,4 +1,6 @@
 class MerchantDealer < ApplicationRecord
+  has_paper_trail
+
   belongs_to :merchant
   belongs_to :dealer
 

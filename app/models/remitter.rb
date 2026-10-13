@@ -1,4 +1,6 @@
 class Remitter < ApplicationRecord
+  has_paper_trail
+
   TelegramSender = Data.define(:id, :name, :username) do
     def label = [ name, username && "@#{username}" ].compact.join(" ")
   end

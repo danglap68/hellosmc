@@ -22,6 +22,9 @@ module Admin
     def show
       @audit_logs = @transaction.audit_logs.includes(:actor_user).recent_first
       @reviews = @transaction.reviews.includes(:reviewed_by).recent_first
+      @status_versions = @transaction.versions.where("object_changes -> 'status' IS NOT NULL")
+        .reorder(created_at: :desc, id: :desc).to_a
+      @version_users = User.where(id: @status_versions.filter_map(&:whodunnit)).index_by { |user| user.id.to_s }
     end
 
     def edit

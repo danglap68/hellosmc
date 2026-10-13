@@ -17,7 +17,7 @@ Sheet khác trong file, **không đụng** lần này: `DS MB T9`, `DS SP T10`, 
 
 Khi `Transactions::Builder` tạo một giao dịch từ bill đã OCR và đã được duyệt, hệ thống ghi **online** vào một Google Sheet (ID cấu hình). Sheets API đọc/ghi ô tại chỗ. Không tải `.xlsx` về, không upload đè, không chờ màn Xuất Excel.
 
-Ba nhánh (chỉ ghi tiền **đã duyệt** — `approved`/`exported`; `needs_review`/`hold`/`pending` bỏ qua tới khi được duyệt):
+Ba nhánh (chỉ ghi tiền **đã duyệt** — `approved`; `needs_review`/`hold`/`pending` bỏ qua tới khi được duyệt):
 
 1. **Không xác định được HKD hoặc không xác định được đại lý (agent)** → thêm một dòng vào `Bill vô chủ`. Không ghi tab `thu chi`, không ghi `DS MB T{tháng}`, không ghi `MB`.
 2. **Đã có HKD + đại lý** → cộng dồn ô ngày trên `DS MB T{tháng}` và thêm một dòng vào `MB`.
@@ -232,7 +232,7 @@ Sau `Transactions::Builder#finish` khi giao dịch vừa tạo hoặc vừa rebu
 
 Không ghi lại nếu đã có `workbook_entries` cho `transaction_id` (trừ khi rebuild và entry bị xóa tay).
 
-Giao dịch `failed`/`rejected`/`needs_review`/`hold`: không ghi. Chỉ ghi `approved`/`exported`. Nhánh unidentified (thiếu TID hoặc thiếu ô DS MB) ghi vào `Bill vô chủ`.
+Giao dịch `failed`/`rejected`/`needs_review`/`hold`: không ghi. Chỉ ghi `approved`. Nhánh unidentified (thiếu TID hoặc thiếu ô DS MB) ghi vào `Bill vô chủ`.
 
 Số cộng dồn: `transaction_amount_vnd` (số trên bill), không dùng tiền sau phí gốc. Các ô ngày trên `DS MB T10` hiện đang là số giao dịch gốc.
 
@@ -323,7 +323,7 @@ Thiếu HKD hoặc tid: chỉ `Bill vô chủ`.
 8. **Tháng mới.** `DuplicateSheet`; sai header thì T11 hỏng. Test tạo T11 từ T10 (stub API).
 9. **Chị Huệ ba TID** (127/128/129) cùng người, ba cột. Không gộp.
 10. **Secret.** Không commit JSON service account. Không đưa spreadsheet ID vào spec hay git nếu coi là nội bộ — để ENV.
-11. **Thiếu `transaction_at`.** Không còn guard riêng vì writer chỉ ghi `approved`/`exported` (luôn có `transaction_at`).
+11. **Thiếu `transaction_at`.** Không còn guard riêng vì writer chỉ ghi `approved` (luôn có `transaction_at`).
 12. **Thiếu `spreadsheet_id`.** `ConfigurationError` được `discard_on` + log error trong job (không retry 25 lần mặc định của Sidekiq → không flood queue).
 
 ## 11. Test case
@@ -574,7 +574,7 @@ File chuẩn không còn sheet `R&D Report`; mỗi ngày một tab `thu chi 1010
 
 ## Điều kiện ghi: chỉ transaction đã duyệt
 
-`HelloSmcWriter` chỉ ghi khi `transaction.finalized?` (`approved` hoặc `exported`); trạng thái khác trả `:skipped_not_approved` (cùng `skipped_failed`, `skipped_rejected`, `skipped_no_amount`, `skipped_no_date`). Job được enqueue ở hai chỗ: `Transactions::Builder` khi tự duyệt (auto-approve) và `Transactions::Approver` khi người duyệt bấm duyệt (kể cả từ `hold`). Transaction `needs_review`/`hold` không đụng sheet, kể cả tab `Bill vô chủ`. Transaction đã duyệt từ trước khi áp dụng rule này và chưa ghi: enqueue lại `WriteHelloSmcWorkbookJob.perform_later(id)`.
+`HelloSmcWriter` chỉ ghi khi `transaction.finalized?` (`approved`); trạng thái khác trả `:skipped_not_approved` (cùng `skipped_failed`, `skipped_rejected`, `skipped_no_amount`, `skipped_no_date`). Job được enqueue ở hai chỗ: `Transactions::Builder` khi tự duyệt (auto-approve) và `Transactions::Approver` khi người duyệt bấm duyệt (kể cả từ `hold`). Transaction `needs_review`/`hold` không đụng sheet, kể cả tab `Bill vô chủ`. Transaction đã duyệt từ trước khi áp dụng rule này và chưa ghi: enqueue lại `WriteHelloSmcWorkbookJob.perform_later(id)`.
 
 ## Người nhận chuyển khoản → gợi ý đại lý
 
@@ -586,7 +586,7 @@ OCR đọc thêm `recipient_name` (chủ tài khoản nhận) chỉ với `docum
 ## Độ bền khi ghi sheet (review kỹ thuật)
 
 - **Retry:** `WriteHelloSmcWorkbookJob` retry 200 lần khi lock bận, tối đa 12 lần (chờ tăng dần, trần 5 phút) với lỗi quota 429, 5xx và lỗi mạng của Google; các lỗi Google khác 5 lần.
-- **Lưới an toàn:** `RetryWorkbookWritesJob` (`bin/rails hellosmc:retry_workbook_writes`, lên lịch ~10 phút/lần) enqueue lại mọi transaction `approved`/`exported` có số tiền, ngày giờ mà chưa có `WorkbookEntry` và `updated_at` quá 15 phút, tối đa 200 cái mỗi lượt, giãn 2 giây. Ghi lại là an toàn nhờ marker `TX<id>` và advisory lock.
+- **Lưới an toàn:** `RetryWorkbookWritesJob` (`bin/rails hellosmc:retry_workbook_writes`, lên lịch ~10 phút/lần) enqueue lại mọi transaction `approved` có số tiền, ngày giờ mà chưa có `WorkbookEntry` và `updated_at` quá 15 phút, tối đa 200 cái mỗi lượt, giãn 2 giây. Ghi lại là an toàn nhờ marker `TX<id>` và advisory lock.
 - **Hạn mức Google:** metadata sheet được cache trong một lần ghi (xoá sau mỗi thay đổi cấu trúc) để bớt số lần đọc. Còn có thể gộp đọc MB/DS/thu chi bằng `values.batchGet` và chỉ đọc phần đuôi của MB.
 - **Enqueue:** `Builder` chỉ enqueue sau khi DB commit (`ActiveRecord.after_all_transactions_commit`).
 - **Đại lý suy ra từ người nhận:** luôn kèm lý do review `dealer_from_recipient`, không tự duyệt.

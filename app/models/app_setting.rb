@@ -2,6 +2,8 @@
 # DEFINITIONS). One row per changed key; missing keys use the default.
 # Secrets (API keys, tokens) never live here — they stay in ENV.
 class AppSetting < ApplicationRecord
+  has_paper_trail
+
   Definition = Data.define(:key, :type, :default, :group, :min, :max, :options, :allow_blank) do
     def cast(raw)
       case type

@@ -2,8 +2,9 @@ require "axlsx"
 
 module Exports
   # Builds the accounting workbook for a date range. PostgreSQL stays the
-  # source of truth; the workbook is an output. Approved transactions are
-  # marked exported; hold transactions are listed with status "bill hold".
+  # source of truth; the workbook is an output. Exporting never changes a
+  # transaction's status: written rows only get exported_at and the export id.
+  # Hold transactions are listed with status "bill hold".
   class ExcelGenerator
     CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet".freeze
 
@@ -29,7 +30,7 @@ module Exports
         bytes = build_workbook(transactions)
         @export.file.attach(io: StringIO.new(bytes), filename: @export.filename, content_type: CONTENT_TYPE,
                             key: "exports/#{generated_at.strftime('%Y/%m')}/#{SecureRandom.uuid}.xlsx", identify: false)
-        mark_exported(written)
+        record_export(written)
         @export.update!(
           status: "completed",
           transaction_count: written.size,
@@ -208,16 +209,13 @@ module Exports
       { "by_dealer" => by_dealer.sort.to_h }
     end
 
-    def mark_exported(transactions)
+    def record_export(transactions)
       now = Time.current
       transactions.each do |transaction|
         export_ids = Array(transaction.source_data["export_ids"]) | [ @export.id ]
-        attributes = { excel_export: @export, source_data: transaction.source_data.merge("export_ids" => export_ids) }
-        if transaction.approved?
-          transaction.transition_to!("exported", exported_at: now, **attributes)
-        else
-          transaction.update!(attributes.except(:excel_export))
-        end
+        attributes = { source_data: transaction.source_data.merge("export_ids" => export_ids) }
+        attributes.merge!(excel_export: @export, exported_at: now) if transaction.approved?
+        transaction.update!(attributes)
       end
     end
   end

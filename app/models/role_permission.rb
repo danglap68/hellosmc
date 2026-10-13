@@ -1,4 +1,6 @@
 class RolePermission < ApplicationRecord
+  has_paper_trail
+
   ABILITIES = %w[read manage].freeze
 
   belongs_to :role

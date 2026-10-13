@@ -1,4 +1,6 @@
 class MerchantAlias < ApplicationRecord
+  has_paper_trail
+
   ALIAS_TYPES = %w[receipt_name telegram_name merchant_id terminal_id terminal_name manual].freeze
   # Identifier aliases are compared as compact alphanumerics (e.g. MID/TID printed on the receipt).
   IDENTIFIER_TYPES = %w[merchant_id terminal_id].freeze

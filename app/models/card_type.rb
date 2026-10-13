@@ -1,4 +1,6 @@
 class CardType < ApplicationRecord
+  has_paper_trail
+
   DEFAULT_KEY = "normal".freeze
 
   has_many :fee_rule_card_types, dependent: :restrict_with_error

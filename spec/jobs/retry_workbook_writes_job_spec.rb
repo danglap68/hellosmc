@@ -18,7 +18,7 @@ RSpec.describe RetryWorkbookWritesJob do
 
   it "re-enqueues approved transactions that never reached the sheet" do
     missing = stale(finalized)
-    exported = stale(finalized(status: "exported"))
+    exported = stale(finalized(exported_at: 2.hours.ago))
 
     expect { described_class.perform_now }
       .to have_enqueued_job(WriteHelloSmcWorkbookJob).with(missing.id)

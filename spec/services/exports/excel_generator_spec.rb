@@ -58,12 +58,15 @@ RSpec.describe Exports::ExcelGenerator do
     expect(sheet.row(index + 1)[3]).to be_within(0.000001).of(0.0088)
   end
 
-  it "marks approved transactions exported and audits the export" do
+  it "records the export on approved transactions without changing their status, and audits it" do
     described_class.call(excel_export: export)
 
-    expect(approved.reload).to be_exported
+    expect(approved.reload).to be_approved
     expect(approved.excel_export).to eq(export)
+    expect(approved.exported_at).to be_present
+    expect(approved.source_data["export_ids"]).to eq([ export.id ])
     expect(held.reload).to be_hold
+    expect(held.exported_at).to be_nil
     log = AuditLog.find_by!(action: "export.generated")
     expect(log.actor_user).to eq(admin)
     expect(log.metadata["transaction_ids"]).to match_array([ approved.id, held.id ])

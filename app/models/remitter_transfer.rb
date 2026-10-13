@@ -4,6 +4,8 @@
 # adds one row to the agent's block in the day's "thu chi" tab.
 # It is not a Transaction: it never touches DS MB, MB or "Bill vô chủ".
 class RemitterTransfer < ApplicationRecord
+  has_paper_trail ignore: %i[updated_at lock_version]
+
   STATUSES = %w[processing needs_review approved rejected failed].freeze
   CODE_SOURCES = %w[caption manual].freeze
 

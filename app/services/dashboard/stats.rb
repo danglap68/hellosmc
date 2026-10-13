@@ -36,7 +36,7 @@ module Dashboard
     end
 
     def total_approved_amount_today
-      Transaction.where(transaction_at: @day, status: %w[approved exported]).sum(:transaction_amount_vnd)
+      Transaction.where(transaction_at: @day, status: "approved").sum(:transaction_amount_vnd)
     end
 
     def latest_transactions(limit = 8)
@@ -47,9 +47,9 @@ module Dashboard
       Transaction.review_queue.includes(:dealer, :merchant).order(:created_at).limit(limit)
     end
 
-    # Approved/exported totals per dealer over the last 30 days.
+    # Approved totals per dealer over the last 30 days.
     def top_dealers(limit = 5)
-      Transaction.where(status: %w[approved exported], transaction_at: 30.days.ago..)
+      Transaction.where(status: "approved", transaction_at: 30.days.ago..)
         .joins(:dealer)
         .group("dealers.id", "dealers.name")
         .order(Arel.sql("SUM(transactions.transaction_amount_vnd) DESC"))
@@ -177,10 +177,10 @@ module Dashboard
       breakdown(:card_type, "card_types")
     end
 
-    # Stored totals for approved and exported transactions in the 30-day window.
+    # Stored totals for approved transactions in the 30-day window.
     # Base fee is the difference of two stored amount columns, not a new rate.
     def period_totals
-      gross, after_fee, profit, dealer_amount, count = Transaction.where(status: %w[approved exported], transaction_at: window_range).pick(
+      gross, after_fee, profit, dealer_amount, count = Transaction.where(status: "approved", transaction_at: window_range).pick(
         Arel.sql("COALESCE(SUM(transaction_amount_vnd), 0)"),
         Arel.sql("COALESCE(SUM(amount_after_base_fee_vnd), 0)"),
         Arel.sql("COALESCE(SUM(profit_amount_vnd), 0)"),
@@ -221,9 +221,9 @@ module Dashboard
           Arel.sql("#{table}.name"),
           Arel.sql("COUNT(*)"),
           Arel.sql("COALESCE(SUM(transactions.transaction_amount_vnd), 0)"),
-          Arel.sql("COALESCE(SUM(transactions.transaction_amount_vnd) FILTER (WHERE transactions.status IN ('approved', 'exported')), 0)"),
-          Arel.sql("COALESCE(SUM(transactions.profit_amount_vnd) FILTER (WHERE transactions.status IN ('approved', 'exported')), 0)"),
-          Arel.sql("COUNT(*) FILTER (WHERE transactions.status IN ('approved', 'exported'))")
+          Arel.sql("COALESCE(SUM(transactions.transaction_amount_vnd) FILTER (WHERE transactions.status = 'approved'), 0)"),
+          Arel.sql("COALESCE(SUM(transactions.profit_amount_vnd) FILTER (WHERE transactions.status = 'approved'), 0)"),
+          Arel.sql("COUNT(*) FILTER (WHERE transactions.status = 'approved')")
         ).map do |id, name, count, amount, approved_amount, profit, approved_count|
           {
             id: id,
@@ -262,9 +262,9 @@ module Dashboard
       gross, count, approved_gross, after_fee, approved_count, decided = Transaction.where(transaction_at: range).where.not(status: "excluded").pick(
         Arel.sql("COALESCE(SUM(transaction_amount_vnd) FILTER (WHERE transactions.status NOT IN ('rejected', 'failed')), 0)"),
         Arel.sql("COUNT(*) FILTER (WHERE transactions.status NOT IN ('rejected', 'failed'))"),
-        Arel.sql("COALESCE(SUM(transaction_amount_vnd) FILTER (WHERE transactions.status IN ('approved', 'exported')), 0)"),
-        Arel.sql("COALESCE(SUM(amount_after_base_fee_vnd) FILTER (WHERE transactions.status IN ('approved', 'exported')), 0)"),
-        Arel.sql("COUNT(*) FILTER (WHERE transactions.status IN ('approved', 'exported'))"),
+        Arel.sql("COALESCE(SUM(transaction_amount_vnd) FILTER (WHERE transactions.status = 'approved'), 0)"),
+        Arel.sql("COALESCE(SUM(amount_after_base_fee_vnd) FILTER (WHERE transactions.status = 'approved'), 0)"),
+        Arel.sql("COUNT(*) FILTER (WHERE transactions.status = 'approved')"),
         Arel.sql("COUNT(*) FILTER (WHERE transactions.status NOT IN ('pending', 'processing'))")
       )
       approved_gross = approved_gross.to_i
@@ -288,9 +288,9 @@ module Dashboard
         local_date_sql,
         Arel.sql("COALESCE(SUM(transaction_amount_vnd) FILTER (WHERE transactions.status NOT IN ('rejected', 'failed')), 0)"),
         Arel.sql("COUNT(*) FILTER (WHERE transactions.status NOT IN ('rejected', 'failed'))"),
-        Arel.sql("COALESCE(SUM(transaction_amount_vnd) FILTER (WHERE transactions.status IN ('approved', 'exported')), 0)"),
-        Arel.sql("COALESCE(SUM(amount_after_base_fee_vnd) FILTER (WHERE transactions.status IN ('approved', 'exported')), 0)"),
-        Arel.sql("COUNT(*) FILTER (WHERE transactions.status IN ('approved', 'exported'))"),
+        Arel.sql("COALESCE(SUM(transaction_amount_vnd) FILTER (WHERE transactions.status = 'approved'), 0)"),
+        Arel.sql("COALESCE(SUM(amount_after_base_fee_vnd) FILTER (WHERE transactions.status = 'approved'), 0)"),
+        Arel.sql("COUNT(*) FILTER (WHERE transactions.status = 'approved')"),
         Arel.sql("COUNT(*) FILTER (WHERE transactions.status NOT IN ('pending', 'processing'))")
       ).to_h do |day, gross, count, approved_gross, after_fee, approved_count, decided|
         [coerce_date(day), {

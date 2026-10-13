@@ -1,5 +1,5 @@
 class Transaction < ApplicationRecord
-  STATUSES = %w[pending processing needs_review approved rejected hold exported failed excluded].freeze
+  STATUSES = %w[pending processing needs_review approved rejected hold failed excluded].freeze
 
   # Why a bill was taken out of the accounting flow (status "excluded"). Hidden from
   # the transaction list by default, see Transactions::Filter.
@@ -10,20 +10,22 @@ class Transaction < ApplicationRecord
     "pending" => %w[processing],
     "processing" => %w[approved needs_review failed excluded],
     "needs_review" => %w[approved rejected hold processing],
-    "approved" => %w[exported hold],
+    "approved" => %w[hold],
     "hold" => %w[approved needs_review rejected processing],
-    "exported" => %w[hold],
     "failed" => %w[processing needs_review],
     "rejected" => [],
     "excluded" => %w[processing]
   }.freeze
 
   # Statuses whose rows must carry complete, calculated accounting values.
-  FINALIZED_STATUSES = %w[approved exported].freeze
+  FINALIZED_STATUSES = %w[approved].freeze
   EDITABLE_STATUSES = %w[needs_review hold failed].freeze
   REPROCESSABLE_STATUSES = %w[needs_review hold failed].freeze
 
   class InvalidTransition < StandardError; end
+
+  # source_data holds the raw OCR payload; copying it into every version would bloat the table.
+  has_paper_trail skip: %i[source_data], ignore: %i[updated_at lock_version]
 
   belongs_to :telegram_message, optional: true
   belongs_to :bill_image, optional: true

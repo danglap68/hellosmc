@@ -61,6 +61,9 @@ gem "fastimage", "~> 2.4"
 # Pagination
 gem "pagy", "~> 9.3"
 
+# Row-level version history (previous status, who changed what)
+gem "paper_trail", "~> 17.0"
+
 group :development, :test do
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem
   gem "debug", platforms: %i[ mri windows ], require: "debug/prelude"

@@ -15,7 +15,6 @@ module ApplicationHelper
     "approved" => "green",
     "rejected" => "red",
     "hold" => "orange",
-    "exported" => "teal",
     "failed" => "red",
     "excluded" => "secondary"
   }.freeze

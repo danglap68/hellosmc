@@ -1,4 +1,6 @@
 class Role < ApplicationRecord
+  has_paper_trail
+
   SYSTEM = [
     { key: "admin", name: "Quản trị", position: 10 },
     { key: "operator", name: "Vận hành", position: 20 },

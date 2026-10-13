@@ -30,6 +30,7 @@ It is not an ERP. PostgreSQL is the source of truth; Excel is an output.
 | Review | `Transactions::Corrector`, `Approver`, `StatusUpdater`, `Reprocessor` | Every correction recalculates and is audited (before/after). |
 | Export | `Exports::ExcelGenerator`, `Exports::LegacyLayout` | Mapping layer keeps legacy headers out of the domain model. |
 | Audit | `AuditLogger.log!` → `audit_logs` | Append-only; explicit calls, no blanket callbacks. |
+| Version history | PaperTrail → `versions` | Row-level history of transactions, transfers, fee/dealer/merchant/card-type config, settings, users and roles. `whodunnit` is the signed-in user id, empty for background jobs. Shown as "Lịch sử trạng thái" on the transaction page. `Transaction#source_data` is not copied into versions. |
 | Jobs | Sidekiq: `ProcessTelegramUpdateJob`, `DownloadTelegramAttachmentJob`, `AnalyzeBillImageJob`, `BuildTransactionJob`, `GenerateDailyExcelJob`, `RetryFailedExtractionJob` | All idempotent. Transient errors retry; permanent errors are recorded and surfaced. |
 
 ### Transaction statuses
@@ -37,7 +38,7 @@ It is not an ERP. PostgreSQL is the source of truth; Excel is an output.
 `pending → processing → approved | needs_review | failed`;
 `needs_review → approved | rejected | hold | processing`;
 `hold → approved | needs_review | rejected | processing`;
-`approved → exported | hold`; `exported → hold`; `failed → processing | needs_review`; `rejected` is terminal.
+`approved → hold`; `failed → processing | needs_review`; `rejected` is terminal.
 Defined in `Transaction::TRANSITIONS`; anything else raises.
 
 ### When is a bill auto-approved?
@@ -257,8 +258,8 @@ Also available: `bin/rubocop`, `bin/brakeman`.
   `Trạng thái`, and an unnamed last column with the dealer;
 - sheet *Tổng hợp* with totals per dealer.
 
-Approved and exported transactions are written as `Thành công`, held ones as `bill hold`. Approved
-transactions become `exported`. Change the mapping in `app/services/exports/legacy_layout.rb`.
+Approved transactions are written as `Thành công`, held ones as `bill hold`. Exporting never changes a
+status: written approved rows only get `exported_at` and `excel_export_id`. Change the mapping in `app/services/exports/legacy_layout.rb`.
 
 Scheduled daily export (yesterday): `bin/rails hellosmc:export_daily` from cron.
 

@@ -331,6 +331,8 @@ vi:
       summary: "Thông tin giao dịch"
       hkd: "HKD"
       view_export: "Xem lần xuất"
+      status_history: "Lịch sử trạng thái"
+      status_history_system: "Hệ thống"
       calculation: "Cách tính"
       workbook: "Ghi Google Sheet Hello SMC"
       workbook_branch: "Nhánh"
@@ -1470,9 +1472,10 @@ vi:
           approved: "Đã duyệt"
           rejected: "Đã từ chối"
           hold: "Tạm giữ"
-          exported: "Đã xuất Excel"
           failed: "Xử lý lỗi"
           excluded: "Đã bỏ qua"
+          # Retired status, still shown in the status history of older rows.
+          exported: "Đã xuất Excel"
       bill_image:
         ocr_status:
           pending: "Đang chờ"
