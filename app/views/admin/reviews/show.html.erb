@@ -68,8 +68,7 @@
                 <button type="submit" name="decision" value="hold" class="btn btn-outline-warning"><%= icon("player-pause") %> <%= t("actions.hold") %></button>
               <% end %>
               <% if @transaction.can_transition_to?("rejected") %>
-                <button type="submit" name="decision" value="reject" class="btn btn-outline-danger"
-                        data-turbo-confirm="<%= t('transactions.confirm.reject') %>"><%= icon("x") %> <%= t("actions.reject") %></button>
+                <%= render "admin/transactions/reject_button", transaction: @transaction, review: true %>
               <% end %>
               <% if @transaction.reprocessable? %>
                 <button type="submit" name="decision" value="rerun_ocr" class="btn btn-ghost-secondary"

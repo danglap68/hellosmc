@@ -51,6 +51,21 @@ RSpec.describe BillVision::OutputSchema do
     expect(described_class.valid?(data)).to be(false)
   end
 
+  it "accepts only a nullable catalog match with an integer ID and bounded confidence" do
+    data = extraction_fixture("normal_settlement")
+    data["documents"].first["merchant_match"] = { "merchant_id" => 7, "confidence" => 0.97 }
+    expect(described_class.valid?(data)).to be(true)
+    [ { "merchant_id" => "7", "confidence" => 0.97 },
+      { "merchant_id" => 7, "confidence" => 1.1 },
+      { "merchant_id" => 7 },
+      { "merchant_id" => 7, "confidence" => 0.97, "dealer_id" => 3 } ].each do |match|
+      data["documents"].first["merchant_match"] = match
+      expect(described_class.valid?(data)).to be(false)
+    end
+    data["documents"].first["merchant_match"] = nil
+    expect(described_class.valid?(data)).to be(true)
+  end
+
   it "asks providers for recipient_name" do
     properties = BillVision::Prompt::SCHEMA.dig(:properties, :documents, :items)
     expect(properties[:required]).to include("recipient_name")

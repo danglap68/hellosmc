@@ -88,7 +88,7 @@ RSpec.describe "Transaction review actions" do
     end
 
     it "rejects terminally" do
-      described_class.call(transaction: transaction, actor: operator, action: "reject")
+      described_class.call(transaction: transaction, actor: operator, action: "reject", note: "Trùng bill")
       expect(transaction.reload).to be_rejected
       expect(described_class.call(transaction: transaction, actor: operator, action: "hold")).to be(false)
     end
@@ -111,7 +111,7 @@ RSpec.describe "Concurrent review decisions" do
 
   it "does not approve a transaction another reviewer rejected meanwhile" do
     stale_copy = Transaction.find(transaction.id)
-    Transactions::StatusUpdater.call(transaction: transaction, actor: operator, action: "reject")
+    Transactions::StatusUpdater.call(transaction: transaction, actor: operator, action: "reject", note: "Trùng bill")
 
     expect(Transactions::Approver.call(transaction: stale_copy, actor: operator)).to be(false)
     expect(transaction.reload).to be_rejected

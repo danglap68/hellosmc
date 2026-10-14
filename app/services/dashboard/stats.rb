@@ -105,6 +105,14 @@ module Dashboard
       @previous_snapshot ||= snapshot(previous_range)
     end
 
+    def outgoing_snapshot
+      @outgoing_snapshot ||= outgoing_totals(period_range)
+    end
+
+    def previous_outgoing_snapshot
+      @previous_outgoing_snapshot ||= outgoing_totals(previous_range)
+    end
+
     def settlement_rows
       @settlement_rows ||= countable.within_reporting_period(period_range).group(:status)
         .pluck(:status, Arel.sql("COUNT(*)"), Arel.sql("COALESCE(SUM(transaction_amount_vnd), 0)"))
@@ -116,6 +124,11 @@ module Dashboard
     def unprocessed_images
       @unprocessed_images ||= BillImage.analyzable.where(created_at: period_range, ocr_status: %w[pending processing failed])
         .where.missing(:transactions).count
+    end
+
+    def queued_downloads
+      @queued_downloads ||= TelegramMessage.processing_queued.with_image.where(created_at: period_range)
+        .where.missing(:bill_images).count
     end
 
     # One point per chart bucket (day, week, or month) inside the selected period.
@@ -274,7 +287,7 @@ module Dashboard
     end
 
     def snapshot(range)
-      gross, count, approved_gross, after_fee, profit, approved_count, decided, unread_count, auto_approved_count = Transaction.within_reporting_period(range).where.not(status: "excluded").pick(
+      gross, count, approved_gross, after_fee, profit, approved_count, decided, unread_count, auto_approved_count, dealer_payable = Transaction.within_reporting_period(range).where.not(status: "excluded").pick(
         Arel.sql("COALESCE(SUM(transaction_amount_vnd) FILTER (WHERE transactions.status != 'rejected'), 0)"),
         Arel.sql("COUNT(*) FILTER (WHERE transactions.status != 'rejected')"),
         Arel.sql("COALESCE(SUM(transaction_amount_vnd) FILTER (WHERE transactions.status = 'approved'), 0)"),
@@ -283,7 +296,8 @@ module Dashboard
         Arel.sql("COUNT(*) FILTER (WHERE transactions.status = 'approved')"),
         Arel.sql("COUNT(*) FILTER (WHERE transactions.status NOT IN ('pending', 'processing'))"),
         Arel.sql("COUNT(*) FILTER (WHERE transactions.status != 'rejected' AND transaction_amount_vnd IS NULL)"),
-        Arel.sql("COUNT(*) FILTER (WHERE transactions.status = 'approved' AND approved_by_id IS NULL)")
+        Arel.sql("COUNT(*) FILTER (WHERE transactions.status = 'approved' AND approved_by_id IS NULL)"),
+        Arel.sql("COALESCE(SUM(dealer_amount_vnd) FILTER (WHERE transactions.status = 'approved'), 0)")
       )
       approved_gross = approved_gross.to_i
       after_fee = after_fee.to_i
@@ -295,6 +309,7 @@ module Dashboard
         approved_gross: approved_gross,
         after_fee: after_fee,
         profit: profit.to_i,
+        dealer_payable: dealer_payable.to_i,
         base_fee: approved_gross - after_fee,
         approved_count: approved_count,
         waiting_gross: gross.to_i - approved_gross,
@@ -304,6 +319,23 @@ module Dashboard
         decided: decided,
         approval_rate: decided.zero? ? nil : approved_count.to_f / decided
       }
+    end
+
+    # The upload/sent date is the accounting day used by the thu chi writer.
+    # Pending/failed transfers with a known amount remain visible separately;
+    # only approved transfers are used for the reconciliation difference.
+    def outgoing_totals(range)
+      rows = RemitterTransfer.where(transferred_at: range).where.not(status: "rejected")
+      total, count, approved, approved_count, unread_count, written_count = rows.pick(
+        Arel.sql("COALESCE(SUM(amount_vnd), 0)"), Arel.sql("COUNT(*)"),
+        Arel.sql("COALESCE(SUM(amount_vnd) FILTER (WHERE status = 'approved'), 0)"),
+        Arel.sql("COUNT(*) FILTER (WHERE status = 'approved')"),
+        Arel.sql("COUNT(*) FILTER (WHERE amount_vnd IS NULL)"),
+        Arel.sql("COUNT(*) FILTER (WHERE status = 'approved' AND written_at IS NOT NULL)")
+      )
+      { total: total.to_i, count: count.to_i, approved: approved.to_i, approved_count: approved_count.to_i,
+        waiting: total.to_i - approved.to_i, waiting_count: count.to_i - approved_count.to_i,
+        unread_count: unread_count.to_i, written_count: written_count.to_i }
     end
 
     def daily_facts

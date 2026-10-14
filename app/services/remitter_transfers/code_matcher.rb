@@ -23,14 +23,23 @@ module RemitterTransfers
 
     def initialize(text, codes, strict = false)
       @text = VietnameseText.strip_diacritics(text).upcase.gsub(/[^A-Z0-9]+/, " ")
-      @codes = codes
+      @codes = codes.uniq.select { |code| Codes.canonical(code) }
       @strict = strict
     end
 
     def call
-      found = @codes.select { |code| @text.match?(pattern(code)) }
-      # A code inside a longer matched code ("TK01" in "XTK01") is the same hit.
-      found = found.reject { |code| found.any? { |other| other != code && other.include?(code) } }
+      hits = @codes.flat_map do |code|
+        @text.enum_for(:scan, pattern(code)).map do
+          match = Regexp.last_match
+          { code: code, from: match.begin(0), to: match.end(0) }
+        end
+      end
+      # Prefer XTK01 over TK01 only within the same occurrence, keeping two
+      # separately written codes ambiguous. Equal spans with different zero
+      # padding represent conflicting configured codes and remain ambiguous.
+      found = hits.reject do |hit|
+        hits.any? { |other| other[:from] < hit[:from] && other[:to] == hit[:to] }
+      end.map { |hit| hit[:code] }.uniq
 
       return Result.new(code: nil, issue: "code_missing") if found.empty?
       return Result.new(code: nil, issue: "code_ambiguous") if found.size > 1
@@ -41,8 +50,8 @@ module RemitterTransfers
     private
 
     def pattern(code)
-      letters, digits = code.match(/\A([A-Z]+)(\d+)\z/).captures
-      @strict ? /(?<![A-Z0-9])#{letters} ?#{digits}(?![A-Z0-9])/ : /#{letters} ?#{digits}(?!\d)/
+      letters, digits = Codes.canonical(code).match(/\A([A-Z]+)(\d+)\z/).captures
+      @strict ? /(?<![A-Z0-9])#{letters} ?0*#{digits}(?![A-Z0-9])/ : /#{letters} ?0*#{digits}(?!\d)/
     end
   end
 end

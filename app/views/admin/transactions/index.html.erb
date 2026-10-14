@@ -41,7 +41,7 @@
             <th class="text-end"><%= Transaction.human_attribute_name(:amount_after_base_fee_vnd) %></th>
             <th><%= Transaction.human_attribute_name(:status) %></th>
             <th class="text-center"><%= Transaction.human_attribute_name(:confidence_score) %></th>
-            <th class="w-1"></th>
+            <th class="transaction-actions"></th>
           </tr>
         </thead>
         <tbody>
@@ -69,7 +69,7 @@
               <td class="text-end money"><%= format_vnd(transaction.amount_after_base_fee_vnd) %></td>
               <td class="text-nowrap"><%= status_badge(transaction.status) %><%= skip_tag_badges(transaction) %></td>
               <td class="text-center"><%= confidence_badge(transaction.confidence_score) %></td>
-              <td><%= render "admin/transactions/row_actions", transaction: transaction %></td>
+              <td class="transaction-actions text-end"><%= render "admin/transactions/row_actions", transaction: transaction %></td>
             </tr>
           <% end %>
         </tbody>

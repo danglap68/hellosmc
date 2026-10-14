@@ -12,10 +12,22 @@ class MerchantDealer < ApplicationRecord
   # Unique across every agent row: a code names exactly one HKD + TID.
   validates :transfer_code, format: { with: RemitterTransfers::Codes::FORMAT }, allow_nil: true
   validates :transfer_code, uniqueness: { case_sensitive: false }, allow_nil: true
+  validate :transfer_code_padding_unique
 
   scope :active, -> { where(active: true) }
 
   private
+
+  def transfer_code_padding_unique
+    return unless will_save_change_to_transfer_code? && transfer_code.present? && errors[:transfer_code].empty?
+
+    key = RemitterTransfers::Codes.canonical(transfer_code)
+    return unless key
+
+    conflict = MerchantDealer.where.not(id: id).where.not(transfer_code: nil).pluck(:transfer_code)
+      .find { |code| RemitterTransfers::Codes.canonical(code) == key }
+    errors.add(:transfer_code, :padding_taken, code: conflict) if conflict
+  end
 
   def normalize_fields
     self.tid_key = normalize_tid_key(tid_key)

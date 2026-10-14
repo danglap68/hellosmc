@@ -1,0 +1,8 @@
+<%# locals: (transaction:, icon_only: false, review: false) %>
+<%= button_tag type: "button", class: (icon_only ? "btn btn-sm btn-ghost-danger btn-icon" : "btn btn-outline-danger"),
+      title: t("actions.reject"), aria: { label: t("actions.reject"), haspopup: "dialog" },
+      data: { action: "rejection#open", rejection_url: (review ? admin_review_path(transaction) : reject_admin_transaction_path(transaction)),
+              rejection_method: (review ? "patch" : "post"), rejection_reason: suggested_rejection_reason(transaction),
+              rejection_title: t("transactions.rejection.title", id: transaction.id) } do %>
+  <%= icon("x") %><% unless icon_only %> <%= t("actions.reject") %><% end %>
+<% end %>

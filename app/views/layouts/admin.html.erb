@@ -5,7 +5,8 @@
     <%= render "layouts/head" %>
   </head>
   <body class="app-ui admin-layout"
-        data-controller="command-palette"
+        data-controller="command-palette rejection"
+        data-action="turbo:before-cache@document->rejection#close"
         data-command-palette-items-value="<%= command_palette_items.to_json %>"
         data-command-palette-labels-value="<%= command_palette_labels.to_json %>">
     <a href="#main-content" class="skip-link"><%= t("ui.skip_to_content") %></a>
@@ -129,6 +130,7 @@
       </div>
     </div>
     <%= render "admin/shared/command_palette" %>
+    <%= render "admin/shared/rejection_dialog" %>
     <%= render "layouts/toasts" %>
   </body>
 </html>

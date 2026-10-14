@@ -1,0 +1,21 @@
+<dialog class="rejection-dialog" data-rejection-target="dialog" aria-labelledby="rejection-title"
+        aria-describedby="rejection-hint" data-action="close->rejection#closed">
+  <%= form_with url: "#", method: :post, authenticity_token: form_authenticity_token, data: { rejection_target: "form" } do %>
+    <input type="hidden" name="_method" value="patch" disabled data-rejection-target="method">
+    <%= hidden_field_tag :decision, "reject" %>
+    <div class="card-header">
+      <h2 id="rejection-title" class="card-title" data-rejection-target="title"></h2>
+      <button type="button" class="btn-close ms-auto" aria-label="<%= t('actions.cancel') %>" data-action="rejection#close"></button>
+    </div>
+    <div class="card-body">
+      <p id="rejection-hint" class="text-secondary"><%= t("transactions.rejection.hint") %></p>
+      <%= label_tag :rejection_note, t("transactions.rejection.reason"), class: "form-label required" %>
+      <%= text_area_tag :note, nil, id: "rejection_note", rows: 3, required: true, class: "form-control",
+            placeholder: t("transactions.rejection.placeholder"), data: { rejection_target: "note" } %>
+    </div>
+    <div class="card-footer d-flex justify-content-end gap-2">
+      <button type="button" class="btn" data-action="rejection#close"><%= t("actions.cancel") %></button>
+      <%= button_tag t("transactions.rejection.confirm"), type: "submit", class: "btn btn-danger" %>
+    </div>
+  <% end %>
+</dialog>

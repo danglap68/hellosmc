@@ -23,6 +23,76 @@ RSpec.describe "Admin transactions" do
     expect(flash[:notice]).to eq("Đã duyệt giao dịch.")
   end
 
+  it "suggests the duplicate reason at every transaction rejection entry point without changing status" do
+    transaction.update!(source_data: transaction.source_data.merge("possible_duplicate_ids" => [ 120 ]))
+    [ admin_transaction_path(transaction), admin_transactions_path, admin_review_path(transaction) ].each do |path|
+      get path
+      expect(response).to have_http_status(:ok)
+      document = Nokogiri::HTML(response.body)
+      button = document.at_css('[data-action="rejection#open"]')
+      expect(button["type"]).to eq("button")
+      expect(button["data-rejection-reason"]).to eq("Trùng với giao dịch #120")
+      expect(document.at_css('dialog textarea[name="note"][required]')).to be_present
+      expect(document.css("form form")).to be_empty
+    end
+    expect(transaction.reload).to be_needs_review
+  end
+
+  it "suggests the current review warnings when no duplicate is known" do
+    get admin_transaction_path(transaction)
+    reason = Nokogiri::HTML(response.body).at_css('[data-action="rejection#open"]')["data-rejection-reason"]
+    expect(reason).to include(I18n.t("review_reasons.amount_unreadable"))
+  end
+
+  it "saves the edited rejection reason with its reviewer and audit trail and displays it" do
+    reason = "Trùng với giao dịch #120, đã kiểm tra ảnh gốc"
+    post reject_admin_transaction_path(transaction), params: { note: "  #{reason}  " }
+    expect(transaction.reload).to be_rejected
+    review = transaction.reviews.recent_first.first
+    expect(review).to be_rejected
+    expect(review.note).to eq(reason)
+    expect(review.reviewed_by).to eq(operator)
+    expect(AuditLog.find_by!(auditable: transaction, action: "transaction.rejected").metadata["note"]).to eq(reason)
+    get admin_transaction_path(transaction)
+    expect(Nokogiri::HTML(response.body).at_css(".alert-danger").text).to include(reason)
+  end
+
+  it "requires a nonblank reason before rejecting, with no review or audit changes" do
+    review = transaction.open_review
+    original_review = review.attributes
+    post reject_admin_transaction_path(transaction), params: { note: " \n " }
+    expect(transaction.reload).to be_needs_review
+    expect(review.reload.attributes).to eq(original_review)
+    expect(AuditLog.where(auditable: transaction, action: "transaction.rejected")).not_to exist
+    expect(flash[:alert]).to include(I18n.t("transactions.rejection.required"))
+  end
+
+  it "rejects from the review queue using the supplied reason without applying accounting edits" do
+    original_amount = transaction.transaction_amount_vnd
+    patch admin_review_path(transaction), params: { decision: "reject", note: "Bill không hợp lệ",
+                                                  transaction: { transaction_amount_vnd: "1" } }
+    expect(response).to have_http_status(:redirect)
+    expect(transaction.reload).to be_rejected
+    expect(transaction.transaction_amount_vnd).to eq(original_amount)
+    expect(transaction.reviews.recent_first.first.note).to eq("Bill không hợp lệ")
+  end
+
+  it "shows validation errors when rejecting from the review queue without a reason" do
+    patch admin_review_path(transaction), params: { decision: "reject", note: "" }
+    expect(response).to have_http_status(:unprocessable_content)
+    expect(transaction.reload).to be_needs_review
+    expect(response.body).to include(I18n.t("transactions.rejection.required"))
+  end
+
+  it "does not allow a viewer to reject a transaction or see the rejection trigger" do
+    sign_in create(:user, :viewer)
+    get admin_transaction_path(transaction)
+    expect(Nokogiri::HTML(response.body).css('[data-action="rejection#open"]')).to be_empty
+    post reject_admin_transaction_path(transaction), params: { note: "Trùng bill" }
+    expect(response).to have_http_status(:forbidden)
+    expect(transaction.reload).to be_needs_review
+  end
+
   it "corrects through the edit form" do
     patch admin_transaction_path(transaction), params: {
       transaction: { transaction_amount_vnd: "12.000.000", transaction_date: "2026-10-04", transaction_time: "10:57:25",
@@ -58,6 +128,14 @@ RSpec.describe "Admin transactions" do
     expect(response).to have_http_status(:ok)
     expect(response.body).to include("gpt-4.1")
     expect(response.body).not_to include(I18n.t("vision_validation.title"))
+  end
+
+  it "shows the catalog suggestion next to the original OCR name" do
+    transaction.update!(source_data: transaction.source_data.deep_merge(
+      "merchant_resolution" => { "ai_suggestion" => { "merchant_id" => merchant.id, "name" => merchant.name, "confidence" => 0.96 } }
+    ))
+    get admin_transaction_path(transaction)
+    expect(response.body).to include("AI đối chiếu: #{merchant.name} · 96%", transaction.raw_merchant_name)
   end
 
   it "shows a concise Vietnamese validation summary with expandable audit data" do

@@ -23,7 +23,8 @@ module BillVision
     attr_reader :model
 
     def extract(image)
-      payload = post_json(connection(@base_url), "/v1/chat/completions", request_body(image),
+      catalog = MerchantCatalog.call
+      payload = post_json(connection(@base_url), "/v1/chat/completions", request_body(image, catalog),
                           headers: { "Authorization" => "Bearer #{@api_key}" })
       unless payload.is_a?(Hash) && payload["choices"].is_a?(Array) &&
           payload["choices"].first.is_a?(Hash) && payload["choices"].first["message"].is_a?(Hash)
@@ -44,6 +45,7 @@ module BillVision
 
         data = parse_content(message["content"])
         raise PermanentError, "openai answer does not match the extraction schema" unless OutputSchema.valid?(data)
+        raise PermanentError, "openai merchant match is outside the supplied catalog" unless MerchantCatalog.valid_matches?(data, catalog)
       rescue PermanentError => e
         raise InvalidExtraction.new(e.message, raw: payload, model: payload["model"] || model)
       end
@@ -54,14 +56,14 @@ module BillVision
 
     private
 
-    def request_body(image)
+    def request_body(image, catalog)
       body = {
         model: model,
         max_completion_tokens: @max_output_tokens,
         messages: [
           { role: "system", content: Prompt::SYSTEM },
           { role: "user", content: [
-            { type: "text", text: Prompt::USER },
+            { type: "text", text: Prompt.user(catalog: catalog) },
             { type: "image_url", image_url: { url: image.data_url, detail: "high" } }
           ] }
         ],

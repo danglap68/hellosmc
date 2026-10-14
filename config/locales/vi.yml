@@ -239,7 +239,7 @@ vi:
       waiting: "Chờ xử lý / kiểm tra"
       details: "Chi tiết tiền đang chờ xử lý"
       other_stats: "Chỉ số trong kỳ"
-      unread: "%{count} giao dịch chưa đọc được số tiền và %{images} ảnh chưa xử lý xong chưa có giao dịch. Tổng tiền sẽ bổ sung khi đọc được bill kết toán."
+      unread: "Chưa cộng được: %{count} giao dịch thiếu số tiền · %{images} ảnh chưa có kết quả · %{downloads} ảnh chưa tải. Tổng tiền sẽ bổ sung khi đọc được bill kết toán."
       statuses:
         review: "Đợi kiểm tra"
         hold: "Tạm giữ"
@@ -267,6 +267,7 @@ vi:
       approval_empty: "Chưa có giao dịch đã chốt"
     chart_by_card: "Doanh số theo loại thẻ"
     attention: "Cần xử lý"
+    attention_hint: "Hàng chờ của tất cả các ngày"
     attention_empty: "Không có việc đang chờ"
     empty_window: "Chưa có giao dịch trong kỳ này."
     queues:
@@ -336,9 +337,18 @@ vi:
       tag: "Bill đã bỏ qua"
       show_skipped: "Hiện cả bill đã bỏ qua"
     raw_ocr_name: "Tên đọc từ bill (OCR)"
+    ai_merchant_suggestion: "AI đối chiếu: %{name} · %{confidence}%"
     auto_approved: "Tự động duyệt"
     review_reasons_title: "Lý do cần kiểm tra"
     possible_duplicates: "Có thể trùng với"
+    rejection:
+      title: "Từ chối giao dịch #%{id}"
+      reason: "Lý do từ chối"
+      hint: "Kiểm tra và chỉnh sửa lý do gợi ý trước khi xác nhận. Lý do sẽ được lưu trong lịch sử kiểm tra."
+      placeholder: "Nhập lý do từ chối giao dịch…"
+      duplicate: "Trùng với giao dịch %{ids}"
+      confirm: "Xác nhận từ chối"
+      required: "Vui lòng nhập lý do từ chối."
     show:
       title: "Giao dịch #%{id}"
       bill_image: "Ảnh bill"
@@ -1144,6 +1154,9 @@ vi:
     terminal_or_merchant_id: "MID / TID"
 
   review_reasons:
+    merchant_ai_match: "HKD do AI đề xuất, cần xác nhận"
+    merchant_ai_conflict: "AI và dữ liệu đối chiếu chọn HKD khác nhau"
+    merchant_ai_uncertain: "AI chưa xác định chắc chắn HKD trong danh sách"
     model_disagreement: "Hai model OCR đọc khác nhau — cần kiểm tra ảnh gốc"
     validator_failed: "Model kiểm tra lại bị lỗi — cần kiểm tra thủ công"
     validation_budget_exhausted: "Đã hết số lần xử lý OCR cho phép — cần kiểm tra thủ công"

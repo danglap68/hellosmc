@@ -14,7 +14,8 @@ module BillVision
 
     def valid_document?(doc)
       return false unless doc.is_a?(Hash)
-      return false unless (doc.keys - [ Prompt::RECIPIENT_FIELD, Prompt::BANK_FIELD ] - Prompt::FLAGS).sort == (Prompt::FIELDS + [ "confidence" ]).sort
+      return false unless (doc.keys - [ Prompt::RECIPIENT_FIELD, Prompt::BANK_FIELD, "merchant_match" ] - Prompt::FLAGS).sort == (Prompt::FIELDS + [ "confidence" ]).sort
+      return false unless valid_merchant_match?(doc["merchant_match"])
       return false unless doc[Prompt::RECIPIENT_FIELD].nil? || doc[Prompt::RECIPIENT_FIELD].is_a?(String)
       return false unless doc[Prompt::BANK_FIELD].nil? || doc[Prompt::BANK_FIELD].is_a?(String)
       return false unless Prompt::FLAGS.all? { |flag| [ nil, true, false ].include?(doc[flag]) }
@@ -25,6 +26,16 @@ module BillVision
       confidence = doc["confidence"]
       confidence.is_a?(Hash) && confidence.keys.sort == Prompt::FIELDS.sort &&
         confidence.values.all? { |value| value.is_a?(Numeric) && value.finite? && value.between?(0, 1) }
+    end
+
+    # Optional locally for stored extractions made before catalog matching existed.
+    def valid_merchant_match?(match)
+      return true if match.nil?
+      return false unless match.is_a?(Hash) && match.keys.sort == %w[confidence merchant_id]
+
+      id, confidence = match.values_at("merchant_id", "confidence")
+      id.is_a?(Integer) && id.positive? && confidence.is_a?(Numeric) &&
+        confidence.finite? && confidence.between?(0, 1)
     end
   end
 end

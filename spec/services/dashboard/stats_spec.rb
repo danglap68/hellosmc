@@ -82,4 +82,17 @@ RSpec.describe Dashboard::Stats do
     filtered = Transactions::Filter.new(date_from: stats.date.iso8601, date_to: stats.date.iso8601).apply
     expect(filtered.count).to eq(2)
   end
+
+  it "reports images still awaiting download separately from images awaiting OCR" do
+    photo = telegram_fixture("photo_update")
+    create(:telegram_message, processing_status: "queued", raw_payload: photo)
+    create(:telegram_message, processing_status: "queued", raw_payload: photo, created_at: 1.day.ago)
+    stored = create(:telegram_message, processing_status: "queued", raw_payload: photo)
+    create(:bill_image, telegram_message: stored, ocr_status: "pending")
+
+    stats = described_class.new
+    expect(stats.queued_downloads).to eq(1)
+    expect(stats.unprocessed_images).to eq(1)
+    expect(stats.current_snapshot[:gross]).to eq(0)
+  end
 end

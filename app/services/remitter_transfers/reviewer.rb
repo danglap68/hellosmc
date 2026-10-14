@@ -32,6 +32,7 @@ module RemitterTransfers
         before = snapshot
         code = code.to_s.strip.upcase.presence || @transfer.transfer_code
         link = code && Codes.merchant_dealer_for(code)
+        code = link.transfer_code if link
         parsed = parse_amount(amount)
         amount = parsed == :invalid ? nil : (parsed || @transfer.amount_vnd)
         remitter = remitter_id.present? ? Remitter.find_by(id: remitter_id) : @transfer.remitter

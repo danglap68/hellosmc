@@ -86,6 +86,8 @@ module BillVision
         "downgraded_from" => downgraded_from,
         "transaction_at" => (date && time) ? Time.zone.local(date.year, date.month, date.day, *time).iso8601 : nil,
         "merchant_name_normalized" => VietnameseText.normalize(merchant_name).presence,
+        "merchant_match" => (doc["merchant_match"].deep_dup if document_type.in?(%w[settlement child_receipt]) &&
+                              OutputSchema.valid_merchant_match?(doc["merchant_match"])),
         "confidence" => confidence,
         "critical_confidence" => critical_fields(document_type).map { |field| critical_value(confidence, field) }.min,
         "low_confidence_fields" => low_fields,

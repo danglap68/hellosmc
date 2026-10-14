@@ -109,6 +109,8 @@ module Transactions
       if result.exact? || accepted_near_match?(result)
         source_field = result.method == :identifier ? "terminal_or_merchant_id" : "merchant_name"
         flag_confidence(source_field, "merchant")
+      elsif result.method.in?(%i[ai_match ai_conflict ai_uncertain])
+        @reasons << "merchant_#{result.method}"
       elsif result.fuzzy?
         @reasons << "merchant_fuzzy_match"
       elsif result.ambiguous?
@@ -223,7 +225,8 @@ module Transactions
         "merchant_resolution" => {
           "method" => merchant_result.method.to_s,
           "score" => merchant_result.score,
-          "candidate_ids" => merchant_result.candidates.map(&:id)
+          "candidate_ids" => merchant_result.candidates.map(&:id),
+          "ai_suggestion" => ai_suggestion(merchant_result)
         },
         "card_type_resolution" => {
           "source" => card_type_result.source,
@@ -236,6 +239,14 @@ module Transactions
           "candidate_ids" => fee_result.candidates.map(&:id)
         }
       }
+    end
+
+    def ai_suggestion(merchant_result)
+      match = @doc["merchant_match"]
+      return unless match.is_a?(Hash)
+
+      merchant = merchant_result.candidates.find { |candidate| candidate.id == match["merchant_id"] }
+      match.merge("name" => merchant&.name)
     end
   end
 end

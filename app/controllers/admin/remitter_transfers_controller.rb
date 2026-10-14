@@ -5,6 +5,7 @@ module Admin
     permission :remitter_transfers
 
     QUEUES = {
+      "all" => -> { RemitterTransfer.all },
       "needs_review" => -> { RemitterTransfer.needs_review },
       "not_written" => -> { RemitterTransfer.pending_write },
       "written" => -> { RemitterTransfer.where.not(written_at: nil) },

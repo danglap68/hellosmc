@@ -15,7 +15,7 @@ module Transactions
       @transaction = transaction
       @actor = actor
       @config = ACTIONS.fetch(action.to_s)
-      @note = note.presence
+      @note = note&.strip.presence
     end
 
     def call
@@ -24,6 +24,11 @@ module Transactions
         @transaction.lock!
         unless @transaction.can_transition_to?(@config[:status])
           @transaction.errors.add(:base, :invalid_transition)
+          raise ActiveRecord::Rollback
+        end
+
+        if @config[:status] == "rejected" && @note.blank?
+          @transaction.errors.add(:base, I18n.t("transactions.rejection.required"))
           raise ActiveRecord::Rollback
         end
 

@@ -15,7 +15,7 @@
       <%= button_to hold_admin_transaction_path(@transaction), class: "btn btn-outline-warning" do %><%= icon("player-pause") %> <%= t("actions.hold") %><% end %>
     <% end %>
     <% if @transaction.can_transition_to?("rejected") %>
-      <%= button_to reject_admin_transaction_path(@transaction), class: "btn btn-outline-danger", form: { data: { turbo_confirm: t("transactions.confirm.reject") } } do %><%= icon("x") %> <%= t("actions.reject") %><% end %>
+      <%= render "admin/transactions/reject_button", transaction: @transaction %>
     <% end %>
     <% if @transaction.excluded? %>
       <%= button_to include_excluded_admin_transaction_path(@transaction), class: "btn btn-primary", form: { data: { turbo_confirm: t("transactions.confirm.include") } } do %><%= icon("arrow-back-up") %> <%= t("actions.include_excluded") %><% end %>
@@ -30,6 +30,12 @@
   <div class="alert alert-secondary"><%= icon("ban") %> <%= t("transactions.show.excluded", tags: (@transaction.tags & Transaction::SKIP_TAGS).map { |tag| t("transactions.tags.#{tag}") }.to_sentence) %></div>
 <% end %>
 <%= render "admin/transactions/review_reasons", transaction: @transaction %>
+<% if @transaction.rejected? && (rejection = @reviews.find(&:rejected?))&.note.present? %>
+  <div class="alert alert-danger">
+    <h4 class="alert-title"><%= t("transactions.rejection.reason") %></h4>
+    <div class="rejection-note"><%= rejection.note %></div>
+  </div>
+<% end %>
 
 <div class="card mb-3">
   <div class="card-body">
@@ -90,6 +96,9 @@
           <div class="datagrid-item">
             <div class="datagrid-title"><%= t("transactions.raw_ocr_name") %></div>
             <div class="datagrid-content"><%= @transaction.raw_merchant_name || "—" %></div>
+            <% if (suggestion = @transaction.source_data.dig("merchant_resolution", "ai_suggestion"))&.dig("name").present? %>
+              <div class="small text-secondary mt-1"><%= t("transactions.ai_merchant_suggestion", name: suggestion["name"], confidence: (suggestion["confidence"].to_f * 100).round) %></div>
+            <% end %>
           </div>
           <div class="datagrid-item">
             <div class="datagrid-title"><%= Transaction.human_attribute_name(:card_type) %></div>

@@ -2,7 +2,7 @@ module BillVision
   class ResultComparator
     FIELDS = %w[document_type total_amount_vnd transaction_date transaction_time].freeze
     # What stops auto-approval when the two models differ: the fields that move
-    # money or decide what the document is. A different merchant reading or lot
+    # money, document type, or conflicting explicit catalog identities. A different merchant reading or lot
     # number is kept (soft_differences) but does not block: the merchant is
     # matched separately (a near match already needs a person) and the lot only
     # serves duplicate detection.
@@ -38,7 +38,11 @@ module BillVision
     private
 
     def blocking_differences(left, right)
-      FIELDS.reject { |field| left[field] == right[field] }
+      differences = FIELDS.reject { |field| left[field] == right[field] }
+      left_match = left.dig("merchant_match", "merchant_id")
+      right_match = right.dig("merchant_match", "merchant_id")
+      differences << "merchant_catalog_identity" if left_match && right_match && left_match != right_match
+      differences
     end
 
     def soft_differences(left, right)

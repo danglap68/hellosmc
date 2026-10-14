@@ -6,8 +6,8 @@ auditable accounting transactions:
 ```
 Telegram photo (+ "MB"/"Napas" caption)
   → store message + image (Cloudflare R2, private)
-  → vision OCR extracts facts only (amount, lot, date/time, merchant, MID/TID)
-  → Ruby resolves dealer → merchant (HKD) → card type → fee rule
+  → vision OCR extracts facts (amount, lot, date/time, merchant, MID/TID) and suggests a configured HKD
+  → Ruby validates the HKD match → resolves the TID agent → card type → fee rule
   → Ruby calculates amounts (BigDecimal, half-up to whole VND)
   → auto-approve, or send to the OCR review queue
   → Excel export in the legacy accounting layout
@@ -148,6 +148,15 @@ ignores case and diacritics; tags are configurable per card type under **Loại 
 
 Put `OPENAI_API_KEY` (and/or `GEMINI_API_KEY`) in the environment, then choose the provider and model under
 **Cài đặt → Đọc bill (OCR)** (defaults: OpenAI, primary `gpt-6-luna`, validator `gpt-6.1-sol`). The page refuses a provider whose key is missing.
+
+Each OpenAI/Gemini request includes the complete current list of active HKDs and their active name aliases.
+The model keeps `merchant_name` as printed and separately returns a nullable `merchant_match` (catalog ID
+and match confidence). The provider rejects IDs outside the catalog supplied for that request. Ruby still
+resolves the agent from the configured HKD/TID mapping and controls fees and approval. An AI-only match,
+uncertain suggestion, or conflict with deterministic matching needs human review; a corroborated existing
+match retains the existing rules and OCR confidence checks. Different catalog choices from the primary
+and validator block approval. Matching uses the existing image calls; the catalog adds input tokens,
+with no additional matching API request. Historical extractions without `merchant_match` remain readable.
 
 OpenAI reads each image once with the primary model. `BillVision::ValidationPolicy` first checks normalized
 facts and the existing deterministic evaluator. Only visual risks (missing/unreadable fields, unknown

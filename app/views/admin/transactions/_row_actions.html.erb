@@ -1,21 +1,21 @@
 <div class="row-actions">
   <%= link_to admin_transaction_path(transaction), class: "btn btn-sm btn-ghost-secondary btn-icon", title: t("actions.view"), aria: { label: t("actions.view") } do %><%= icon("eye") %><% end %>
   <% if can?(:manage, :transactions) %>
-      <% if transaction.editable? %>
-        <%= link_to admin_review_path(transaction), class: "btn btn-sm btn-ghost-secondary btn-icon", title: t("actions.review"), aria: { label: t("actions.review") } do %><%= icon("scan") %><% end %>
-        <%= link_to edit_admin_transaction_path(transaction), class: "btn btn-sm btn-ghost-secondary btn-icon", title: t("actions.edit"), aria: { label: t("actions.edit") } do %><%= icon("edit") %><% end %>
-      <% end %>
-      <% if transaction.status.in?(%w[needs_review hold failed]) %>
-        <%= button_to approve_admin_transaction_path(transaction), class: "btn btn-sm btn-ghost-success btn-icon", title: t("actions.approve"), aria: { label: t("actions.approve") }, form: { data: { turbo_confirm: t("transactions.confirm.approve") } } do %><%= icon("check") %><% end %>
-      <% end %>
-      <% if transaction.can_transition_to?("hold") %>
-        <%= button_to hold_admin_transaction_path(transaction), class: "btn btn-sm btn-ghost-warning btn-icon", title: t("actions.hold"), aria: { label: t("actions.hold") } do %><%= icon("player-pause") %><% end %>
-      <% end %>
-      <% if transaction.can_transition_to?("rejected") %>
-        <%= button_to reject_admin_transaction_path(transaction), class: "btn btn-sm btn-ghost-danger btn-icon", title: t("actions.reject"), aria: { label: t("actions.reject") }, form: { data: { turbo_confirm: t("transactions.confirm.reject") } } do %><%= icon("x") %><% end %>
-      <% end %>
-      <% if transaction.reprocessable? %>
-        <%= button_to reprocess_admin_transaction_path(transaction), class: "btn btn-sm btn-ghost-secondary btn-icon", title: t("actions.reprocess"), aria: { label: t("actions.reprocess") }, form: { data: { turbo_confirm: t("transactions.confirm.reprocess") } } do %><%= icon("refresh") %><% end %>
-      <% end %>
+    <% if transaction.editable? %>
+      <%= link_to admin_review_path(transaction), class: "btn btn-sm btn-ghost-secondary btn-icon", title: t("actions.review"), aria: { label: t("actions.review") } do %><%= icon("scan") %><% end %>
+      <%= link_to edit_admin_transaction_path(transaction), class: "btn btn-sm btn-ghost-secondary btn-icon", title: t("actions.edit"), aria: { label: t("actions.edit") } do %><%= icon("edit") %><% end %>
     <% end %>
+    <% if transaction.status.in?(%w[needs_review hold failed]) %>
+      <%= button_to approve_admin_transaction_path(transaction), class: "btn btn-sm btn-ghost-success btn-icon", title: t("actions.approve"), aria: { label: t("actions.approve") }, form: { data: { turbo_confirm: t("transactions.confirm.approve") } } do %><%= icon("check") %><% end %>
+    <% end %>
+    <% if transaction.can_transition_to?("hold") %>
+      <%= button_to hold_admin_transaction_path(transaction), class: "btn btn-sm btn-ghost-warning btn-icon", title: t("actions.hold"), aria: { label: t("actions.hold") } do %><%= icon("player-pause") %><% end %>
+    <% end %>
+    <% if transaction.can_transition_to?("rejected") %>
+      <%= render "admin/transactions/reject_button", transaction: transaction, icon_only: true %>
+    <% end %>
+    <% if transaction.reprocessable? %>
+      <%= button_to reprocess_admin_transaction_path(transaction), class: "btn btn-sm btn-ghost-secondary btn-icon", title: t("actions.reprocess"), aria: { label: t("actions.reprocess") }, form: { data: { turbo_confirm: t("transactions.confirm.reprocess") } } do %><%= icon("refresh") %><% end %>
+    <% end %>
+  <% end %>
 </div>

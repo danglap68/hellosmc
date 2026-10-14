@@ -59,7 +59,7 @@ RSpec.describe BillVision::Pipeline do
       body = JSON.parse(req.body)
       body["max_completion_tokens"] == 4096 && body["reasoning_effort"] == "low" &&
         body["messages"].size == 2 && body.dig("messages", 0, "content") == BillVision::Prompt::SYSTEM &&
-        body.dig("messages", 1, "content", 0, "text") == BillVision::Prompt::USER
+        body.dig("messages", 1, "content", 0, "text") == BillVision::Prompt.user(catalog: BillVision::MerchantCatalog.call)
     }).to have_been_requested.once
     expect(Transactions::Builder.call(bill_image: bill_image).sole).to be_approved
   end
@@ -87,6 +87,32 @@ RSpec.describe BillVision::Pipeline do
     expect(transaction.review_reason_codes).to include("model_disagreement")
     expect(metadata.dig("validator", "normalized_output", "documents", 0, "total_amount_vnd")).to eq(10_000_000)
     expect(metadata["validation_result"]).to eq("disagreed")
+  end
+
+  it "sends an AI-only HKD suggestion to review without buying an additional model call" do
+    data = clean.deep_dup
+    data["documents"].first.merge!("merchant_name" => "THIÊN ... 1", "terminal_or_merchant_id" => nil,
+                                   "merchant_match" => { "merchant_id" => merchant.id, "confidence" => 0.99 })
+    primary = stub_model("gpt-6-luna", data: data)
+    analyze
+    expect(primary).to have_been_requested.once
+    expect(metadata.dig("calls", "validator")).to eq(0)
+    transaction = Transactions::Builder.call(bill_image: bill_image).sole
+    expect(transaction).to be_needs_review
+    expect(transaction.review_reason_codes).to include("merchant_ai_match")
+  end
+
+  it "requires review when the validator chooses a different catalog HKD" do
+    other = create(:merchant, name: "Another Coffee")
+    primary_data = blurry.deep_dup
+    primary_data["documents"].first["merchant_match"] = { "merchant_id" => merchant.id, "confidence" => 0.99 }
+    validator_data = clean.deep_dup
+    validator_data["documents"].first["merchant_match"] = { "merchant_id" => other.id, "confidence" => 0.99 }
+    stub_model("gpt-6-luna", data: primary_data)
+    stub_model("gpt-6.1-sol", data: validator_data)
+    analyze
+    expect(metadata["disagreement_fields"]).to include("merchant_catalog_identity")
+    expect(Transactions::Builder.call(bill_image: bill_image).sole.review_reason_codes).to include("model_disagreement")
   end
 
   it "does not clear fee configuration errors discovered after independent agreement" do

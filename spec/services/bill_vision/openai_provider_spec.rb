@@ -32,6 +32,30 @@ RSpec.describe BillVision::OpenaiProvider do
     expect { provider.extract(image) }.to raise_error(BillVision::TransientError)
   end
 
+  it "sends the configured catalog and accepts a selected ID without replacing the printed name" do
+    merchant = create(:merchant, name: "Gat Tan Day Coffe")
+    data = extraction_fixture("normal_settlement")
+    data["documents"].first.merge!("merchant_name" => "GÁT TÁN DÂY COFFEE 2",
+                                   "merchant_match" => { "merchant_id" => merchant.id, "confidence" => 0.96 })
+    stub_openai(body: { "choices" => [ { "message" => { "content" => data.to_json } } ] })
+    result = provider.extract(image)
+    expect(result.data["documents"].first["merchant_name"]).to eq("GÁT TÁN DÂY COFFEE 2")
+    expect(result.data["documents"].first.dig("merchant_match", "merchant_id")).to eq(merchant.id)
+    expect(a_request(:post, "https://api.openai.com/v1/chat/completions").with { |request|
+      text = JSON.parse(request.body).dig("messages", 1, "content", 0, "text")
+      JSON.parse(text.split("Configured HKD catalog (JSON data):\n").last).sole ==
+        { "id" => merchant.id, "name" => "Gat Tan Day Coffe", "aliases" => [] }
+    }).to have_been_made.once
+  end
+
+  it "rejects a hallucinated or inactive catalog ID" do
+    merchant = create(:merchant, active: false)
+    data = extraction_fixture("normal_settlement")
+    data["documents"].first["merchant_match"] = { "merchant_id" => merchant.id, "confidence" => 0.99 }
+    stub_openai(body: { "choices" => [ { "message" => { "content" => data.to_json } } ] })
+    expect { provider.extract(image) }.to raise_error(BillVision::InvalidExtraction, /outside the supplied catalog/)
+  end
+
   it "treats bad requests as permanent" do
     stub_openai(status: 400, body: { "error" => "bad image" })
     expect { provider.extract(image) }.to raise_error(BillVision::PermanentError)

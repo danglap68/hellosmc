@@ -53,8 +53,8 @@
     </div>
   <% end %>
 </section>
-<% if current[:unread_count].positive? || @stats.unprocessed_images.positive? %>
-  <p class="overview-note" role="status"><%= icon("info-circle") %> <%= t("dashboard.settlement.unread", count: current[:unread_count], images: @stats.unprocessed_images) %></p>
+<% if current[:unread_count].positive? || @stats.unprocessed_images.positive? || @stats.queued_downloads.positive? %>
+  <p class="overview-note" role="status"><%= icon("info-circle") %> <%= t("dashboard.settlement.unread", count: current[:unread_count], images: @stats.unprocessed_images, downloads: @stats.queued_downloads) %></p>
 <% end %>
 
 <section class="kpi-board" aria-label="<%= t("dashboard.settlement.other_stats") %>">
@@ -106,7 +106,10 @@
 
   <aside class="card attention-card">
     <div class="card-header">
-      <h2 class="card-title"><%= t("dashboard.attention") %></h2>
+      <div>
+        <h2 class="card-title"><%= t("dashboard.attention") %></h2>
+        <div class="text-secondary small"><%= t("dashboard.attention_hint") %></div>
+      </div>
     </div>
     <% queues = [] %>
     <% if can?(:read, :reviews) %>

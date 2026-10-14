@@ -215,18 +215,20 @@ module Transactions
     def inherit_field(merged, confidence, children, field, latest: false, best: false)
       return if merged[field].present?
 
-      source = if latest
-                 children.select { |doc| doc[field].present? }.max_by { |doc| doc[field].to_s }
-               elsif best
-                 children.select { |doc| doc[field].present? }.max_by do |doc|
-                   [ doc[field].to_s.include?("...") ? 0 : 1, doc.dig("confidence", field).to_f ]
-                 end
-               else
-                 children.find { |doc| doc[field].present? }
-               end
+      source =
+        if latest
+          children.select { |doc| doc[field].present? }.max_by { |doc| doc[field].to_s }
+        elsif best
+          children.select { |doc| doc[field].present? }.max_by do |doc|
+            [ doc[field].to_s.include?("...") ? 0 : 1, doc.dig("confidence", field).to_f ]
+          end
+        else
+          children.find { |doc| doc[field].present? }
+        end
       return unless source
 
       merged[field] = source[field]
+      merged["merchant_match"] = source["merchant_match"] if field == "merchant_name"
       confidence[field] = source.dig("confidence", field)
     end
 

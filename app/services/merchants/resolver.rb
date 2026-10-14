@@ -36,6 +36,29 @@ module Merchants
     # only an exact hit counts: that is how two HKDs printing the same name on different banks'
     # slips are told apart (an alias "MBV HKD NCT" on one of them).
     def self.for_document(document)
+      result = deterministic_for_document(document)
+      match = document["merchant_match"]
+      return result unless match.is_a?(Hash)
+
+      merchant = Merchant.active.find_by(id: match["merchant_id"]) if match["merchant_id"].is_a?(Integer)
+      candidates = (result.candidates + [ merchant ]).compact.uniq
+      confidence = match["confidence"].to_f
+      unless merchant && confidence.finite? && confidence >= AppConfig.ocr_review_threshold
+        return Result.new(merchant: result.merchant, method: :ai_uncertain, candidates: candidates, score: confidence)
+      end
+      return result if result.merchant == merchant
+
+      if result.merchant
+        # A configured identifier or exact name remains authoritative. A
+        # conflicting AI suggestion still stops approval and is kept for review.
+        return Result.new(merchant: (result.merchant if result.exact?), method: :ai_conflict,
+                          candidates: candidates, score: confidence)
+      end
+
+      Result.new(merchant: merchant, method: :ai_match, candidates: candidates, score: confidence)
+    end
+
+    def self.deterministic_for_document(document)
       names = candidate_names(document)
       bank = document["bill_bank_name"].to_s.strip
       if bank.present?

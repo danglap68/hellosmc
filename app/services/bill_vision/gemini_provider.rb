@@ -17,7 +17,8 @@ module BillVision
     attr_reader :model
 
     def extract(image)
-      payload = post_json(connection(BASE_URL), "/v1beta/models/#{model}:generateContent", request_body(image),
+      catalog = MerchantCatalog.call
+      payload = post_json(connection(BASE_URL), "/v1beta/models/#{model}:generateContent", request_body(image, catalog),
                           headers: { "x-goog-api-key" => @api_key })
       candidate = payload.dig("candidates", 0) || {}
       if candidate["finishReason"].present? && candidate["finishReason"] != "STOP"
@@ -25,7 +26,11 @@ module BillVision
       end
 
       text = Array(candidate.dig("content", "parts")).filter_map { |part| part["text"] }.join
-      Result.new(provider: name, model: payload["modelVersion"] || model, data: parse_content(text), raw: payload)
+      data = parse_content(text)
+      raise PermanentError, "gemini answer does not match the extraction schema" unless OutputSchema.valid?(data)
+      raise PermanentError, "gemini merchant match is outside the supplied catalog" unless MerchantCatalog.valid_matches?(data, catalog)
+
+      Result.new(provider: name, model: payload["modelVersion"] || model, data: data, raw: payload)
     end
 
     # Converts the JSON schema to Gemini's OpenAPI subset
@@ -49,14 +54,14 @@ module BillVision
 
     private
 
-    def request_body(image)
+    def request_body(image, catalog)
       {
         systemInstruction: { parts: [ { text: Prompt::SYSTEM } ] },
         contents: [ {
           role: "user",
           parts: [
             { inline_data: { mime_type: image.mime_type, data: image.base64 } },
-            { text: Prompt::USER }
+            { text: Prompt.user(catalog: catalog) }
           ]
         } ],
         generationConfig: {

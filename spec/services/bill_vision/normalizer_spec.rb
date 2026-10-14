@@ -54,6 +54,23 @@ RSpec.describe BillVision::Normalizer do
     end
   end
 
+  it "preserves the catalog suggestion separately without changing receipt facts or OCR confidence" do
+    data = extraction_fixture("normal_settlement")
+    data["documents"].first.merge!("merchant_name" => "GÁT TÁN DÂY COFFEE 2",
+                                   "merchant_match" => { "merchant_id" => 7, "confidence" => 0.99 })
+    data["documents"].first["confidence"]["merchant_name"] = 0.5
+    document = normalize(data)["documents"].sole
+    expect(document["merchant_name"]).to eq("GÁT TÁN DÂY COFFEE 2")
+    expect(document["merchant_match"]).to eq("merchant_id" => 7, "confidence" => 0.99)
+    expect(document.dig("confidence", "merchant_name")).to eq(0.5)
+  end
+
+  it "does not assign a catalog HKD to a bank transfer" do
+    data = extraction_fixture("transfer")
+    data["documents"].first["merchant_match"] = { "merchant_id" => 7, "confidence" => 0.99 }
+    expect(normalize(data)["documents"].sole["merchant_match"]).to be_nil
+  end
+
   it "normalizes a confident settlement" do
     result = normalize(extraction_fixture("normal_settlement"))
     document = result["documents"].first
