@@ -78,6 +78,7 @@ module RemitterTransfers
         before = snapshot
         unless plan.step == :write
           @transfer.status = "processing"
+          @transfer.review_reasons = []
           @transfer.bill_image = plan.image if plan.image
           @transfer.remitter ||= Classifier.remitter_for(sender_id: @transfer.telegram_message.telegram_sender_id,
                                                          username: @transfer.telegram_message.telegram_username)

@@ -20,9 +20,19 @@ RSpec.describe RemitterTransfers::Retrier do
     expect { expect(retry_transfer.step).to eq(:evaluate) }.to have_enqueued_job(BuildRemitterTransferJob).with(transfer.id)
     expect(AnalyzeBillImageJob).not_to have_been_enqueued
     expect(transfer.reload).to be_processing
+    expect(transfer.review_reasons).to be_empty
     audit = AuditLog.find_by!(auditable: transfer, action: "remitter_transfer.retry_requested")
     expect(audit.actor_user).to eq(actor)
     expect(audit.metadata["step"]).to eq("evaluate")
+    expect(audit.before_data["review_reasons"]).to eq([ "code_missing" ])
+    expect(audit.after_data["review_reasons"]).to eq([])
+  end
+
+  it "replaces cleared warnings with the current evaluation's reasons" do
+    remitter.update!(active: false)
+    perform_enqueued_jobs(only: BuildRemitterTransferJob) { expect(retry_transfer).to be_ok }
+    expect(transfer.reload).to be_needs_review
+    expect(transfer.review_reasons).to eq([ "remitter_inactive" ])
   end
 
   it "re-resolves a newly configured remitter and approves through the existing duplicate and code checks" do
@@ -83,6 +93,7 @@ RSpec.describe RemitterTransfers::Retrier do
     image.update!(ocr_attempts: AppConfig.max_ocr_attempts)
     expect(retry_transfer.error).to eq(:retry_budget_exhausted)
     expect(transfer.reload).to be_needs_review
+    expect(transfer.review_reasons).to eq([ "amount_low_confidence" ])
     expect(AnalyzeBillImageJob).not_to have_been_enqueued
   end
 
@@ -162,6 +173,7 @@ RSpec.describe RemitterTransfers::Retrier do
       raise ActiveRecord::Rollback
     end
     expect(transfer.reload).to be_needs_review
+    expect(transfer.review_reasons).to eq([ "code_missing" ])
     expect(BuildRemitterTransferJob).not_to have_been_enqueued
     expect(AuditLog.where(auditable: transfer, action: "remitter_transfer.retry_requested")).not_to exist
   end

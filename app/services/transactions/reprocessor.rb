@@ -23,11 +23,15 @@ module Transactions
           raise ActiveRecord::Rollback
         end
 
-        before = @transaction.audit_snapshot
+        before = @transaction.audit_snapshot.merge(
+          @transaction.source_data.slice("review_reasons", "possible_duplicate_ids", "ocr_error")
+        )
+        @transaction.source_data = @transaction.source_data.except("possible_duplicate_ids", "ocr_error")
+          .merge("review_reasons" => [])
         @transaction.transition_to!("processing")
         @transaction.open_review&.update!(status: "superseded")
         AuditLogger.log!(actor: @actor, action: "transaction.reprocess_requested", auditable: @transaction,
-                         before_data: before, after_data: @transaction.audit_snapshot)
+                         before_data: before, after_data: @transaction.audit_snapshot.merge("review_reasons" => []))
         requested = true
       end
       return false unless requested

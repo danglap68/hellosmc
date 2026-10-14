@@ -100,6 +100,46 @@ RSpec.describe "Transaction review actions" do
       expect(transaction.reload).to be_processing
       expect(AnalyzeBillImageJob).to have_been_enqueued.with(transaction.bill_image_id, force: true)
     end
+
+    it "clears current warnings and duplicate hints immediately while preserving their audit and review history" do
+      transaction.update!(source_data: transaction.source_data.merge("possible_duplicate_ids" => [ 120 ],
+                                                                     "ocr_error" => "old timeout"))
+      reasons = transaction.review_reason_codes
+      review = transaction.open_review
+      old_extraction = transaction.extraction.deep_dup
+
+      expect(described_class.call(transaction: transaction, actor: operator)).to be(true)
+      expect(transaction.reload.review_reason_codes).to be_empty
+      expect(transaction.source_data).not_to have_key("possible_duplicate_ids")
+      expect(transaction.source_data).not_to have_key("ocr_error")
+      expect(transaction.extraction).to eq(old_extraction)
+      expect(review.reload).to be_superseded
+      expect(review.reason_codes).to eq(reasons)
+      audit = AuditLog.find_by!(auditable: transaction, action: "transaction.reprocess_requested")
+      expect(audit.before_data).to include("review_reasons" => reasons, "possible_duplicate_ids" => [ 120 ],
+                                          "ocr_error" => "old timeout")
+      expect(audit.after_data["review_reasons"]).to eq([])
+
+      Transactions::Builder.call(bill_image: transaction.bill_image)
+      expect(transaction.reload.review_reason_codes).to be_present
+      expect(transaction.reviews.open.sole.reason_codes).to eq(transaction.review_reason_codes)
+    end
+
+    it "keeps existing warnings when retry is refused or the surrounding transaction rolls back" do
+      reasons = transaction.review_reason_codes
+      transaction.bill_image.update!(ocr_attempts: AppConfig.max_ocr_attempts)
+      expect(described_class.call(transaction: transaction, actor: operator)).to be(false)
+      expect(transaction.reload.review_reason_codes).to eq(reasons)
+      transaction.bill_image.update!(ocr_attempts: 1)
+      Transaction.transaction do
+        expect(described_class.call(transaction: transaction, actor: operator)).to be(true)
+        raise ActiveRecord::Rollback
+      end
+      expect(transaction.reload).to be_needs_review
+      expect(transaction.review_reason_codes).to eq(reasons)
+      expect(transaction.reviews.open.count).to eq(1)
+      expect(AnalyzeBillImageJob).not_to have_been_enqueued
+    end
   end
 end
 
