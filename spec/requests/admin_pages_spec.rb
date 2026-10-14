@@ -68,6 +68,23 @@ RSpec.describe "Admin pages" do
     expect(page.css(%([data-nav-pins-target=list] [data-nav-pins-key=reviews] .shell-pin)).first["aria-pressed"]).to eq("true")
   end
 
+  it "shows outgoing totals and the reconciliation formula with a link to all transfers in the selected period" do
+    create(:remitter_transfer, status: "approved", amount_vnd: 50_000, written_at: Time.current)
+    create(:remitter_transfer, status: "needs_review", amount_vnd: 20_000)
+    create(:remitter_transfer, status: "processing", amount_vnd: nil)
+    get admin_root_path(period: "7d")
+    page = Nokogiri::HTML(response.body)
+    section = page.at_css(".outgoing-summary")
+    expect(section.at_css('[data-metric="outgoing-total"] .money').text).to eq("70.000 ₫")
+    expect(section.at_css('[data-metric="outgoing-approved"] .money').text).to eq("50.000 ₫")
+    expect(section.at_css('[data-metric="outgoing-waiting"] .money').text).to eq("20.000 ₫")
+    stats = Dashboard::Stats.new(period: "7d")
+    difference = ApplicationController.helpers.format_vnd(stats.current_snapshot[:dealer_payable] - 50_000)
+    expect(section.at_css('[data-metric="reconciliation-difference"] .money').text).to eq(difference)
+    expect(section.text).to include("1 đã ghi sheet", "1 lệnh chuyển tiền thiếu số tiền", "chưa gồm số dư kỳ trước")
+    expect(section.at_css("a")["href"]).to eq(admin_remitter_transfers_path(queue: "all", date_from: stats.period_start.iso8601, date_to: stats.period_end.iso8601))
+  end
+
   it "renders index, show, new and edit pages" do
     paths = [
       admin_root_path,

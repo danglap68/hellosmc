@@ -95,4 +95,65 @@ RSpec.describe Dashboard::Stats do
     expect(stats.unprocessed_images).to eq(1)
     expect(stats.current_snapshot[:gross]).to eq(0)
   end
+
+  it "keeps remitter transfer photos out of the incoming settlement's unread-image counters" do
+    photo = telegram_fixture("photo_update")
+    downloading = create(:telegram_message, processing_status: "queued", raw_payload: photo)
+    create(:remitter_transfer, telegram_message: downloading)
+    processing = create(:telegram_message, processing_status: "queued", raw_payload: photo)
+    create(:remitter_transfer, telegram_message: processing)
+    create(:bill_image, telegram_message: processing, ocr_status: "pending")
+    stats = described_class.new
+    expect(stats.queued_downloads).to eq(0)
+    expect(stats.unprocessed_images).to eq(0)
+    expect(stats.outgoing_snapshot).to include(count: 2, unread_count: 2)
+  end
+
+  it "splits outgoing totals and reconciles only approved transfers against approved dealer payouts" do
+    recorded_profit(50_000, at: Time.current, transaction_amount_vnd: 1_000_000, dealer_amount_vnd: 800_000)
+    recorded_profit(99_999, at: Time.current, status: "needs_review", dealer_amount_vnd: 9_000_000)
+    create(:remitter_transfer, status: "approved", amount_vnd: 600_000, written_at: Time.current)
+    create(:remitter_transfer, status: "needs_review", amount_vnd: 200_000)
+    create(:remitter_transfer, status: "failed", amount_vnd: 50_000)
+    create(:remitter_transfer, status: "processing", amount_vnd: nil)
+    create(:remitter_transfer, status: "rejected", amount_vnd: 9_000_000)
+    create(:remitter_transfer, status: "approved", amount_vnd: 30_000, transferred_at: 1.day.ago)
+    stats = described_class.new
+
+    expect(stats.outgoing_snapshot).to include(total: 850_000, count: 4, approved: 600_000, approved_count: 1,
+                                              waiting: 250_000, waiting_count: 3, unread_count: 1, written_count: 1)
+    expect(stats.outgoing_snapshot[:total]).to eq(stats.outgoing_snapshot[:approved] + stats.outgoing_snapshot[:waiting])
+    expect(stats.current_snapshot[:dealer_payable]).to eq(800_000)
+    expect(stats.current_snapshot[:dealer_payable] - stats.outgoing_snapshot[:approved]).to eq(200_000)
+    expect(stats.previous_outgoing_snapshot[:total]).to eq(30_000)
+  end
+
+  described_class::PERIODS.each do |period|
+    it "uses the thu chi posting date and Vietnam boundaries for #{period} outgoing totals" do
+      stats = described_class.new(period: period)
+      first = Time.zone.local(stats.period_start.year, stats.period_start.month, stats.period_start.day)
+      last = Time.current.end_of_day
+      create(:remitter_transfer, status: "approved", amount_vnd: 70_000, transferred_at: first)
+      create(:remitter_transfer, status: "needs_review", amount_vnd: 30_000, transferred_at: last)
+      create(:remitter_transfer, status: "approved", amount_vnd: 20_000, transferred_at: first - 1.second)
+      create(:remitter_transfer, status: "approved", amount_vnd: 90_000, transferred_at: last + 1.second)
+
+      expect(stats.outgoing_snapshot).to include(total: 100_000, approved: 70_000, waiting: 30_000, count: 2)
+      expect(stats.previous_outgoing_snapshot[:total]).to eq(20_000)
+    end
+  end
+
+  it "reports zero outgoing money for an empty period, and preserves negative reconciliation differences" do
+    stats = described_class.new
+    expect(stats.outgoing_snapshot).to include(total: 0, approved: 0, waiting: 0, count: 0, unread_count: 0)
+    recorded_profit(0, at: Time.current, dealer_amount_vnd: 10_000)
+    create(:remitter_transfer, status: "approved", amount_vnd: 30_000)
+    stats = described_class.new
+    expect(stats.current_snapshot[:dealer_payable] - stats.outgoing_snapshot[:approved]).to eq(-20_000)
+  end
+
+  it "flags approved bills missing dealer payout instead of implying reconciliation is complete" do
+    recorded_profit(0, at: Time.current, dealer_amount_vnd: nil)
+    expect(described_class.new.current_snapshot).to include(dealer_payable: 0, dealer_unread_count: 1)
+  end
 end

@@ -120,10 +120,11 @@ module RemitterTransfers
       return false if amount.nil? || code.nil? || @transfer.remitter_id.nil?
 
       window = AppConfig.duplicate_window_minutes.minutes
-      RemitterTransfer.where(remitter_id: @transfer.remitter_id, transfer_code: code, amount_vnd: amount)
+      key = Codes.canonical(code)
+      RemitterTransfer.where(remitter_id: @transfer.remitter_id, amount_vnd: amount)
         .where.not(id: @transfer.id).where.not(status: %w[rejected failed])
         .where(transferred_at: (@transfer.transferred_at - window)..(@transfer.transferred_at + window))
-        .exists?
+        .pluck(:transfer_code).any? { |other_code| Codes.canonical(other_code) == key }
     end
 
     def enqueue_write

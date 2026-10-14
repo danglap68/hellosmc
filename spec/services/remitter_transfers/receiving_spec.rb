@@ -45,6 +45,12 @@ RSpec.describe Telegram::UpdateReceiver, "remitter transfers" do
     expect(RemitterTransfer.count).to eq(0)
   end
 
+  it "recognises a zero-padding variant from an unknown sender without relaxing word boundaries" do
+    update["message"]["caption"] = "chuyen khoan TK1"
+    expect(described_class.call(update).status).to eq(:queued_remitter_transfer)
+    expect(RemitterTransfer.sole.remitter).to be_nil
+  end
+
   it "routes the caption-less photos of a transfer album" do
     update["message"].merge!("media_group_id" => "album-2", "caption" => "TK01")
     described_class.call(update)

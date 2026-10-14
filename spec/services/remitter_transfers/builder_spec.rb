@@ -44,6 +44,33 @@ RSpec.describe RemitterTransfers::Builder do
     expect(WriteRemitterReportJob).not_to have_been_enqueued
   end
 
+  it "uses the configured code when zero padding is missing, and still detects repeat payments" do
+    first = described_class.call(remitter_transfer: transfer_with(caption: "chuyen TK1"))
+    expect(first).to be_approved
+    expect(first.transfer_code).to eq("TK01")
+    second = described_class.call(remitter_transfer: transfer_with(caption: "chuyen TK001", sent_at: first.transferred_at + 2.minutes))
+    expect(second).to be_needs_review
+    expect(second.transfer_code).to eq("TK01")
+    expect(second.review_reasons).to include("possible_duplicate")
+  end
+
+  it "does not approve an ambiguous legacy zero-padding configuration" do
+    MerchantDealer.find_by!(transfer_code: "TK02").update_column(:transfer_code, "TK1")
+    transfer = described_class.call(remitter_transfer: transfer_with(caption: "TK01"))
+    expect(transfer).to be_needs_review
+    expect(transfer.review_reasons).to include("code_ambiguous")
+    expect(WriteRemitterReportJob).not_to have_been_enqueued
+  end
+
+  it "still detects a duplicate after the configured code is renamed with different zero padding" do
+    first = described_class.call(remitter_transfer: transfer_with(caption: "TK01"))
+    MerchantDealer.find_by!(transfer_code: "TK01").update!(transfer_code: "TK1")
+    second = described_class.call(remitter_transfer: transfer_with(caption: "TK001", sent_at: first.transferred_at + 2.minutes))
+    expect(second.transfer_code).to eq("TK1")
+    expect(second).to be_needs_review
+    expect(second.review_reasons).to include("possible_duplicate")
+  end
+
   it "does not care about the receipt's date or recipient" do
     transfer = described_class.call(remitter_transfer: transfer_with)
 

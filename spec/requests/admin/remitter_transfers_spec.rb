@@ -53,6 +53,25 @@ RSpec.describe "Admin remitter transfers" do
     expect(flash[:alert]).to include("Mã chuyển tiền không hợp lệ")
   end
 
+  it "stores the configured spelling when an admin approves with different zero padding" do
+    patch admin_remitter_transfer_path(transfer), params: {
+      decision: "approve", remitter_transfer: { transfer_code: "TK001", amount_vnd: "29.000.000" }
+    }
+    expect(transfer.reload).to be_approved
+    expect(transfer.transfer_code).to eq("TK01")
+    expect(transfer.merchant_dealer).to eq(MerchantDealer.find_by!(transfer_code: "TK01"))
+  end
+
+  it "lists approved and waiting transfers for the dashboard's selected accounting day" do
+    transfer
+    approved = create(:remitter_transfer, status: "approved", transferred_at: Time.current, amount_vnd: 10_000)
+    old = create(:remitter_transfer, status: "approved", transferred_at: 1.day.ago, amount_vnd: 10_000)
+    get admin_remitter_transfers_path(queue: "all", date_from: Time.zone.today.iso8601, date_to: Time.zone.today.iso8601)
+    expect(response).to have_http_status(:ok)
+    expect(response.body).to include("##{approved.id}", "##{transfer.id}")
+    expect(response.body).not_to include(">##{old.id}</a>")
+  end
+
   it "refuses an amount that is not whole VND instead of guessing" do
     %w[29.5 -100 29tr].each do |amount|
       patch admin_remitter_transfer_path(transfer), params: {

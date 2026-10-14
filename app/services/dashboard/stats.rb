@@ -123,11 +123,13 @@ module Dashboard
     # Keep them visible as images, without claiming they are settlement bills.
     def unprocessed_images
       @unprocessed_images ||= BillImage.analyzable.where(created_at: period_range, ocr_status: %w[pending processing failed])
+        .left_joins(telegram_message: :remitter_transfer).where(remitter_transfers: { id: nil })
         .where.missing(:transactions).count
     end
 
     def queued_downloads
       @queued_downloads ||= TelegramMessage.processing_queued.with_image.where(created_at: period_range)
+        .where.missing(:remitter_transfer)
         .where.missing(:bill_images).count
     end
 
@@ -287,7 +289,7 @@ module Dashboard
     end
 
     def snapshot(range)
-      gross, count, approved_gross, after_fee, profit, approved_count, decided, unread_count, auto_approved_count, dealer_payable = Transaction.within_reporting_period(range).where.not(status: "excluded").pick(
+      gross, count, approved_gross, after_fee, profit, approved_count, decided, unread_count, auto_approved_count, dealer_payable, dealer_unread_count = Transaction.within_reporting_period(range).where.not(status: "excluded").pick(
         Arel.sql("COALESCE(SUM(transaction_amount_vnd) FILTER (WHERE transactions.status != 'rejected'), 0)"),
         Arel.sql("COUNT(*) FILTER (WHERE transactions.status != 'rejected')"),
         Arel.sql("COALESCE(SUM(transaction_amount_vnd) FILTER (WHERE transactions.status = 'approved'), 0)"),
@@ -297,7 +299,8 @@ module Dashboard
         Arel.sql("COUNT(*) FILTER (WHERE transactions.status NOT IN ('pending', 'processing'))"),
         Arel.sql("COUNT(*) FILTER (WHERE transactions.status != 'rejected' AND transaction_amount_vnd IS NULL)"),
         Arel.sql("COUNT(*) FILTER (WHERE transactions.status = 'approved' AND approved_by_id IS NULL)"),
-        Arel.sql("COALESCE(SUM(dealer_amount_vnd) FILTER (WHERE transactions.status = 'approved'), 0)")
+        Arel.sql("COALESCE(SUM(dealer_amount_vnd) FILTER (WHERE transactions.status = 'approved'), 0)"),
+        Arel.sql("COUNT(*) FILTER (WHERE transactions.status = 'approved' AND dealer_amount_vnd IS NULL)")
       )
       approved_gross = approved_gross.to_i
       after_fee = after_fee.to_i
@@ -310,6 +313,7 @@ module Dashboard
         after_fee: after_fee,
         profit: profit.to_i,
         dealer_payable: dealer_payable.to_i,
+        dealer_unread_count: dealer_unread_count.to_i,
         base_fee: approved_gross - after_fee,
         approved_count: approved_count,
         waiting_gross: gross.to_i - approved_gross,

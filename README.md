@@ -18,6 +18,16 @@ It is not an ERP. PostgreSQL is the source of truth; Excel is an output.
 - Code, database, logs, tests: **English**. Admin UI: **100% Vietnamese** (Rails I18n, `config/locales/vi.yml`).
 - Business context, decisions and open questions: [docs/PROJECT_CONTEXT.md](docs/PROJECT_CONTEXT.md).
 
+The dashboard separates incoming settlements from outgoing remitter transfers. Outgoing totals include
+approved and waiting/failed records with known amounts, exclude rejected records, and flag unread amounts.
+Reconciliation in the selected period is approved dealer payouts minus approved outgoing transfers; it
+does not include an opening balance. Outgoing days use `transferred_at`, matching the thu chi sheet writer.
+
+Transfer codes tolerate only leading zero padding in their numeric part: `TK1`, `TK01` and `TK001` identify
+the same configured code; `TK10` remains different. New configurations cannot reserve competing padding
+variants. Legacy collisions go to review. The configured spelling is stored, and duplicate checking
+recognizes its zero-padded variants, including after a configuration rename.
+
 ## Architecture
 
 | Layer | Where | Notes |

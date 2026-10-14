@@ -106,5 +106,15 @@ RSpec.describe MerchantDealer do
       create(:merchant_dealer, transfer_code: nil)
       expect(build(:merchant_dealer, transfer_code: nil)).to be_valid
     end
+
+    it "reserves the same numeric code across leading-zero variants, even for an inactive row" do
+      create(:merchant_dealer, transfer_code: "TK01", active: false)
+      %w[TK1 TK001].each do |code|
+        duplicate = build(:merchant_dealer, transfer_code: code)
+        expect(duplicate).not_to be_valid
+        expect(duplicate.errors[:transfer_code]).to include(I18n.t("activerecord.errors.models.merchant_dealer.attributes.transfer_code.padding_taken", code: "TK01"))
+      end
+      expect(build(:merchant_dealer, transfer_code: "TK10")).to be_valid
+    end
   end
 end

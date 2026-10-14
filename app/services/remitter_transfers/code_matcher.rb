@@ -7,7 +7,8 @@ module RemitterTransfers
   # with an optional space between its letters and digits ("tk 01", "TK-01")
   # when no digit follows it (TK01 is not found in TK010 or in "TK0129274000"
   # glued to an amount). Anything may precede it ("ZALOTK01", "abcTK01").
-  # Only configured codes are looked for.
+  # Leading zero padding in the numeric part is ignored; internal/trailing
+  # zeros are significant. Return the configured spelling, never a guessed code.
   class CodeMatcher
     Result = Data.define(:code, :issue) do
       def found? = code.present?

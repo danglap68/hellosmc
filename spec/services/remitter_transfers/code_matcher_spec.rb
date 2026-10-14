@@ -19,6 +19,34 @@ RSpec.describe RemitterTransfers::CodeMatcher do
     end
   end
 
+  it "accepts missing or extra leading zeros and returns the configured spelling" do
+    [ "TK1", "tk 001", "TK-0001", "ZALOTK0001" ].each do |text|
+      expect(match(text).code).to eq("TK01"), text
+    end
+    expect(match("TK001", %w[TK1]).code).to eq("TK1")
+    expect(match("TK10", %w[TK010]).code).to eq("TK010")
+  end
+
+  it "never drops internal or trailing zeros, or consumes the start of an attached amount" do
+    [ "TK10", "TK010", "TK0129274000", "TK00129274000" ].each do |text|
+      expect(match(text).issue).to eq("code_missing"), text
+    end
+    expect(match("ML17").issue).to eq("code_missing")
+    expect(match("ML102", %w[ML12]).issue).to eq("code_missing")
+  end
+
+  it "keeps conflicting zero-padded configurations ambiguous, including an exact spelling" do
+    %w[TK1 TK01 TK001].each do |caption|
+      expect(match(caption, %w[TK1 TK01]).issue).to eq("code_ambiguous")
+    end
+  end
+
+  it "prefers a containing code only at the same occurrence, including zero padding variants" do
+    expect(match("XTK001", %w[TK01 XTK1]).code).to eq("XTK1")
+    expect(match("TK01 XTK01", %w[TK01 XTK01]).issue).to eq("code_ambiguous")
+    expect(match("TK1 TK001").code).to eq("TK01")
+  end
+
   it "tolerates a trailing character the user typed by mistake" do
     [ "TK01.", "TK01,", "TK01:", "TK01A" ].each do |text|
       expect(match(text).code).to eq("TK01"), text
@@ -56,7 +84,7 @@ RSpec.describe RemitterTransfers::CodeMatcher do
     end
 
     it "finds a code standing on its own" do
-      [ "chuyen TK01", "TK01", "tk 01", "TK01: 29tr", "TK-01 nhé" ].each do |text|
+      [ "chuyen TK01", "TK01", "tk 01", "TK01: 29tr", "TK-01 nhé", "TK1", "tk 001" ].each do |text|
         expect(strict(text).code).to eq("TK01"), text
       end
     end
@@ -65,6 +93,8 @@ RSpec.describe RemitterTransfers::CodeMatcher do
       expect(strict("Bích 01").issue).to eq("code_missing")
       expect(strict("...ZALOTK01").issue).to eq("code_missing")
       expect(strict("TK01A").issue).to eq("code_missing")
+      expect(strict("Bích 1").issue).to eq("code_missing")
+      expect(strict("ZALOTK001").issue).to eq("code_missing")
     end
 
     it "reads the same captions loosely by default" do

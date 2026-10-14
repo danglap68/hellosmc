@@ -57,6 +57,8 @@
   <p class="overview-note" role="status"><%= icon("info-circle") %> <%= t("dashboard.settlement.unread", count: current[:unread_count], images: @stats.unprocessed_images, downloads: @stats.queued_downloads) %></p>
 <% end %>
 
+<%= render "outgoing", stats: @stats, current: current %>
+
 <section class="kpi-board" aria-label="<%= t("dashboard.settlement.other_stats") %>">
   <% [
        [:count, current[:count], period_delta(current[:count], previous[:count]), trends.map { |row| row[:count] }, t("dashboard.kpis.count_context", count: current[:approved_count])],

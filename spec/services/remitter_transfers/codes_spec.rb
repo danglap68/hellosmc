@@ -49,4 +49,15 @@ RSpec.describe RemitterTransfers::Codes do
     expect(link.merchant.code).to eq("NCTMBV001")
     expect(link.dealer.name).to eq("Tuân")
   end
+
+  it "resolves missing/extra zero padding to the configured agent but refuses colliding legacy codes" do
+    link = create(:merchant_dealer, transfer_code: "TK01")
+    expect(described_class.merchant_dealer_for("tk 001")).to eq(link)
+    expect(described_class.merchant_dealer_for("TK1")).to eq(link)
+    expect(described_class.merchant_dealer_for("TK10")).to be_nil
+    # Simulate legacy data created before padding uniqueness was validated.
+    other = create(:merchant_dealer, transfer_code: "ZZ1")
+    other.update_column(:transfer_code, "TK1")
+    expect(described_class.merchant_dealer_for("TK01")).to be_nil
+  end
 end

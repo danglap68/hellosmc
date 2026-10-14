@@ -76,6 +76,13 @@ RSpec.describe "Transfer codes" do
       expect(row.reload.transfer_code).to eq("TK09")
     end
 
+    it "refuses a different spelling of another agent's numeric code" do
+      patch admin_transfer_code_path(tk01), params: { merchant_dealer: { transfer_code: "TK002" } }
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(tk01.reload.transfer_code).to eq("TK01")
+      expect(response.body).to include("trùng với mã TK02 khi bỏ số 0 ở đầu phần số")
+    end
+
     it "does not let a row that already has a code be picked again, or nothing be picked" do
       post admin_transfer_codes_path, params: { merchant_dealer: { id: tk01.id, transfer_code: "ZZ01" } }
       expect(response).to have_http_status(:unprocessable_content)
