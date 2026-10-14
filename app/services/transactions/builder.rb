@@ -335,6 +335,7 @@ module Transactions
       if auto_approved
         AuditLogger.log!(action: "transaction.approved", auditable: transaction,
                          after_data: transaction.audit_snapshot, metadata: { "auto_approved" => true })
+        PaymentQrs::Prepare.call(transaction) if transaction.dealer&.auto_payment_qr?
       end
 
       StructuredLog.info("transaction.built", transaction_id: transaction.id, bill_image_id: @bill_image.id,

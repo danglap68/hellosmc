@@ -3,6 +3,17 @@ require "rails_helper"
 RSpec.describe Transactions::Builder do
   include_context "accounting setup"
 
+  it "prepares confirmation after automatic approval when enabled for the dealer, without sending Telegram" do
+    dealer.update!(bank_bin: "970422", bank_account_number: "000123", bank_account_name: "NGUYEN VAN A", auto_payment_qr: true)
+    merchant_dealer_link.update!(transfer_code: "TK1")
+    default_rule.update!(dealer_rate: BigDecimal("0.014"))
+    transaction = described_class.call(bill_image: analyzed_bill).sole
+    expect(transaction).to be_approved
+    expect(transaction.dealer_payment_qr).to be_pending
+    expect(transaction.dealer_payment_qr.snapshot).to include("transfer_code" => "TK1", "dealer_amount_vnd" => transaction.dealer_amount_vnd)
+    expect(DeliverPaymentQrJob).not_to have_been_enqueued
+  end
+
   it "auto-approves a confident, fully resolved settlement" do
     bill_image = analyzed_bill
     transaction = described_class.call(bill_image: bill_image).sole

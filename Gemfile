@@ -54,6 +54,7 @@ gem "googleauth", "~> 1.11"
 
 # HTTP client for vision providers and Telegram file downloads
 gem "faraday", "~> 2.12"
+gem "rqrcode", "~> 3.1"
 
 # Image dimensions without native image libraries
 gem "fastimage", "~> 2.4"

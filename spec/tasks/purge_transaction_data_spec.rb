@@ -42,10 +42,12 @@ RSpec.describe "hellosmc:purge_transaction_data" do
 
   it "deletes transaction data and keeps configuration" do
     expect(Transaction.count).to eq(1)
+    PaymentQrs::Prepare.call(Transaction.first)
+    expect(DealerPaymentQr.count).to eq(1)
 
     run(confirm: "yes")
 
-    expect([ Transaction, TransactionReview, WorkbookEntry, BillImage, BillAlbum, ExcelExport ].map(&:count))
+    expect([ DealerPaymentQr, Transaction, TransactionReview, WorkbookEntry, BillImage, BillAlbum, ExcelExport ].map(&:count))
       .to all(eq(0))
     expect(TelegramMessage.count).to eq(1)
     expect(ActiveStorage::Attachment.where(record_type: "BillImage")).to be_empty

@@ -18,6 +18,10 @@
           <dt class="col-5"><%= Dealer.human_attribute_name(:code) %></dt><dd class="col-7"><code><%= @dealer.code %></code></dd>
           <dt class="col-5"><%= Dealer.human_attribute_name(:default_card_type) %></dt><dd class="col-7"><%= @dealer.default_card_type&.name || "—" %></dd>
           <dt class="col-5"><%= Dealer.human_attribute_name(:active) %></dt><dd class="col-7"><%= active_badge(@dealer.active?) %></dd>
+          <dt class="col-5">Ngân hàng</dt><dd class="col-7"><%= PaymentQrs::Banks.name(@dealer.bank_bin) || "—" %></dd>
+          <dt class="col-5">Số tài khoản</dt><dd class="col-7 text-break"><%= @dealer.bank_account_number || "—" %></dd>
+          <dt class="col-5">Chủ tài khoản</dt><dd class="col-7 text-break"><%= @dealer.bank_account_name || "—" %></dd>
+          <dt class="col-5">Chuẩn bị QR sau duyệt</dt><dd class="col-7"><%= @dealer.auto_payment_qr? ? "Bật" : "Tắt" %></dd>
         </dl>
       </div>
     </div>

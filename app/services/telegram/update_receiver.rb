@@ -15,6 +15,11 @@ module Telegram
     end
 
     def call
+      if @update["callback_query"].present?
+        update = @update.to_h.deep_stringify_keys
+        ActiveRecord.after_all_transactions_commit { ProcessPaymentQrCallbackJob.perform_later(update.fetch("callback_query")) }
+        return result(:queued_callback)
+      end
       parsed = MessageParser.call(@update)
       return result(:ignored_no_message) unless parsed
 

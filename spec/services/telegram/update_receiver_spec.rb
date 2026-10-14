@@ -1,6 +1,12 @@
 require "rails_helper"
 
 RSpec.describe Telegram::UpdateReceiver do
+  it "routes payment callbacks through an after-commit job instead of photo processing" do
+    callback = { "id" => "query1", "data" => "pqr:confirm:abc", "from" => { "id" => 123 } }
+    expect { described_class.call({ "update_id" => 987654, "callback_query" => callback }) }
+      .to have_enqueued_job(ProcessPaymentQrCallbackJob).with(callback)
+    expect(DownloadTelegramAttachmentJob).not_to have_been_enqueued
+  end
   let(:update) { telegram_fixture("photo_update") }
 
   it "registers unknown chats as inactive and does not process their images" do

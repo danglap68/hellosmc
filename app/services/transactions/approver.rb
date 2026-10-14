@@ -38,6 +38,7 @@ module Transactions
                          before_data: before, after_data: @transaction.audit_snapshot,
                          metadata: { "note" => @note }.compact)
         approved = true
+        PaymentQrs::Prepare.call(@transaction, actor: @actor) if @transaction.dealer&.auto_payment_qr?
       end
       return false unless approved
 

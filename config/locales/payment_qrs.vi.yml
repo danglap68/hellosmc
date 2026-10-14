@@ -1,0 +1,31 @@
+vi:
+  activerecord:
+    models:
+      dealer_payment_qr: Yêu cầu QR chuyển khoản
+    attributes:
+      dealer:
+        bank_bin: Ngân hàng
+        bank_account_number: Số tài khoản
+        bank_account_name: Chủ tài khoản
+        auto_payment_qr: Chuẩn bị yêu cầu QR sau duyệt
+      telegram_chat:
+        payment_qr_confirmer_ids_text: Người được xác nhận tiền đi (Telegram user ID)
+  payment_qrs:
+    statuses:
+      pending: Chờ xác nhận
+      confirmed: Đã tạo QR
+      cancelled: Đã hủy
+      blocked: Thiếu thông tin
+  settings:
+    groups:
+      payment_qr: QR chuyển khoản
+    group_icons:
+      payment_qr: qrcode
+    group_hints:
+      payment_qr: Thử QR trong admin trước khi bật xác nhận trong nhóm.
+    keys:
+      payment_qr_telegram_enabled: Gửi yêu cầu và QR vào nhóm Telegram
+      payment_qr_bot_username: Username bot cho Mini App
+    hints:
+      payment_qr_telegram_enabled: Mặc định tắt. Chỉ bật sau khi kiểm tra QR và cấp quyền xác nhận trong từng nhóm Telegram.
+      payment_qr_bot_username: Không nhập @. Trước khi bật, cấu hình Main Mini App của bot tại BotFather tới https://admin.hellosmc.com/telegram/payment-qr.

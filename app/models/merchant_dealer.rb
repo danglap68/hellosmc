@@ -3,6 +3,7 @@ class MerchantDealer < ApplicationRecord
 
   belongs_to :merchant
   belongs_to :dealer
+  has_many :dealer_payment_qrs, dependent: :restrict_with_error
 
   before_validation :normalize_fields
 

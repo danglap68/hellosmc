@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_13_190100) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_14_130000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -149,6 +149,35 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_13_190100) do
     t.index ["key"], name: "index_card_types_on_key", unique: true
   end
 
+  create_table "dealer_payment_qrs", force: :cascade do |t|
+    t.bigint "transaction_id", null: false
+    t.bigint "dealer_id", null: false
+    t.bigint "merchant_dealer_id"
+    t.string "status", default: "pending", null: false
+    t.jsonb "snapshot", default: {}, null: false
+    t.string "issue"
+    t.string "access_token", null: false
+    t.integer "lock_version", default: 0, null: false
+    t.bigint "transfer_amount_vnd"
+    t.text "qr_payload"
+    t.datetime "confirmed_at"
+    t.bigint "confirmed_by_id"
+    t.bigint "confirmed_by_telegram_id"
+    t.string "summary_delivery", default: "idle", null: false
+    t.string "qr_delivery", default: "idle", null: false
+    t.bigint "summary_message_id"
+    t.bigint "qr_message_id"
+    t.string "delivery_error"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["access_token"], name: "index_dealer_payment_qrs_on_access_token", unique: true
+    t.index ["confirmed_by_id"], name: "index_dealer_payment_qrs_on_confirmed_by_id"
+    t.index ["dealer_id"], name: "index_dealer_payment_qrs_on_dealer_id"
+    t.index ["merchant_dealer_id"], name: "index_dealer_payment_qrs_on_merchant_dealer_id"
+    t.index ["status"], name: "index_dealer_payment_qrs_on_status"
+    t.index ["transaction_id"], name: "index_dealer_payment_qrs_on_transaction_id", unique: true
+  end
+
   create_table "dealers", force: :cascade do |t|
     t.string "name", null: false
     t.string "code", null: false
@@ -157,6 +186,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_13_190100) do
     t.jsonb "metadata", default: {}, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "bank_bin"
+    t.string "bank_account_number"
+    t.string "bank_account_name"
+    t.boolean "auto_payment_qr", default: false, null: false
     t.index ["code"], name: "index_dealers_on_code", unique: true
     t.index ["default_card_type_id"], name: "index_dealers_on_default_card_type_id"
   end
@@ -344,6 +377,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_13_190100) do
     t.jsonb "metadata", default: {}, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.bigint "payment_qr_confirmer_ids", default: [], null: false, array: true
     t.index ["telegram_chat_id"], name: "index_telegram_chats_on_telegram_chat_id", unique: true
   end
 
@@ -520,6 +554,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_13_190100) do
   add_foreign_key "bill_images", "bill_images", column: "duplicate_of_id"
   add_foreign_key "bill_images", "telegram_messages"
   add_foreign_key "bill_images", "users", column: "uploaded_by_id"
+  add_foreign_key "dealer_payment_qrs", "dealers"
+  add_foreign_key "dealer_payment_qrs", "merchant_dealers"
+  add_foreign_key "dealer_payment_qrs", "transactions"
+  add_foreign_key "dealer_payment_qrs", "users", column: "confirmed_by_id"
   add_foreign_key "dealers", "card_types", column: "default_card_type_id"
   add_foreign_key "excel_exports", "users", column: "generated_by_id"
   add_foreign_key "fee_rule_card_types", "card_types"

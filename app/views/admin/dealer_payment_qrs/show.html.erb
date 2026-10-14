@@ -1,0 +1,66 @@
+<% content_for :title, "Tiền đi · Bill ##{@payment_qr.transaction_id}" %>
+<% content_for :breadcrumbs do %>
+  <li class="breadcrumb-item"><%= link_to "Giao dịch ##{@payment_qr.transaction_id}", admin_transaction_path(@payment_qr.transaction_id) %></li>
+  <li class="breadcrumb-item active">Xác nhận tiền đi</li>
+<% end %>
+<% data = @payment_qr.snapshot %>
+<div class="alert alert-info"><%= AppSetting.get("payment_qr_telegram_enabled") ? "Gửi Telegram đang bật cho nhóm đã cấp quyền." : "Đang thử trong admin · Chưa gửi thông tin hoặc QR vào nhóm Telegram." %></div>
+<% unless @current %>
+  <div class="alert alert-warning"><%= @payment_qr.issue.presence || "Bill hoặc thông tin nhận tiền đã thay đổi. QR cũ không còn sử dụng được trên trang này." %></div>
+<% end %>
+<div class="row row-cards">
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header"><h3 class="card-title">Thông tin chuyển khoản</h3><span class="badge bg-blue-lt ms-auto"><%= t("payment_qrs.statuses.#{@payment_qr.status}") %></span></div>
+      <div class="card-body">
+        <dl class="row mb-0">
+          <% [["Đại lý", "dealer_name"], ["Hộ kinh doanh", "merchant_name"], ["Ngân hàng", "bank_name"], ["Số tài khoản", "account_number"], ["Chủ tài khoản", "account_name"], ["Nội dung chuyển khoản", "transfer_code"]].each do |label, key| %>
+            <dt class="col-sm-5"><%= label %></dt><dd class="col-sm-7 text-break"><%= data[key].presence || "—" %></dd>
+          <% end %>
+          <dt class="col-sm-5">Tiền đại lý nhận theo bill</dt><dd class="col-sm-7 money fw-bold"><%= format_vnd(data["dealer_amount_vnd"]) %></dd>
+        </dl>
+        <% if @payment_qr.confirmed? %>
+          <hr>
+          <div class="text-secondary">Số tiền đã xác nhận để tạo QR</div>
+          <div class="fs-1 fw-bold money"><%= format_vnd(@payment_qr.transfer_amount_vnd) %></div>
+          <div class="text-secondary small mt-2">Xác nhận bởi <%= @payment_qr.confirmed_by&.display_name || "Telegram ID #{@payment_qr.confirmed_by_telegram_id}" %> · <%= format_datetime(@payment_qr.confirmed_at) %></div>
+        <% end %>
+      </div>
+      <% if @current && @payment_qr.pending? && can?(:manage, :transactions) %>
+        <div class="card-footer">
+          <%= form_with url: admin_dealer_payment_qr_path(@payment_qr), method: :patch, data: { turbo: false } do |form| %>
+            <%= hidden_field_tag :version, @payment_qr.lock_version %>
+            <label class="form-label" for="amount">Số tiền chuyển (VND)</label>
+            <%= number_field_tag :amount, data["dealer_amount_vnd"], class: "form-control", min: 1, max: 9999999999999, step: 1, required: true, inputmode: "numeric", aria: { describedby: "amount-hint" } %>
+            <p id="amount-hint" class="form-hint">Nếu số tiền sai, nhập số đúng rồi xác nhận. Chỉ thay đổi số tiền trên QR; số liệu bill và Excel được giữ nguyên.</p>
+            <div class="d-flex gap-2 flex-wrap mt-3">
+              <%= button_tag "Xác nhận & tạo QR", name: :decision, value: "confirm", class: "btn btn-primary" %>
+              <%= button_tag "Hủy yêu cầu", name: :decision, value: "cancel", class: "btn btn-outline-secondary", formnovalidate: true %>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+    <% if can?(:manage, :transactions) && @payment_qr.recorded_transaction.approved? %>
+      <div class="mt-3 d-flex gap-2 flex-wrap">
+        <%= button_to "Làm mới yêu cầu", admin_dealer_payment_qrs_path(transaction_id: @payment_qr.transaction_id, refresh: "1"), class: "btn", form: { data: { turbo_confirm: "Lấy lại thông tin mới nhất và yêu cầu xác nhận lại? QR đã tải hoặc gửi trước đó không thể thu hồi." } } %>
+        <%= link_to "Sửa ngân hàng đại lý", edit_admin_dealer_path(@payment_qr.dealer), class: "btn btn-link" if can?(:manage, :dealers) %>
+      </div>
+    <% end %>
+  </div>
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header"><h3 class="card-title">QR chuyển khoản</h3></div>
+      <div class="card-body text-center">
+        <% if @current && @payment_qr.confirmed? %>
+          <%= image_tag admin_dealer_payment_qr_path(@payment_qr, format: :png), alt: "VietQR chuyển #{@payment_qr.transfer_amount_vnd} VND, nội dung #{data['transfer_code']}", width: 480, height: 480, class: "img-fluid" %>
+          <%= link_to "Tải ảnh QR", admin_dealer_payment_qr_path(@payment_qr, format: :png), download: "SMC-#{@payment_qr.transaction_id}.png", class: "btn mt-2" %>
+          <p class="small text-secondary mt-3 mb-0">Kiểm tra tên người nhận trong ứng dụng ngân hàng trước khi chuyển. QR chưa xác nhận tiền đã được chuyển.</p>
+        <% else %>
+          <p class="text-secondary my-4">QR xuất hiện sau khi xác nhận thông tin và số tiền.</p>
+        <% end %>
+      </div>
+    </div>
+    <% if @payment_qr.delivery_error.present? %><div class="alert alert-warning mt-3"><%= @payment_qr.delivery_error %></div><% end %>
+  </div>
+</div>

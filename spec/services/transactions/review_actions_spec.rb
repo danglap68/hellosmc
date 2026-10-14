@@ -52,6 +52,16 @@ RSpec.describe "Transaction review actions" do
   end
 
   describe Transactions::Approver do
+    it "prepares a pending payment confirmation after human approval" do
+      dealer.update!(bank_bin: "970422", bank_account_number: "000123", bank_account_name: "NGUYEN VAN A", auto_payment_qr: true)
+      merchant_dealer_link.update!(transfer_code: "TK1")
+      default_rule.update!(dealer_rate: BigDecimal("0.014"))
+      expect(described_class.call(transaction: transaction, actor: operator)).to be(true)
+      expect(transaction.dealer_payment_qr).to be_pending
+      expect(transaction.dealer_payment_qr.qr_payload).to be_nil
+      expect(DeliverPaymentQrJob).not_to have_been_enqueued
+    end
+
     it "recalculates and approves a complete transaction" do
       Transactions::Corrector.call(transaction: transaction, actor: operator, params: { merchant_id: merchant.id })
       expect { described_class.call(transaction: transaction, actor: operator, note: "ok") }

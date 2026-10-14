@@ -8,6 +8,8 @@ Rails.application.routes.draw do
   namespace :admin do
     root "dashboard#index"
     resources :bulk_actions, only: :create
+    resources :dealer_payment_qrs, only: %i[create show update]
+    resources :dealer_bank_qrs, only: :create
 
     resources :messages, only: [ :index, :show ]
     resources :transactions, only: [ :index, :show, :edit, :update ] do
@@ -83,6 +85,10 @@ Rails.application.routes.draw do
   namespace :webhooks do
     post :telegram, to: "telegram#create"
   end
+
+  get "/telegram/payment-qr", to: "telegram/payment_qrs#show", as: :telegram_payment_qr
+  post "/telegram/payment-qr/context", to: "telegram/payment_qrs#context"
+  post "/telegram/payment-qr/decide", to: "telegram/payment_qrs#decide"
 
   mount LetterOpenerWeb::Engine, at: "/letter_opener" if Rails.env.development?
 

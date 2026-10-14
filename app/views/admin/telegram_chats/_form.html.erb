@@ -9,6 +9,7 @@
       <% end %>
       <%= form.field :name %>
       <%= form.switch_field :active, hint: t("telegram_chats.form.active_hint") %>
+      <%= form.field :payment_qr_confirmer_ids_text, hint: "Telegram user ID được phép xác nhận / sửa số tiền tạo QR trong nhóm này. Ngăn cách bằng dấu phẩy. Để trống thì không ai xác nhận được qua Telegram." %>
     </div>
     <div class="card-footer d-flex gap-2">
       <%= form.submit_button %>

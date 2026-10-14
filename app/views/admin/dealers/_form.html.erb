@@ -9,6 +9,26 @@
       <%= form.select_field :default_card_type_id, card_type_options, { include_blank: t("dealers.form.no_default_card_type") },
             hint: t("dealers.form.default_card_type_hint") %>
       <%= form.switch_field :active %>
+      <hr>
+      <section data-controller="bank-qr-upload" data-bank-qr-upload-url-value="<%= admin_dealer_bank_qrs_path %>" aria-label="Thông tin nhận chuyển khoản">
+      <h3>Thông tin nhận chuyển khoản</h3>
+      <p class="text-secondary">Dùng để chuẩn bị tiền đi sau khi bill được duyệt. QR chỉ được tạo khi có người xác nhận.</p>
+      <div class="d-flex gap-3 align-items-start flex-wrap mb-3">
+        <div data-bank-qr-upload-target="preview" hidden></div>
+        <div class="flex-fill" style="flex-basis: 14rem">
+          <input id="dealer-bank-qr-image" type="file" accept="image/png,image/jpeg,image/webp" class="visually-hidden" tabindex="-1" aria-label="Ảnh QR nhận tiền" data-bank-qr-upload-target="file" data-action="change->bank-qr-upload#read">
+          <button type="button" class="btn" data-action="bank-qr-upload#choose" aria-describedby="dealer-bank-qr-hint"><%= icon("photo-up") %> Tải ảnh QR nhận tiền</button>
+          <p id="dealer-bank-qr-hint" class="form-hint mt-2 mb-1">Tự điền ngân hàng, số tài khoản và tên người nhận có trên ảnh. PNG, JPG hoặc WebP, tối đa 10 MB.</p>
+          <p data-bank-qr-upload-target="status" class="small text-secondary mb-0" role="status" aria-live="polite">Bạn có thể tải QR hoặc nhập thông tin bên dưới.</p>
+        </div>
+      </div>
+      <%= form.select_field :bank_bin, PaymentQrs::Banks.options, { include_blank: "— Chọn ngân hàng —" }, data: { bank_qr_upload_target: "bank" } %>
+      <div class="row">
+        <div class="col-md-6"><%= form.field :bank_account_number, hint: "Giữ nguyên số 0 ở đầu tài khoản.", data: { bank_qr_upload_target: "account" } %></div>
+        <div class="col-md-6"><%= form.field :bank_account_name, hint: "Kiểm tra đúng tên chủ tài khoản trước khi lưu.", data: { bank_qr_upload_target: "holder" } %></div>
+      </div>
+      <%= form.switch_field :auto_payment_qr, hint: AppSetting.get("payment_qr_telegram_enabled") ? "Tạo yêu cầu xác nhận cho bill duyệt mới và gửi vào nhóm Telegram đã cấp quyền." : "Tạo yêu cầu xác nhận trong admin cho các bill duyệt từ lúc bật. Chưa tự gửi vào nhóm Telegram." %>
+      </section>
     </div>
     <div class="card-footer d-flex gap-2">
       <%= form.submit_button %>

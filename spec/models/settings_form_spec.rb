@@ -8,7 +8,8 @@ RSpec.describe SettingsForm do
   end
 
   it "holds only the client's switches" do
-    expect(described_class.new.values).to eq("telegram_auto_activate_chats" => "0", "remitter_features_enabled" => "0")
+    expect(described_class.new.values).to eq("telegram_auto_activate_chats" => "0", "remitter_features_enabled" => "0",
+                                            "payment_qr_telegram_enabled" => "0", "payment_qr_bot_username" => "")
   end
 
   it "saves a switch and audits only what changed (S2)" do
@@ -25,6 +26,12 @@ RSpec.describe SettingsForm do
     expect(form.save(actor: admin)).to be(true)
     expect(AppSetting.count).to eq(0)
     expect(AuditLog.where(action: "settings.updated")).not_to exist
+  end
+
+  it "requires a valid bot username before enabling public Telegram QR" do
+    expect(form("payment_qr_telegram_enabled" => "1").save(actor: admin)).to be(false)
+    expect(form("payment_qr_bot_username" => "https://t.me/test_bot").save(actor: admin)).to be(false)
+    expect(form("payment_qr_telegram_enabled" => "1", "payment_qr_bot_username" => "smc_test_bot").save(actor: admin)).to be(true)
   end
 
   it "ignores keys that are not settings any more (S3)" do

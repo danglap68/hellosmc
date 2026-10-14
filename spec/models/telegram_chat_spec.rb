@@ -1,6 +1,16 @@
 require "rails_helper"
 
 RSpec.describe TelegramChat do
+  it "validates Telegram confirmer IDs without silently converting invalid entries" do
+    chat = build(:telegram_chat)
+    chat.payment_qr_confirmer_ids_text = "123, 456\n123"
+    expect(chat.payment_qr_confirmer_ids).to eq([ 123, 456 ])
+    chat.payment_qr_confirmer_ids_text = "123, @someone"
+    expect(chat).not_to be_valid
+    chat.payment_qr_confirmer_ids_text = ""
+    expect(chat).to be_valid
+    expect(chat.payment_qr_confirmer_ids).to be_empty
+  end
   it "requires a unique numeric chat id" do
     create(:telegram_chat, telegram_chat_id: -100_123)
     expect(build(:telegram_chat, telegram_chat_id: -100_123)).not_to be_valid

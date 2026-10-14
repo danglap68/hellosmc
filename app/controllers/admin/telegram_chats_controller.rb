@@ -84,7 +84,7 @@ module Admin
     end
 
     def chat_params
-      params.require(:telegram_chat).permit(:telegram_chat_id, :name, :active)
+      params.require(:telegram_chat).permit(:telegram_chat_id, :name, :active, :payment_qr_confirmer_ids_text)
     end
   end
 end

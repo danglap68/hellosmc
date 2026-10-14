@@ -27,6 +27,15 @@ class SettingsForm
   end
 
   validate :values_within_bounds
+  validate do
+    username = @values["payment_qr_bot_username"].to_s.strip
+    if username.present? && !username.match?(/\A[a-zA-Z][a-zA-Z0-9_]{1,28}bot\z/i)
+      errors.add(:payment_qr_bot_username, "phải là username bot, không có @ hoặc đường dẫn")
+    end
+    if @values["payment_qr_telegram_enabled"].in?(%w[1 true]) && username.blank?
+      errors.add(:payment_qr_bot_username, :blank)
+    end
+  end
 
   # Returns true when saved (or nothing changed).
   def save(actor:)

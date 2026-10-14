@@ -1,6 +1,11 @@
 require "rails_helper"
 
 RSpec.describe Dealer do
+  it "requires a complete bank profile before enabling QR preparation" do
+    expect(build(:dealer, auto_payment_qr: true)).not_to be_valid
+    expect(build(:dealer, bank_bin: "123456", bank_account_number: "000123", bank_account_name: "A")).not_to be_valid
+    expect(build(:dealer, bank_bin: "970422", bank_account_number: "000123", bank_account_name: "A", auto_payment_qr: true)).to be_valid
+  end
   subject { build(:dealer) }
 
   it { is_expected.to validate_presence_of(:name) }

@@ -33,7 +33,9 @@ class AppSetting < ApplicationRecord
   # AppConfig::TUNING and also stored here, edited through TuningForm.
   DEFINITIONS = [
     define("telegram_auto_activate_chats", :boolean, "false", "operations"),
-    define("remitter_features_enabled", :boolean, "false", "operations")
+    define("remitter_features_enabled", :boolean, "false", "operations"),
+    define("payment_qr_telegram_enabled", :boolean, "false", "payment_qr"),
+    define("payment_qr_bot_username", :string, "", "payment_qr", allow_blank: true)
   ].index_by(&:key).freeze
 
   GROUPS = DEFINITIONS.values.map(&:group).uniq.freeze

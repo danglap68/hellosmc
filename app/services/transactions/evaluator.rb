@@ -221,7 +221,8 @@ module Transactions
         "message_text" => @bill_image.message_text,
         "ocr_provider" => @bill_image.ocr_provider,
         "ocr_model" => @bill_image.ocr_model,
-        "dealer_resolution" => { "source" => @dealer_result.source, "issue" => @dealer_result.issue },
+        "dealer_resolution" => { "source" => @dealer_result.source, "issue" => @dealer_result.issue,
+                                 "merchant_dealer_id" => @dealer_result.merchant_dealer&.id },
         "merchant_resolution" => {
           "method" => merchant_result.method.to_s,
           "score" => merchant_result.score,

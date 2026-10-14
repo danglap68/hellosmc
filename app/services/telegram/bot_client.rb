@@ -9,7 +9,7 @@ module Telegram
     class FileTooLargeError < Error; end
 
     API_URL = "https://api.telegram.org".freeze
-    ALLOWED_UPDATES = %w[message edited_message channel_post edited_channel_post].freeze
+    ALLOWED_UPDATES = %w[message edited_message channel_post edited_channel_post callback_query].freeze
 
     def initialize(token: AppConfig.telegram_bot_token)
       raise Error, "Telegram bot token is not configured (Cài đặt → Telegram)" if token.blank?
@@ -24,6 +24,19 @@ module Telegram
 
     def get_me
       call("getMe")
+    end
+
+    def send_message(**params)
+      call("sendMessage", **params)
+    end
+
+    def send_photo(png:, **params)
+      photo = Faraday::Multipart::FilePart.new(StringIO.new(png), "image/png", "payment-qr.png")
+      call("sendPhoto", **params, photo: photo)
+    end
+
+    def answer_callback_query(id:, text:)
+      call("answerCallbackQuery", callback_query_id: id, text: text.truncate(180), show_alert: true)
     end
 
     def get_file(file_id)

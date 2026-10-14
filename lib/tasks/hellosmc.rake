@@ -124,9 +124,9 @@ namespace :hellosmc do
   # The Google Sheet is NOT touched: rows already written stay there.
   #
   #   CONFIRM=yes bin/rails hellosmc:purge_transaction_data
-  PURGE_DATA_TABLES = %w[workbook_entries transaction_reviews transactions remitter_transfers bill_images bill_albums
+  PURGE_DATA_TABLES = %w[dealer_payment_qrs workbook_entries transaction_reviews transactions remitter_transfers bill_images bill_albums
                    excel_exports].freeze
-  PURGE_RECORD_TYPES = %w[Transaction TransactionReview WorkbookEntry RemitterTransfer BillImage BillAlbum
+  PURGE_RECORD_TYPES = %w[DealerPaymentQr Transaction TransactionReview WorkbookEntry RemitterTransfer BillImage BillAlbum
                          ExcelExport].freeze
 
   desc "Delete transaction data (bills, transactions, exports) but keep configuration and Telegram messages. CONFIRM=yes required"

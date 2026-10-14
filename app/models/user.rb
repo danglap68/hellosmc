@@ -11,6 +11,8 @@ class User < ApplicationRecord
 
   has_many :approved_transactions, class_name: "Transaction", foreign_key: :approved_by_id,
     inverse_of: :approved_by, dependent: :restrict_with_error
+  has_many :confirmed_payment_qrs, class_name: "DealerPaymentQr", foreign_key: :confirmed_by_id,
+    inverse_of: :confirmed_by, dependent: :restrict_with_error
 
   validates :name, length: { maximum: 120 }
   validate :role_is_known

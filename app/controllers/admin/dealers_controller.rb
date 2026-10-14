@@ -68,7 +68,8 @@ module Admin
     end
 
     def dealer_params
-      params.require(:dealer).permit(:name, :code, :active, :default_card_type_id)
+      params.require(:dealer).permit(:name, :code, :active, :default_card_type_id,
+                                    :bank_bin, :bank_account_number, :bank_account_name, :auto_payment_qr)
     end
   end
 end
