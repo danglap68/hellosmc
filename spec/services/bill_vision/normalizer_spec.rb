@@ -5,6 +5,14 @@ RSpec.describe BillVision::Normalizer do
     described_class.call(data, provider: "openai", model: "gpt-test")
   end
 
+  it "keeps the visible bank memo verbatim with separate confidence and discards it on POS slips" do
+    data = extraction_fixture("transfer")
+    data["documents"].first.merge!("transfer_memo" => "  As02  ", "transfer_memo_confidence" => 0.97)
+    expect(normalize(data)["documents"].first).to include("transfer_memo" => "As02", "transfer_memo_confidence" => 0.97)
+    data["documents"].first["document_type"] = "settlement"
+    expect(normalize(data)["documents"].first).to include("transfer_memo" => nil, "transfer_memo_confidence" => 0.0)
+  end
+
   describe "the bank brand" do
     it "is kept, trimmed, on any document and null when absent" do
       data = extraction_fixture("normal_settlement")

@@ -23,7 +23,7 @@
 <div class="card">
   <% if @remitters.any? %>
     <div class="table-responsive">
-      <table class="table table-vcenter card-table">
+      <table class="table table-vcenter card-table" <%= bulk_table_attributes(:remitters) %>>
         <thead>
           <tr>
             <th><%= Remitter.human_attribute_name(:name) %></th>
@@ -36,7 +36,7 @@
         </thead>
         <tbody>
           <% @remitters.each do |remitter| %>
-            <tr>
+            <tr <%= bulk_row_attributes(remitter) %>>
               <td><%= remitter.name %></td>
               <td><code><%= remitter.excel_key %></code></td>
               <td><code><%= remitter.telegram_user_id %></code></td>

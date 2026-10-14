@@ -141,13 +141,22 @@ Mã là một trường của từng dòng đại lý (`merchant_dealers.transfe
 
 ### 4.5 Dữ liệu: bảng `remitter_transfers`
 
+Ngoài caption, OCR đọc nguyên văn `transfer_memo` (nội dung chuyển khoản trên ảnh) và
+`transfer_memo_confidence`. Khi caption không có mã, Builder dò mã đứng riêng trong memo:
+`As02` / `AS 002` khớp mã cấu hình `AS2`, nhưng `AS20` là mã khác. Nguồn được lưu là `image`.
+Mã trong caption và ảnh khác nhau → `code_conflict`; nhiều mã → `code_ambiguous`; mã OCR
+chưa đủ tin cậy → `code_low_confidence`; hai model không thống nhất → `code_ocr_disagreement`.
+Các trường hợp này giữ ở hàng đợi kiểm tra. Không dùng tên người nhận, số tài khoản hay mã tham chiếu ngân hàng để đoán mã.
+Retry kết quả OCR cũ chưa từng đọc memo sẽ yêu cầu đọc lại trong ngân sách OCR hiện có;
+kết quả mới đã có trường memo nhưng null không tự gây các lượt đọc lặp lại.
+
 | Cột | Kiểu | Ghi chú |
 |---|---|---|
 | `telegram_message_id` | FK, unique, not null | Một tin nhắn = một lệnh |
 | `bill_image_id` | FK, unique | Ảnh (có thể là bản ghi duplicate) |
 | `remitter_id` | FK, **null được** | Null khi người gửi chưa khai, review chọn |
 | `merchant_id`, `merchant_dealer_id` | FK | Từ mã |
-| `transfer_code`, `code_source` | string | `caption` / `manual` |
+| `transfer_code`, `code_source` | string | `caption` / `image` / `manual` |
 | `amount_vnd`, `amount_confidence` | bigint, decimal(5,4) | Check `amount_vnd > 0` |
 | `transferred_at` | datetime, not null | `sent_at` của tin nhắn → chọn tab ngày |
 | `status` | string | `processing`, `needs_review`, `approved`, `rejected`, `failed` (check constraint) |

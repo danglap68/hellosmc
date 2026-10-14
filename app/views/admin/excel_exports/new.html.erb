@@ -31,7 +31,7 @@
     <div class="card">
       <div class="card-header"><h3 class="card-title"><%= t("excel_exports.new.columns") %></h3></div>
       <div data-export-columns-target="panel" data-layout="legacy" <%= "hidden" unless @excel_export.layout == "legacy" %>>
-        <table class="table card-table">
+        <table class="table card-table" <%= bulk_table_attributes %>>
           <% Exports::LegacyLayout::COLUMNS.each do |column| %>
             <tr><td><%= column.header.presence || content_tag(:em, t("excel_exports.new.unnamed_column"), class: "text-secondary") %></td></tr>
           <% end %>
@@ -39,7 +39,7 @@
         <div class="card-footer small text-secondary"><%= t("excel_exports.new.status_mapping") %></div>
       </div>
       <div data-export-columns-target="panel" data-layout="ket_toan_phi_goc" <%= "hidden" unless @excel_export.layout == "ket_toan_phi_goc" %>>
-        <table class="table card-table">
+        <table class="table card-table" <%= bulk_table_attributes %>>
           <% Exports::KetToanPhiGocLayout::PREVIEW_HEADERS.each do |header| %>
             <tr><td><%= header %></td></tr>
           <% end %>

@@ -42,6 +42,14 @@
           <dd class="col-7"><%= format_datetime(@transfer.transferred_at) %></dd>
           <dt class="col-5"><%= RemitterTransfer.human_attribute_name(:transfer_code) %></dt>
           <dd class="col-7"><%= @transfer.transfer_code ? content_tag(:code, @transfer.transfer_code) : "—" %></dd>
+          <% if @transfer.code_source.present? %>
+            <dt class="col-5"><%= t("remitter_transfers.show.code_source") %></dt>
+            <dd class="col-7"><%= t("remitter_transfers.code_sources.#{@transfer.code_source}") %></dd>
+          <% end %>
+          <% if (memo = remitter_transfer_memo(@transfer)) %>
+            <dt class="col-5"><%= t("remitter_transfers.show.transfer_memo") %></dt>
+            <dd class="col-7"><%= memo %></dd>
+          <% end %>
           <dt class="col-5"><%= RemitterTransfer.human_attribute_name(:merchant) %></dt>
           <dd class="col-7"><%= @transfer.merchant_dealer&.merchant&.name || "—" %></dd>
           <dt class="col-5"><%= RemitterTransfer.human_attribute_name(:dealer) %></dt>

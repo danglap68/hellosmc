@@ -7,7 +7,7 @@
   <% if rows.any? %>
     <% max_amount = [rows.map { |row| row[:amount] }.max.to_f, 1].max %>
     <div class="table-responsive breakdown-scroll">
-      <table class="table table-vcenter card-table">
+      <table class="table table-vcenter card-table" <%= bulk_table_attributes %>>
         <thead>
           <tr>
             <th><%= title %></th>

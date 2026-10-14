@@ -1,6 +1,19 @@
 require "rails_helper"
 
 RSpec.describe BillVision::OutputSchema do
+  it "accepts an optional visible transfer memo but rejects malformed text or confidence" do
+    data = extraction_fixture("transfer")
+    data["documents"].first.merge!("transfer_memo" => "As02", "transfer_memo_confidence" => 0.99)
+    expect(described_class.valid?(data)).to be(true)
+    data["documents"].first["transfer_memo"] = 123
+    expect(described_class.valid?(data)).to be(false)
+    data["documents"].first["transfer_memo"] = "As02"
+    [ -0.1, 1.1, "0.99", nil ].each do |score|
+      data["documents"].first["transfer_memo_confidence"] = score
+      expect(described_class.valid?(data)).to be(false)
+    end
+  end
+
   it "accepts a document with or without recipient_name" do
     expect(described_class.valid?(extraction_fixture("transfer"))).to be(true)
     expect(described_class.valid?(extraction_fixture("transfer_with_recipient"))).to be(true)

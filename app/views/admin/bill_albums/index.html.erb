@@ -21,7 +21,7 @@
 <div class="card">
   <% if @bill_albums.any? %>
     <div class="table-responsive">
-      <table class="table table-vcenter card-table table-sm">
+      <table class="table table-vcenter card-table table-sm" <%= bulk_table_attributes %>>
         <thead>
           <tr>
             <th>ID</th>

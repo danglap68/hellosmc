@@ -24,7 +24,7 @@
 <div class="card">
   <% if @transactions.any? %>
     <div class="table-responsive">
-      <table class="table table-vcenter card-table">
+      <table class="table table-vcenter card-table" <%= bulk_table_attributes(:reviews) %>>
         <thead>
           <tr>
             <th class="w-1"></th>
@@ -40,7 +40,7 @@
         </thead>
         <tbody>
           <% @transactions.each do |transaction| %>
-            <tr>
+            <tr <%= bulk_row_attributes(transaction) %>>
               <td>
                 <% if transaction.bill_image&.image&.attached? %>
                   <%= image_tag admin_bill_image_path(transaction.bill_image), class: "bill-thumb", alt: "", loading: "lazy" %>

@@ -21,7 +21,7 @@
 <div class="card">
   <% if @transfers.any? %>
     <div class="table-responsive">
-      <table class="table table-vcenter card-table">
+      <table class="table table-vcenter card-table" <%= bulk_table_attributes(:remitter_transfers) %>>
         <thead>
           <tr>
             <th>ID</th>
@@ -38,7 +38,7 @@
         </thead>
         <tbody>
           <% @transfers.each do |transfer| %>
-            <tr>
+            <tr <%= bulk_row_attributes(transfer) %>>
               <td><%= link_to "##{transfer.id}", admin_remitter_transfer_path(transfer) %></td>
               <td class="text-nowrap"><%= remitter_slip_datetime(transfer) %></td>
               <td><%= transfer.remitter&.name || content_tag(:span, t("remitter_transfers.unknown_remitter"), class: "text-orange") %></td>

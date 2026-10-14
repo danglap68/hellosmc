@@ -36,6 +36,28 @@ RSpec.describe RemitterTransfers::Builder do
     expect(Transaction.count).to eq(0)
   end
 
+  it "approves a 79.197.000 transfer from the visible As02 memo without any caption, then flags another copy" do
+    link = MerchantDealer.find_by!(transfer_code: "AS02")
+    link.update!(transfer_code: "AS2")
+    transfer = transfer_with(caption: nil, amount: 79_197_000)
+    image = transfer.telegram_message.bill_images.sole
+    extraction = image.normalized_extraction.deep_dup
+    extraction["documents"].first.merge!("transfer_memo" => "As02", "transfer_memo_confidence" => 0.99)
+    image.update!(normalized_extraction: extraction)
+
+    described_class.call(remitter_transfer: transfer)
+    expect(transfer.reload).to be_approved
+    expect(transfer).to have_attributes(transfer_code: "AS2", code_source: "image", amount_vnd: 79_197_000,
+                                      merchant_dealer: link, dealer: link.dealer)
+    expect(WriteRemitterReportJob).to have_been_enqueued.with(transfer.id)
+
+    duplicate = transfer_with(caption: nil, amount: 79_197_000, sent_at: 1.minute.from_now)
+    duplicate.telegram_message.bill_images.sole.update!(normalized_extraction: extraction)
+    described_class.call(remitter_transfer: duplicate)
+    expect(duplicate).to be_needs_review
+    expect(duplicate.review_reasons).to include("possible_duplicate")
+  end
+
   it "needs a person below 92% amount confidence" do
     transfer = described_class.call(remitter_transfer: transfer_with(confidence: 0.9))
 

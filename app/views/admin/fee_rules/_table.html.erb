@@ -1,7 +1,7 @@
 <%# locals: (fee_rules:) %>
 <% if fee_rules.any? %>
   <div class="table-responsive">
-    <table class="table table-vcenter card-table">
+    <table class="table table-vcenter card-table" <%= bulk_table_attributes(:fee_rules) %>>
       <thead>
         <tr>
           <th>ID</th>
@@ -17,7 +17,7 @@
       </thead>
       <tbody>
         <% fee_rules.each do |rule| %>
-          <tr class="<%= 'text-secondary' unless rule.active? %>">
+          <tr <%= bulk_row_attributes(rule) %> class="<%= 'text-secondary' unless rule.active? %>">
             <td><%= link_to "##{rule.id}", admin_fee_rule_path(rule) %></td>
             <td>
               <span class="badge bg-blue-lt"><%= t("fee_rules.levels.#{rule.specificity_level}") %></span>

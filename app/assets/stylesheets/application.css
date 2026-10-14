@@ -1240,3 +1240,22 @@ dialog.chat-preview img {
   .list-toolbar-filter .toolbar-btn, .list-toolbar-sort .toolbar-btn { width: 100%; justify-content: center; }
   .filter-popover, .sort-menu { left: 0; right: 0; width: auto; }
 }
+
+/* Bulk selection stays within its table; toolbars wrap above horizontal scrolling. */
+.bulk-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .65rem 1rem; padding: .75rem 1rem; border-bottom: 1px solid var(--tblr-border-color); background: var(--tblr-bg-surface); }
+.bulk-selection-info { display: flex; flex-wrap: wrap; align-items: baseline; gap: .3rem .65rem; }
+.bulk-buttons, .bulk-mutations { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
+.bulk-toolbar.has-selection { background: var(--tblr-primary-lt, var(--tblr-bg-surface-secondary)); }
+.app-ui .table .bulk-select-cell { width: 3rem; min-width: 3rem; text-align: center; vertical-align: middle; position: sticky; left: 0; z-index: 2; background: var(--tblr-bg-surface); padding: .65rem; }
+.bulk-checkbox { width: 1.1rem; height: 1.1rem; margin: 0; cursor: pointer; }
+.bulk-check-hit { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; cursor: pointer; }
+.bulk-checkbox:focus-visible { outline: 2px solid var(--tblr-primary); outline-offset: 3px; }
+.app-ui .table tbody tr.bulk-selected > td { background: var(--tblr-primary-lt, var(--tblr-bg-surface-secondary)); }
+.bulk-dialog { max-height: calc(100dvh - 2rem); overflow-y: auto; }
+.bulk-failures { max-height: 18rem; overflow-y: auto; overflow-wrap: anywhere; padding-left: 1.25rem; }
+@media (max-width: 575.98px) {
+  .bulk-toolbar { padding: .65rem .75rem; }
+  .bulk-buttons { width: 100%; }
+  .bulk-buttons .btn { min-height: 2.5rem; }
+  .app-ui .table .bulk-select-cell { min-width: 2.75rem; padding: .75rem .5rem; }
+}

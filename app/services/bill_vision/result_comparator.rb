@@ -42,7 +42,16 @@ module BillVision
       left_match = left.dig("merchant_match", "merchant_id")
       right_match = right.dig("merchant_match", "merchant_id")
       differences << "merchant_catalog_identity" if left_match && right_match && left_match != right_match
+      if left["document_type"] == "transfer" && memo_key(left["transfer_memo"]) != memo_key(right["transfer_memo"])
+        differences << "transfer_memo"
+      end
       differences
+    end
+
+    def memo_key(value)
+      return if value.blank?
+
+      RemitterTransfers::Codes.canonical(value) || VietnameseText.normalize(value)
     end
 
     def soft_differences(left, right)

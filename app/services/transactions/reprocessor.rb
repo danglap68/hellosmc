@@ -2,13 +2,14 @@ module Transactions
   # Re-runs OCR for the transaction's bill image; the builder then rebuilds
   # this transaction (only rows in `processing` are ever rebuilt).
   class Reprocessor
-    def self.call(transaction:, actor:)
-      new(transaction:, actor:).call
+    def self.call(transaction:, actor:, enqueue: true)
+      new(transaction:, actor:, enqueue:).call
     end
 
-    def initialize(transaction:, actor:)
+    def initialize(transaction:, actor:, enqueue:)
       @transaction = transaction
       @actor = actor
+      @enqueue = enqueue
     end
 
     def call
@@ -31,7 +32,8 @@ module Transactions
       end
       return false unless requested
 
-      AnalyzeBillImageJob.perform_later(@transaction.bill_image_id, force: true)
+      image_id = @transaction.bill_image_id
+      ActiveRecord.after_all_transactions_commit { AnalyzeBillImageJob.perform_later(image_id, force: true) } if @enqueue
       true
     end
   end

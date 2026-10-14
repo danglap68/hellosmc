@@ -23,7 +23,7 @@
 <div class="card">
   <% if @users.any? %>
   <div class="table-responsive">
-    <table class="table table-vcenter card-table">
+    <table class="table table-vcenter card-table" <%= bulk_table_attributes(:users) %>>
       <thead>
         <tr>
           <th><%= User.human_attribute_name(:email) %></th>
@@ -36,7 +36,7 @@
       </thead>
       <tbody>
         <% @users.each do |user| %>
-          <tr>
+          <tr <%= bulk_row_attributes(user) %>>
             <td><%= user.email %><% if user == current_user %> <span class="badge bg-azure-lt"><%= t("users.you") %></span><% end %></td>
             <td><%= user.name || "—" %></td>
             <td><%= user.role_name %></td>

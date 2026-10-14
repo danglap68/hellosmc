@@ -109,7 +109,7 @@
           </div>
         <% end %>
         <div class="table-responsive">
-          <table class="table card-table table-sm table-vcenter">
+          <table class="table card-table table-sm table-vcenter" <%= bulk_table_attributes %>>
             <thead>
               <tr>
                 <th><%= t("settings.tuning.name") %></th>
@@ -200,7 +200,7 @@
         </div>
       </div>
       <div class="table-responsive">
-        <table class="table card-table">
+        <table class="table card-table" <%= bulk_table_attributes %>>
           <% @services.each do |service, configured| %>
             <tr>
               <td><%= t("settings.services.#{service}") %><div class="small text-secondary"><code><%= t("settings.services.env.#{service}") %></code></div></td>
@@ -236,9 +236,9 @@
         <div class="card-actions"><%= link_to t("actions.manage"), admin_card_types_path %></div>
       </div>
       <div class="table-responsive">
-        <table class="table card-table">
+        <table class="table card-table" <%= bulk_table_attributes(:card_types) %>>
           <% @card_types.each do |card_type| %>
-            <tr><td><code><%= card_type.key %></code></td><td><%= card_type.name %></td><td><%= active_badge(card_type.active?) %></td></tr>
+            <tr <%= bulk_row_attributes(card_type) %>><td><code><%= card_type.key %></code></td><td><%= card_type.name %></td><td><%= active_badge(card_type.active?) %></td></tr>
           <% end %>
         </table>
       </div>

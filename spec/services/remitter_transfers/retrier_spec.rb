@@ -55,6 +55,29 @@ RSpec.describe RemitterTransfers::Retrier do
     expect(transfer.reload).to be_processing
   end
 
+  it "rereads an old transfer once to extract a memo that the old OCR contract never requested" do
+    message.update!(message_text: nil)
+    extraction = image.normalized_extraction.deep_dup
+    extraction["documents"].each { |doc| doc.delete("transfer_memo"); doc.delete("transfer_memo_confidence") }
+    image.update!(normalized_extraction: extraction)
+    expect { expect(retry_transfer.step).to eq(:ocr) }.to have_enqueued_job(AnalyzeBillImageJob).with(image.id, force: true)
+  end
+
+  it "does not keep rereading new null memos just because the caption has no code" do
+    message.update!(message_text: nil)
+    expect(retry_transfer.step).to eq(:evaluate)
+    expect(AnalyzeBillImageJob).not_to have_been_enqueued
+  end
+
+  it "keeps the lifetime OCR budget for the legacy memo retry" do
+    message.update!(message_text: nil)
+    extraction = image.normalized_extraction.deep_dup
+    extraction["documents"].each { |doc| doc.delete("transfer_memo") }
+    image.update!(normalized_extraction: extraction, ocr_attempts: AppConfig.max_ocr_attempts)
+    expect(retry_transfer.error).to eq(:retry_budget_exhausted)
+    expect(enqueued_jobs).to be_empty
+  end
+
   it "rereads an uncertain amount but refuses an exhausted image budget" do
     transfer.update!(review_reasons: [ "amount_low_confidence" ])
     image.update!(ocr_attempts: AppConfig.max_ocr_attempts)

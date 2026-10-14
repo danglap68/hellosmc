@@ -67,7 +67,7 @@
       <div class="card-header"><h3 class="card-title"><%= icon("receipt") %> <%= t("bill_albums.show.transactions") %></h3></div>
       <% if @bill_album.transactions.any? %>
         <div class="table-responsive">
-          <table class="table table-vcenter card-table table-sm">
+          <table class="table table-vcenter card-table table-sm" <%= bulk_table_attributes(:transactions) %>>
             <thead>
               <tr>
                 <th>ID</th>
@@ -78,7 +78,7 @@
             </thead>
             <tbody>
               <% @bill_album.transactions.each do |transaction| %>
-                <tr>
+                <tr <%= bulk_row_attributes(transaction) %>>
                   <td><%= link_to "##{transaction.id}", admin_transaction_path(transaction) %></td>
                   <td class="text-end money"><%= format_vnd(transaction.transaction_amount_vnd) %></td>
                   <td><%= transaction.merchant&.name || transaction.raw_merchant_name || "—" %></td>

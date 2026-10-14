@@ -45,7 +45,7 @@
       </div>
       <% if @recent_messages.any? %>
         <div class="table-responsive">
-          <table class="table card-table table-vcenter">
+          <table class="table card-table table-vcenter" <%= bulk_table_attributes %>>
             <thead><tr><th><%= TelegramMessage.human_attribute_name(:sent_at) %></th><th><%= TelegramMessage.human_attribute_name(:sender_name) %></th><th><%= TelegramMessage.human_attribute_name(:message_text) %></th><th><%= TelegramMessage.human_attribute_name(:processing_status) %></th></tr></thead>
             <tbody>
               <% @recent_messages.each do |message| %>

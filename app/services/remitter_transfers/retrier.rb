@@ -41,12 +41,22 @@ module RemitterTransfers
       end
 
       reread = source.ocr_status.in?(%w[pending processing failed]) || transfer.rejected? ||
-        (transfer.review_reasons & OCR_REASONS).any?
+        (transfer.review_reasons & OCR_REASONS).any? || legacy_memo_unread?(transfer, source)
       return Plan.new(step: :evaluate, image: image, error: nil) unless reread
       return Plan.new(step: nil, image: image, error: :retry_shared_image) if source != image
       return Plan.new(step: nil, image: image, error: :retry_image_missing) unless image.image.attached?
 
       Plan.new(step: :ocr, image: image, error: (image.ocr_runs_remaining? ? nil : :retry_budget_exhausted))
+    end
+
+    # Older OCR never requested the transfer memo. One explicit retry reads it
+    # under the existing lifetime budget; a new null/unreadable memo is not a
+    # reason to repeatedly buy more OCR calls.
+    def self.legacy_memo_unread?(transfer, image)
+      return false unless CodeMatcher.call(transfer.caption).issue == "code_missing"
+
+      documents = image.documents.select { |doc| doc["document_type"] == "transfer" }
+      documents.any? { |doc| !doc.key?("transfer_memo") }
     end
 
     def initialize(transfer, actor, lock_version)

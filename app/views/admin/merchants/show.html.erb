@@ -27,7 +27,7 @@
       <% links = @merchant.merchant_dealers.includes(:dealer, :merchant).order(:tid_key) %>
       <% if links.any? %>
         <div class="table-responsive">
-          <table class="table table-sm card-table">
+          <table class="table table-sm card-table" <%= bulk_table_attributes %>>
             <tbody>
               <% links.each do |link| %>
                 <tr>
@@ -53,11 +53,11 @@
       </div>
       <% if @merchant_aliases.any? %>
         <div class="table-responsive">
-          <table class="table card-table table-vcenter">
+          <table class="table card-table table-vcenter" <%= bulk_table_attributes(:merchant_aliases) %>>
             <thead><tr><th><%= MerchantAlias.human_attribute_name(:alias) %></th><th><%= MerchantAlias.human_attribute_name(:alias_type) %></th><th><%= MerchantAlias.human_attribute_name(:normalized_alias) %></th><th><%= MerchantAlias.human_attribute_name(:active) %></th><th class="w-1"></th></tr></thead>
             <tbody>
               <% @merchant_aliases.each do |merchant_alias| %>
-                <tr>
+                <tr <%= bulk_row_attributes(merchant_alias) %>>
                   <td><%= merchant_alias.alias %></td>
                   <td><%= enum_label(:merchant_alias, :alias_type, merchant_alias.alias_type) %></td>
                   <td><code><%= merchant_alias.normalized_alias %></code></td>

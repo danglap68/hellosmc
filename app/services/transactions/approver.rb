@@ -41,7 +41,8 @@ module Transactions
       end
       return false unless approved
 
-      WriteHelloSmcWorkbookJob.perform_later(@transaction.id)
+      id = @transaction.id
+      ActiveRecord.after_all_transactions_commit { WriteHelloSmcWorkbookJob.perform_later(id) }
       StructuredLog.info("transaction.review_decision", transaction_id: @transaction.id, decision: "approved",
                                                         user_id: @actor&.id)
       true

@@ -14,6 +14,7 @@ module BillVision
     # Merchants::Resolver tries "<bank> <merchant name>" first, so two HKDs that print the
     # same name on different banks' slips can be told apart by an alias.
     BANK_FIELD = "bill_bank_name".freeze
+    TRANSFER_MEMO_FIELDS = %w[transfer_memo transfer_memo_confidence].freeze
     # Two facts read from the image that decide whether a "transfer" really is a
     # completed bank transfer (Normalizer): the wording that says it succeeded,
     # and a QR code (a request to be paid, never a transfer).
@@ -81,6 +82,12 @@ module BillVision
         NAPAS…), never a merchant name. Null when no bank brand is visible.
       - recipient_name: only for "transfer": the receiving account holder name (ĐẾN TÀI KHOẢN / NGƯỜI NHẬN /
         TÊN NGƯỜI THỤ HƯỞNG) exactly as printed. Null for every other document type or when not visible.
+      - transfer_memo: only for "transfer": the transfer description/message printed in the bank app,
+        often labelled NỘI DUNG / NỘI DUNG CHUYỂN KHOẢN / LỜI NHẮN, or shown as a short line below the
+        recipient's account number. Read it verbatim, including codes such as "As02", "TK 001" or "AS2".
+        Never substitute the account number, recipient name, bank reference/transaction ID or a guessed
+        configured code. Null if absent or unreadable, and null for other document types.
+      - transfer_memo_confidence: certainty from 0 to 1 that transfer_memo was read exactly; 0 when null.
 
       - shows_success_message: true only for a "transfer" whose image literally prints a wording saying the
         transfer succeeded (CHUYỂN TIỀN THÀNH CÔNG, CHUYỂN KHOẢN THÀNH CÔNG, CHUYỂN THÀNH CÔNG, GIAO DỊCH THÀNH CÔNG);
@@ -114,7 +121,7 @@ module BillVision
           items: {
             type: "object",
             additionalProperties: false,
-            required: FIELDS + [ RECIPIENT_FIELD, BANK_FIELD ] + FLAGS + %w[confidence merchant_match],
+            required: FIELDS + [ RECIPIENT_FIELD, BANK_FIELD ] + FLAGS + TRANSFER_MEMO_FIELDS + %w[confidence merchant_match],
             properties: {
               document_type: { type: "string", enum: DOCUMENT_TYPES },
               total_amount_vnd: { type: %w[integer null] },
@@ -133,6 +140,8 @@ module BillVision
               terminal_or_merchant_id: { type: %w[string null] },
               recipient_name: { type: %w[string null] },
               bill_bank_name: { type: %w[string null] },
+              transfer_memo: { type: %w[string null] },
+              transfer_memo_confidence: { type: "number" },
               shows_success_message: { type: %w[boolean null] },
               shows_qr_code: { type: %w[boolean null] },
               shows_smart_pos: { type: %w[boolean null] },

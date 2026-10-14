@@ -224,7 +224,7 @@
         <% calc = @transaction.calculation_data %>
         <% if calc.present? %>
           <div class="table-responsive mb-3">
-            <table class="table table-sm mb-0">
+            <table class="table table-sm mb-0" <%= bulk_table_attributes %>>
               <tr><th class="w-50"><%= t("transactions.calculation.formula") %></th><td><code><%= calc["formula"] %></code></td></tr>
               <tr><th><%= Transaction.human_attribute_name(:transaction_amount_vnd) %></th><td class="money"><%= format_vnd(calc["transaction_amount_vnd"]) %></td></tr>
               <tr><th><%= t("transactions.calculation.base_fee_rate") %></th><td><code><%= calc["base_fee_rate"] %></code> (<%= format_rate(calc["base_fee_rate"]) %>)</td></tr>
@@ -280,7 +280,7 @@
             <% extraction = @transaction.extraction %>
             <% if extraction.present? %>
               <div class="table-responsive mb-3">
-                <table class="table table-sm mb-0">
+                <table class="table table-sm mb-0" <%= bulk_table_attributes %>>
                   <thead><tr><th><%= t("reviews.field") %></th><th><%= t("reviews.ocr_value") %></th><th><%= t("common.confidence") %></th></tr></thead>
                   <tbody>
                     <% BillVision::Prompt::FIELDS.each do |field| %>
@@ -310,7 +310,7 @@
       <div class="card-header"><h3 class="card-title"><%= t("transactions.show.reviews") %></h3></div>
       <% if @reviews.any? %>
         <div class="table-responsive">
-          <table class="table card-table table-vcenter">
+          <table class="table card-table table-vcenter" <%= bulk_table_attributes %>>
             <thead><tr><th><%= TransactionReview.human_attribute_name(:created_at) %></th><th><%= TransactionReview.human_attribute_name(:reason_codes) %></th><th><%= TransactionReview.human_attribute_name(:status) %></th><th><%= TransactionReview.human_attribute_name(:reviewed_by) %></th></tr></thead>
             <tbody>
               <% @reviews.each do |review| %>

@@ -21,7 +21,7 @@ RSpec.describe "Admin remitter transfers" do
     get admin_remitter_transfers_path
 
     expect(response).to have_http_status(:ok)
-    expect(response.body).to include("##{transfer.id}", "Lập", "Tin nhắn không có mã chuyển tiền")
+    expect(response.body).to include("##{transfer.id}", "Lập", I18n.t("remitter_transfers.reasons.code_missing"))
   end
 
   it "shows the photo, caption and the review form" do

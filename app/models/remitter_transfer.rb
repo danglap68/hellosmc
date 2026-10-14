@@ -7,7 +7,7 @@ class RemitterTransfer < ApplicationRecord
   has_paper_trail ignore: %i[updated_at lock_version]
 
   STATUSES = %w[processing needs_review approved rejected failed].freeze
-  CODE_SOURCES = %w[caption manual].freeze
+  CODE_SOURCES = %w[caption image manual].freeze
 
   belongs_to :telegram_message
   belongs_to :bill_image, optional: true

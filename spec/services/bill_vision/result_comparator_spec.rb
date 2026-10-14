@@ -26,6 +26,18 @@ RSpec.describe BillVision::ResultComparator do
     described_class.call(primary: normalize(primary), validator: normalize(validator))
   end
 
+  it "accepts equivalent padded transfer memos but blocks conflicting or missing validator memos" do
+    primary = extraction_fixture("transfer")
+    primary["documents"].first.merge!("transfer_memo" => "As02", "transfer_memo_confidence" => 0.99)
+    validator = primary.deep_dup
+    validator["documents"].first["transfer_memo"] = "AS2"
+    expect(compare(primary, validator).agreed).to be(true)
+    [ "AS3", nil ].each do |memo|
+      validator["documents"].first["transfer_memo"] = memo
+      expect(compare(primary, validator).differences).to include("transfer_memo")
+    end
+  end
+
   describe "what blocks and what does not" do
     it "blocks when the amount, date, time or document type differ" do
       {

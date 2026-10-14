@@ -28,7 +28,7 @@
 <div class="card">
   <% if @transactions.any? %>
     <div class="table-responsive">
-      <table class="table table-vcenter card-table table-sm">
+      <table class="table table-vcenter card-table table-sm" <%= bulk_table_attributes(:transactions) %>>
         <thead>
           <tr>
             <th>ID</th>
@@ -46,7 +46,7 @@
         </thead>
         <tbody>
           <% @transactions.each do |transaction| %>
-            <tr>
+            <tr <%= bulk_row_attributes(transaction) %>>
               <td><%= link_to "##{transaction.id}", admin_transaction_path(transaction) %></td>
               <td class="text-nowrap">
                 <% if transaction.transaction_at %>

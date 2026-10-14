@@ -7,6 +7,7 @@ Rails.application.routes.draw do
 
   namespace :admin do
     root "dashboard#index"
+    resources :bulk_actions, only: :create
 
     resources :messages, only: [ :index, :show ]
     resources :transactions, only: [ :index, :show, :edit, :update ] do

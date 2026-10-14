@@ -26,4 +26,10 @@ module RemitterTransfersHelper
   def remitter_transfer_reason(code)
     t("remitter_transfers.reasons.#{code}", default: t("review_reasons.#{code}", default: code))
   end
+
+  def remitter_transfer_memo(transfer)
+    transfer.display_image&.documents.to_a.filter_map do |document|
+      document["transfer_memo"].presence if document["document_type"] == "transfer"
+    end.uniq.join("; ").presence
+  end
 end

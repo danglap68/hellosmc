@@ -5,7 +5,7 @@ module BillVision
   #
   # It validates and cleans facts; it never invents or corrects them.
   class Normalizer
-    SCHEMA_VERSION = 1
+    SCHEMA_VERSION = 2
     MAX_DOCUMENTS = 20
     # The merchant counts as identified when either its name or its MID/TID is read confidently.
     CRITICAL_FIELDS = %w[document_type total_amount_vnd merchant_name transaction_date transaction_time].freeze
@@ -69,6 +69,7 @@ module BillVision
         "terminal_or_merchant_id" => clean_string(doc["terminal_or_merchant_id"])
       }
       recipient_name = document_type == "transfer" ? clean_string(doc[Prompt::RECIPIENT_FIELD]) : nil
+      transfer_memo = document_type == "transfer" ? clean_string(doc["transfer_memo"]) : nil
 
       confidence = Prompt::FIELDS.index_with do |field|
         # A missing value cannot be trusted, whatever the model claimed.
@@ -79,6 +80,8 @@ module BillVision
       values.merge(
         "index" => index,
         "recipient_name" => recipient_name,
+        "transfer_memo" => transfer_memo,
+        "transfer_memo_confidence" => transfer_memo ? clamp(doc["transfer_memo_confidence"]) : 0.0,
         "bill_bank_name" => clean_string(doc[Prompt::BANK_FIELD]),
         "shows_success_message" => flag(doc, "shows_success_message"),
         "shows_qr_code" => flag(doc, "shows_qr_code"),

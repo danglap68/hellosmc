@@ -3,7 +3,8 @@ module RemitterTransfers
   # and decides: approved (written to the sheet) or needs_review.
   #
   # Approved needs all of: an amount read with confidence >= the auto-approve
-  # threshold (92%), exactly one known transfer code in the caption that points
+  # threshold (92%), exactly one known code in the caption or a confidently
+  # read bank-transfer memo, with no source conflict, pointing
   # to an active agent row, an active remitter, and no likely duplicate.
   # A transfer a person already decided, or already written, is left alone.
   class Builder
@@ -62,10 +63,10 @@ module RemitterTransfers
       amount, confidence, amount_issue = amount_reading(source)
       reasons << amount_issue if amount_issue
 
-      match = CodeMatcher.call(@transfer.caption)
+      match = CodeResolver.call(caption: @transfer.caption, image: source)
       reasons << match.issue if match.issue
-      link = match.found? ? Codes.merchant_dealer_for(match.code) : nil
-      reasons << "code_dealer_inactive" if match.found? && link.nil?
+      link = match.code ? Codes.merchant_dealer_for(match.code) : nil
+      reasons << "code_dealer_inactive" if match.code && link.nil?
 
       if @transfer.remitter.nil?
         reasons << "remitter_unknown"
@@ -79,7 +80,7 @@ module RemitterTransfers
         amount_vnd: amount,
         amount_confidence: confidence,
         transfer_code: match.code,
-        code_source: match.found? ? "caption" : nil,
+        code_source: match.source,
         merchant_dealer: link,
         merchant: link&.merchant
       }
@@ -99,7 +100,7 @@ module RemitterTransfers
       end
     end
 
-    # Only the amount matters on a transfer photo. Transfer documents win over
+    # Transfer documents win over
     # anything else the model saw; two different amounts are not guessed.
     def amount_reading(image)
       documents = image.documents.select { |doc| doc["total_amount_vnd"].present? }

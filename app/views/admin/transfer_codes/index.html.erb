@@ -29,7 +29,7 @@
 <div class="card">
   <% if @links.any? %>
     <div class="table-responsive">
-      <table class="table table-vcenter card-table">
+      <table class="table table-vcenter card-table" <%= bulk_table_attributes(:transfer_codes) %>>
         <thead>
           <tr>
             <th><%= MerchantDealer.human_attribute_name(:transfer_code) %></th>
@@ -42,7 +42,7 @@
         </thead>
         <tbody>
           <% @links.each do |link| %>
-            <tr>
+            <tr <%= bulk_row_attributes(link) %>>
               <td class="text-nowrap">
                 <code class="fs-4"><%= link.transfer_code %></code>
                 <button type="button" class="btn btn-sm btn-ghost-secondary btn-icon ms-1"

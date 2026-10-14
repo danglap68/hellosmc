@@ -43,7 +43,7 @@
         <div class="card-header"><h3 class="card-title"><%= t("excel_exports.show.skipped") %></h3></div>
         <% if skipped.any? %>
           <div class="table-responsive">
-            <table class="table card-table">
+            <table class="table card-table" <%= bulk_table_attributes %>>
               <thead><tr><th><%= t("excel_exports.show.transaction") %></th><th><%= t("excel_exports.show.skip_reason") %></th></tr></thead>
               <tbody>
                 <% skipped.each do |row| %>
@@ -65,7 +65,7 @@
       <% by_dealer = @excel_export.metadata.dig("totals", "by_dealer") || {} %>
       <% if by_dealer.any? %>
         <div class="table-responsive">
-          <table class="table card-table">
+          <table class="table card-table" <%= bulk_table_attributes %>>
             <thead><tr><th><%= t("excel_exports.show.dealer") %></th><th class="text-end"><%= t("excel_exports.show.success_count") %></th><th class="text-end"><%= Transaction.human_attribute_name(:transaction_amount_vnd) %></th><th class="text-end"><%= Transaction.human_attribute_name(:amount_after_base_fee_vnd) %></th><th class="text-end"><%= t("excel_exports.show.hold_count") %></th></tr></thead>
             <tbody>
               <% by_dealer.each do |dealer_name, row| %>

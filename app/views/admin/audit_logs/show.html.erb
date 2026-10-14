@@ -38,7 +38,7 @@
       <% keys = (before.keys | after.keys) %>
       <% if keys.any? %>
         <div class="table-responsive">
-          <table class="table card-table table-diff">
+          <table class="table card-table table-diff" <%= bulk_table_attributes %>>
             <thead><tr><th><%= t("audit_logs.show.field") %></th><th><%= AuditLog.human_attribute_name(:before_data) %></th><th><%= AuditLog.human_attribute_name(:after_data) %></th></tr></thead>
             <tbody>
               <% keys.each do |key| %>
