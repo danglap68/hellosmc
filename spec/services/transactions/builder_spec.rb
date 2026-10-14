@@ -22,6 +22,21 @@ RSpec.describe Transactions::Builder do
     expect(bill_image.telegram_message.reload).to be_processing_processed
   end
 
+  it "requires review for a repeat settlement whose OCR amount conflicts with the first photo" do
+    first_image = analyzed_bill
+    first = described_class.call(bill_image: first_image).sole
+    second_image = analyzed_bill
+    extraction = second_image.normalized_extraction.deep_dup
+    extraction["documents"].sole["total_amount_vnd"] = first.transaction_amount_vnd * 10
+    second_image.update!(normalized_extraction: extraction)
+    second = described_class.call(bill_image: second_image).sole
+    expect(first.reload).to be_approved
+    expect(second).to be_needs_review
+    expect(second.review_reason_codes).to include("possible_duplicate")
+    expect(second.source_data["possible_duplicate_ids"]).to include(first.id)
+    expect(second.transaction_amount_vnd).to eq(first.transaction_amount_vnd * 10)
+  end
+
   it "prices the amount from the MB rule when the household rule has no card base fee" do
     household = create(:fee_rule, merchant: merchant, base_fee_rate: BigDecimal("0.0121"), dealer_rate: BigDecimal("0.014"))
     mb_rule.update!(base_fee_rate: BigDecimal("0.0088"), dealer_rate: BigDecimal("0.012"))

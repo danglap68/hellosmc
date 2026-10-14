@@ -82,8 +82,10 @@ module BillVision
         "recipient_name" => recipient_name,
         "transfer_memo" => transfer_memo,
         "transfer_memo_confidence" => transfer_memo ? clamp(doc["transfer_memo_confidence"]) : 0.0,
+        "bank_transaction_reference" => (clean_string(doc[Prompt::TRANSFER_REFERENCE_FIELD]) if document_type == "transfer"),
         "bill_bank_name" => clean_string(doc[Prompt::BANK_FIELD]),
         "shows_success_message" => flag(doc, "shows_success_message"),
+        "shows_booked_transfer" => flag(doc, "shows_booked_transfer"),
         "shows_qr_code" => flag(doc, "shows_qr_code"),
         "shows_smart_pos" => flag(doc, Prompt::SMART_POS_FLAG),
         "downgraded_from" => downgraded_from,
@@ -99,11 +101,21 @@ module BillVision
     end
 
     # A "transfer" that shows a QR code is a request to be paid, not money sent;
-    # one that prints no success wording is not a confirmation. Either way the
+    # one without a success banner or a verifiable booked history entry is
+    # not a confirmation. Either way the
     # photo is not a transfer: it becomes "unknown" and is skipped. A run that
     # does not report the flags (older output) keeps its type.
     def transfer_not_confirmed?(document_type, doc)
-      document_type == "transfer" && (flag(doc, "shows_qr_code") == true || flag(doc, "shows_success_message") == false)
+      document_type == "transfer" && (flag(doc, "shows_qr_code") == true ||
+        (flag(doc, "shows_success_message") == false && !booked_transfer?(doc)))
+    end
+
+    def booked_transfer?(doc)
+      flag(doc, "shows_booked_transfer") == true &&
+        clean_string(doc[Prompt::TRANSFER_REFERENCE_FIELD]).present? &&
+        parse_amount(doc["total_amount_vnd"]).to_i.positive? &&
+        parse_date(doc["transaction_date"]).present? && parse_time(doc["transaction_time"]).present? &&
+        clean_string(doc[Prompt::RECIPIENT_FIELD]).present?
     end
 
     def flag(doc, name)

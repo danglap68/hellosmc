@@ -5,7 +5,7 @@ module Admin
     SORTS = {
       "newest" => { created_at: :desc, id: :desc },
       "oldest" => { created_at: :asc, id: :asc },
-      "when_desc" => { transaction_at: :desc, id: :desc },
+      "when_desc" => [ Transaction.arel_table[:transaction_at].desc.nulls_last, { id: :desc } ],
       "when_asc" => { transaction_at: :asc, id: :asc },
       "amount_desc" => { transaction_amount_vnd: :desc, id: :desc },
       "amount_asc" => { transaction_amount_vnd: :asc, id: :asc }
@@ -15,7 +15,7 @@ module Admin
 
     def index
       @filter = Transactions::Filter.new(params)
-      scope = apply_sort(@filter.apply(Transaction.includes(:dealer, :merchant, :card_type)), SORTS, default: "newest")
+      scope = apply_sort(@filter.apply(Transaction.includes(:dealer, :merchant, :card_type)), SORTS, default: "when_desc")
       @pagy, @transactions = pagy(scope)
     end
 

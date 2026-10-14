@@ -56,7 +56,7 @@ module BillVision
 
         evaluation = Transactions::Evaluator.call(document: doc, bill_image: @bill_image)
         business.concat(evaluation.review_reasons & CONFIGURATION_REASONS)
-        prospective = Transaction.new(evaluation.attributes.merge(bill_image: @bill_image))
+        prospective = Transaction.new(evaluation.attributes.merge(bill_image: @bill_image, source_data: evaluation.source_data))
         duplicates = Transactions::DuplicateDetector.call(prospective).possible_duplicate_ids
         # The existing rows being reread belong to this bill, not a second
         # submission. Builder still checks duplicates when it persists rows.

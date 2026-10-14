@@ -1,6 +1,17 @@
 require "rails_helper"
 
 RSpec.describe BillVision::OutputSchema do
+  it "accepts optional booked-history evidence while rejecting malformed reference or flag" do
+    data = extraction_fixture("transfer")
+    data["documents"].first.merge!("shows_booked_transfer" => true, "bank_transaction_reference" => "FT123")
+    expect(described_class.valid?(data)).to be(true)
+    data["documents"].first["bank_transaction_reference"] = 123
+    expect(described_class.valid?(data)).to be(false)
+    data["documents"].first["bank_transaction_reference"] = "FT123"
+    data["documents"].first["shows_booked_transfer"] = "true"
+    expect(described_class.valid?(data)).to be(false)
+  end
+
   it "accepts an optional visible transfer memo but rejects malformed text or confidence" do
     data = extraction_fixture("transfer")
     data["documents"].first.merge!("transfer_memo" => "As02", "transfer_memo_confidence" => 0.99)

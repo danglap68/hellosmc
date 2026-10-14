@@ -66,6 +66,22 @@ RSpec.describe RemitterTransfers::Builder do
     expect(WriteRemitterReportJob).not_to have_been_enqueued
   end
 
+  it "routes a booked transfer detail with Gt03 to money out even without a success banner" do
+    transfer = transfer_with(caption: nil, amount: 26_021_000)
+    data = extraction_fixture("transfer")
+    data["documents"].first.merge!("shows_success_message" => false, "shows_qr_code" => false,
+                                   "shows_booked_transfer" => true, "bank_transaction_reference" => "FT26287703118373",
+                                   "recipient_name" => "LE KHAC LAM", "total_amount_vnd" => 26_021_000,
+                                   "transaction_date" => "2026-10-14", "transaction_time" => "16:54:02",
+                                   "transfer_memo" => "Gt03", "transfer_memo_confidence" => 0.99)
+    image = transfer.telegram_message.bill_images.sole
+    image.update!(normalized_extraction: BillVision::Normalizer.call(data, provider: "openai", model: "gpt-test"))
+    described_class.call(remitter_transfer: transfer)
+    expect(transfer.reload).to be_approved
+    expect(transfer).to have_attributes(transfer_code: "GT03", code_source: "image", amount_vnd: 26_021_000)
+    expect(Transaction.count).to eq(0)
+  end
+
   it "uses the configured code when zero padding is missing, and still detects repeat payments" do
     first = described_class.call(remitter_transfer: transfer_with(caption: "chuyen TK1"))
     expect(first).to be_approved

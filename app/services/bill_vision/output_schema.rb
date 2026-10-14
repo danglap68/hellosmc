@@ -14,11 +14,12 @@ module BillVision
 
     def valid_document?(doc)
       return false unless doc.is_a?(Hash)
-      return false unless (doc.keys - [ Prompt::RECIPIENT_FIELD, Prompt::BANK_FIELD, "merchant_match" ] - Prompt::FLAGS - Prompt::TRANSFER_MEMO_FIELDS).sort == (Prompt::FIELDS + [ "confidence" ]).sort
+      return false unless (doc.keys - [ Prompt::RECIPIENT_FIELD, Prompt::BANK_FIELD, Prompt::TRANSFER_REFERENCE_FIELD, "merchant_match" ] - Prompt::FLAGS - Prompt::TRANSFER_MEMO_FIELDS).sort == (Prompt::FIELDS + [ "confidence" ]).sort
       return false unless valid_merchant_match?(doc["merchant_match"])
       return false unless doc[Prompt::RECIPIENT_FIELD].nil? || doc[Prompt::RECIPIENT_FIELD].is_a?(String)
       return false unless doc[Prompt::BANK_FIELD].nil? || doc[Prompt::BANK_FIELD].is_a?(String)
       return false unless doc["transfer_memo"].nil? || doc["transfer_memo"].is_a?(String)
+      return false unless doc[Prompt::TRANSFER_REFERENCE_FIELD].nil? || doc[Prompt::TRANSFER_REFERENCE_FIELD].is_a?(String)
       if doc.key?("transfer_memo_confidence")
         score = doc["transfer_memo_confidence"]
         return false unless score.is_a?(Numeric) && score.finite? && score.between?(0, 1)

@@ -15,10 +15,10 @@ module BillVision
     # same name on different banks' slips can be told apart by an alias.
     BANK_FIELD = "bill_bank_name".freeze
     TRANSFER_MEMO_FIELDS = %w[transfer_memo transfer_memo_confidence].freeze
-    # Two facts read from the image that decide whether a "transfer" really is a
-    # completed bank transfer (Normalizer): the wording that says it succeeded,
-    # and a QR code (a request to be paid, never a transfer).
-    TRANSFER_FLAGS = %w[shows_success_message shows_qr_code].freeze
+    TRANSFER_REFERENCE_FIELD = "bank_transaction_reference".freeze
+    # Completion can be shown by a success banner or an already-booked entry
+    # in bank history. A payment-request QR is never proof of money sent.
+    TRANSFER_FLAGS = %w[shows_success_message shows_booked_transfer shows_qr_code].freeze
     # SmartPOS visible anywhere in the photo (logo on the terminal, screen, slip): those sales use another fee calculation,
     # so Transactions::Builder leaves them out.
     SMART_POS_FLAG = "shows_smart_pos".freeze
@@ -36,6 +36,10 @@ module BillVision
       - "transfer": ONLY a bank transfer confirmation — a bank app screenshot or a bank slip that shows
         CHUYỂN TIỀN / CHUYỂN KHOẢN / ỦY NHIỆM CHI / LỆNH CHUYỂN TIỀN and a bank, sender or receiver,
         and says the transfer went through (CHUYỂN TIỀN THÀNH CÔNG, CHUYỂN KHOẢN THÀNH CÔNG, CHUYỂN THÀNH CÔNG).
+        Also accept an already-booked bank-history entry (CHI TIẾT GIAO DỊCH) showing CHUYỂN KHOẢN TỪ / ĐẾN,
+        amount, timestamp and a bank transaction reference (MÃ GIAO DỊCH), even without a success banner.
+        A transfer-entry form, preview, confirmation request, pending, scheduled, failed or cancelled
+        transfer is NOT an already-booked entry. Never infer completion merely from an amount and names.
         A page that only shows a QR code to scan (QUÉT ĐỂ THANH TOÁN, a receiving-account or payment-request
         QR) is NOT a transfer, whatever amount or account it shows: classify it as "unknown".
         total_amount_vnd is the transferred amount; transaction_date/transaction_time are the transfer
@@ -88,10 +92,16 @@ module BillVision
         Never substitute the account number, recipient name, bank reference/transaction ID or a guessed
         configured code. Null if absent or unreadable, and null for other document types.
       - transfer_memo_confidence: certainty from 0 to 1 that transfer_memo was read exactly; 0 when null.
+      - bank_transaction_reference: only for "transfer": the actual bank transaction reference labelled
+        MÃ GIAO DỊCH / TRANSACTION ID, verbatim. Never an account number, transfer memo, POS lot or TID.
+        Null if absent or unreadable, and null for other document types.
 
       - shows_success_message: true only for a "transfer" whose image literally prints a wording saying the
         transfer succeeded (CHUYỂN TIỀN THÀNH CÔNG, CHUYỂN KHOẢN THÀNH CÔNG, CHUYỂN THÀNH CÔNG, GIAO DỊCH THÀNH CÔNG);
         false when the image prints none of them. Null for every other document type.
+      - shows_booked_transfer: true only for an already-booked bank-history transfer entry with visible
+        sender and recipient, amount, timestamp and bank transaction reference. False for forms, previews,
+        pending/scheduled/failed/cancelled transfers and payment requests. Null for other document types.
       - shows_qr_code: true when a QR code is visible anywhere in the image, otherwise false.
       - shows_smart_pos: true when the name SmartPOS / Smart POS is visible anywhere in the image: the logo on
         the terminal, its screen or the receipt (also when written as one word). Otherwise false.
@@ -121,7 +131,7 @@ module BillVision
           items: {
             type: "object",
             additionalProperties: false,
-            required: FIELDS + [ RECIPIENT_FIELD, BANK_FIELD ] + FLAGS + TRANSFER_MEMO_FIELDS + %w[confidence merchant_match],
+            required: FIELDS + [ RECIPIENT_FIELD, BANK_FIELD, TRANSFER_REFERENCE_FIELD ] + FLAGS + TRANSFER_MEMO_FIELDS + %w[confidence merchant_match],
             properties: {
               document_type: { type: "string", enum: DOCUMENT_TYPES },
               total_amount_vnd: { type: %w[integer null] },
@@ -142,7 +152,9 @@ module BillVision
               bill_bank_name: { type: %w[string null] },
               transfer_memo: { type: %w[string null] },
               transfer_memo_confidence: { type: "number" },
+              bank_transaction_reference: { type: %w[string null] },
               shows_success_message: { type: %w[boolean null] },
+              shows_booked_transfer: { type: %w[boolean null] },
               shows_qr_code: { type: %w[boolean null] },
               shows_smart_pos: { type: %w[boolean null] },
               confidence: {

@@ -134,7 +134,16 @@ module Transactions
     def lock_duplicate_scope(transaction)
       return unless transaction.merchant_id && transaction.transaction_amount_vnd
 
-      key = "duplicate:#{transaction.merchant_id}:#{transaction.transaction_amount_vnd}"
+      keys = [ "duplicate:#{transaction.merchant_id}:#{transaction.transaction_amount_vnd}" ]
+      identifier = VietnameseText.normalize_identifier(transaction.extraction["terminal_or_merchant_id"])
+      if transaction.extraction["document_type"] == "settlement" && transaction.lot_number.present? &&
+          transaction.transaction_at && identifier.present?
+        keys << "settlement:#{transaction.merchant_id}:#{identifier}:#{transaction.lot_number}:#{transaction.transaction_at.to_i}"
+      end
+      keys.sort.each { |key| lock_duplicate_key(key) }
+    end
+
+    def lock_duplicate_key(key)
       Transaction.connection.execute(
         Transaction.sanitize_sql_array([ "SELECT pg_advisory_xact_lock(hashtext(?))", key ])
       )

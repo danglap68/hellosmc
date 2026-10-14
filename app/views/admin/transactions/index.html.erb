@@ -3,7 +3,7 @@
 <%= list_toolbar(
       url: admin_transactions_path,
       search: { param: "q", value: @filter[:q], placeholder: t("transactions.filters.q_placeholder") },
-      default_sort: "newest",
+      default_sort: "when_desc",
       sorts: [
         { key: "newest", label: t("toolbar.sorts.newest") },
         { key: "oldest", label: t("toolbar.sorts.oldest") },

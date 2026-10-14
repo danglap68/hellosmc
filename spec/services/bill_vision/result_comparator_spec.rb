@@ -39,6 +39,16 @@ RSpec.describe BillVision::ResultComparator do
   end
 
   describe "what blocks and what does not" do
+    it "blocks conflicting bank references on booked transfer details" do
+      primary = extraction_fixture("transfer_with_recipient")
+      primary["documents"].first.merge!("shows_success_message" => false, "shows_booked_transfer" => true,
+                                        "bank_transaction_reference" => "FT123", "transaction_time" => "16:54:02")
+      validator = primary.deep_dup
+      expect(compare(primary, validator).agreed).to be(true)
+      validator["documents"].first["bank_transaction_reference"] = "FT124"
+      expect(compare(primary, validator).differences).to include("bank_transaction_reference")
+    end
+
     it "blocks when the amount, date, time or document type differ" do
       {
         "total_amount_vnd" => 11_445_001, "transaction_date" => "2026-10-05", "transaction_time" => "10:57:26",

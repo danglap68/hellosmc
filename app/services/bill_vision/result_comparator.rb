@@ -45,6 +45,9 @@ module BillVision
       if left["document_type"] == "transfer" && memo_key(left["transfer_memo"]) != memo_key(right["transfer_memo"])
         differences << "transfer_memo"
       end
+      if left["document_type"] == "transfer" && (left["shows_booked_transfer"] || right["shows_booked_transfer"])
+        differences << "bank_transaction_reference" if left["bank_transaction_reference"] != right["bank_transaction_reference"]
+      end
       differences
     end
 

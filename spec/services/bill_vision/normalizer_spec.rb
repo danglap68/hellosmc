@@ -49,6 +49,27 @@ RSpec.describe BillVision::Normalizer do
       )
     end
 
+    it "keeps a booked bank-history entry without a success banner and preserves its memo" do
+      document = transfer(shows_success_message: false, shows_qr_code: false, shows_booked_transfer: true,
+                          bank_transaction_reference: "FT26287703118373", recipient_name: "LE KHAC LAM",
+                          total_amount_vnd: 26_021_000, transaction_date: "2026-10-14", transaction_time: "16:54:02",
+                          transfer_memo: "Gt03", transfer_memo_confidence: 0.99)
+      expect(document).to include("document_type" => "transfer", "downgraded_from" => nil,
+                                 "total_amount_vnd" => 26_021_000, "transfer_memo" => "Gt03",
+                                 "bank_transaction_reference" => "FT26287703118373")
+    end
+
+    it "requires the booked flag and visible reference, timestamp, amount and recipient" do
+      evidence = { shows_success_message: false, shows_qr_code: false, shows_booked_transfer: true,
+                   bank_transaction_reference: "FT26287703118373", recipient_name: "LE KHAC LAM",
+                   total_amount_vnd: 26_021_000, transaction_date: "2026-10-14", transaction_time: "16:54:02" }
+      %i[shows_booked_transfer bank_transaction_reference recipient_name total_amount_vnd transaction_date transaction_time].each do |field|
+        expect(transfer(**evidence.merge(field => nil))["document_type"]).to eq("unknown"), field.to_s
+      end
+      expect(transfer(**evidence.merge(shows_qr_code: true))["document_type"]).to eq("unknown")
+      expect(transfer(**evidence.merge(total_amount_vnd: 0))["document_type"]).to eq("unknown")
+    end
+
     it "keeps its type when the run does not report the flags (older output, null)" do
       expect(transfer["document_type"]).to eq("transfer")
       expect(transfer(shows_success_message: nil, shows_qr_code: nil)["document_type"]).to eq("transfer")
