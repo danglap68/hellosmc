@@ -12,7 +12,9 @@ module BillVision
       @bill_image = image if image.is_a?(BillImage)
       @image = @bill_image ? Image.from_bill_image(image) : image
       @extractor, @budget = extractor, budget
-      @review_reasons = []
+      # Retrying cannot erase a previously observed integrity risk. Its source
+      # evidence remains in vision_history; a human can verify and approve.
+      @review_reasons = @bill_image ? ImageIntegrity.reasons(@bill_image.documents) : []
     end
 
     def call
@@ -114,10 +116,14 @@ module BillVision
     end
 
     def normalize(vision)
-      if vision.provider == "openai" && !OutputSchema.valid?(vision.data)
+      if vision.provider == "openai" && !OutputSchema.valid?(vision.data, require_integrity: true)
         raise InvalidExtraction.new("openai answer does not match the extraction schema", raw: vision.raw, model: vision.model)
       end
-      Normalizer.call(vision.data, provider: vision.provider, model: vision.model)
+      normalized = Normalizer.call(vision.data, provider: vision.provider, model: vision.model)
+      # Either independent read can flag a risk. Agreement about amounts does
+      # not clear that risk, nor does a clean validator overrule the primary.
+      @review_reasons |= ImageIntegrity.reasons(normalized["documents"])
+      normalized
     rescue ArgumentError, TypeError, NoMethodError
       raise PermanentError, "#{vision.provider} normalization failed" unless vision.provider == "openai"
 
@@ -158,7 +164,7 @@ module BillVision
         normalized["requires_review"] = true
         normalized["documents"].each do |doc|
           doc["requires_review"] = true
-          doc["vision_review_reasons"] = @review_reasons.uniq
+          doc["vision_review_reasons"] = Array(doc["vision_review_reasons"]) | @review_reasons
         end
       end
       @budget.record!("review_reasons" => @review_reasons.uniq)

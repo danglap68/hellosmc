@@ -15,7 +15,7 @@ module Transactions
     # OCR itself went wrong (not "the photo is not a settlement"): the photo
     # must still reach a person even when it reads as unknown.
     OCR_PROBLEM_REASONS =%w[malformed_primary_extraction primary_output_truncated primary_refused
-                             validation_budget_exhausted validator_failed].freeze
+                             validation_budget_exhausted validator_failed image_tampering_suspected image_integrity_uncertain].freeze
 
     def self.call(bill_image:)
       new(bill_image).call
@@ -156,9 +156,13 @@ module Transactions
     def album_total_reasons(document)
       return [] unless @bill_image.bill_album_id.present?
       return [] unless document["document_type"].in?(%w[settlement transfer])
-      return [] if self.class.complete_settlement?(document)
 
-      [ "album_total_review" ]
+      integrity_reasons = @bill_image.bill_album.bill_images.analyzable.flat_map do |image|
+        BillVision::ImageIntegrity.reasons(image.documents)
+      end.uniq
+      return integrity_reasons if self.class.complete_settlement?(document)
+
+      integrity_reasons | [ "album_total_review" ]
     end
 
     # A "tổng kết" (settlement/transfer) often prints only the total, not the
@@ -260,6 +264,7 @@ module Transactions
       end
 
       if @bill_image.bill_album_id.present?
+        return false if type == "unknown" && BillVision::ImageIntegrity.reasons([ document ]).any?
         return true if type.in?(%w[child_receipt unknown])
         return true if type.in?(%w[settlement transfer]) && document["total_amount_vnd"].nil?
 

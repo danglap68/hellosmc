@@ -39,8 +39,10 @@ module BillAlbums
       @total_image = nil
       @total_docs = []
       @amount_missing = false
+      @integrity_reasons = []
 
       @album.bill_images.analyzable.each do |image|
+        @integrity_reasons |= BillVision::ImageIntegrity.reasons(image.documents)
         image.documents.each do |doc|
           case doc["document_type"]
           when "child_receipt"
@@ -70,7 +72,7 @@ module BillAlbums
     end
 
     def build_transactions
-      return unless @total_count >= 1
+      return unless @total_count >= 1 || @integrity_reasons.any?
 
       # The Builder skips child receipts (evidence) and builds the "tổng kết"
       # settlement/transfer as the single transaction. A complete settlement
@@ -85,7 +87,11 @@ module BillAlbums
     end
 
     def apply_decision
-      if @total_count.zero?
+      if @integrity_reasons.any?
+        @status = "needs_review"
+        @reconciliation_status = "incomplete"
+        @flag_reason = @integrity_reasons.first
+      elsif @total_count.zero?
         @status = "skipped"
         @reconciliation_status = total_duplicate? ? "transfer_duplicate" : "no_transfer"
         @flag_reason = nil

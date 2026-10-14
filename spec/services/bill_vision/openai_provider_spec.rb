@@ -27,6 +27,14 @@ RSpec.describe BillVision::OpenaiProvider do
     }).to have_been_made
   end
 
+  it "refuses a fresh provider answer that omitted integrity screening" do
+    data = extraction_fixture("normal_settlement")
+    data["documents"].first.delete("image_integrity")
+    stub_openai(body: { "choices" => [ { "message" => { "content" => data.to_json } } ] })
+    expect { provider.extract(image) }.to raise_error(BillVision::InvalidExtraction, /schema/)
+    expect(BillVision::OutputSchema.valid?(data)).to be(true) # stored legacy extraction stays readable
+  end
+
   it "treats rate limits and server errors as transient" do
     stub_openai(status: 429, body: { "error" => "rate limited" })
     expect { provider.extract(image) }.to raise_error(BillVision::TransientError)

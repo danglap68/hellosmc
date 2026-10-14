@@ -3,7 +3,7 @@ module RemitterTransfers
   # human rejection. Shared duplicate images are never re-analyzed here.
   class Retrier
     COOLDOWN = 30.seconds
-    OCR_REASONS = %w[amount_missing amount_ambiguous amount_low_confidence].freeze
+    OCR_REASONS = (%w[amount_missing amount_ambiguous amount_low_confidence] + BillVision::ImageIntegrity::REVIEW_REASONS).freeze
     Plan = Data.define(:step, :image, :error) do
       def allowed? = error.nil?
     end

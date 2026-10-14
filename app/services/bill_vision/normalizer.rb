@@ -5,7 +5,7 @@ module BillVision
   #
   # It validates and cleans facts; it never invents or corrects them.
   class Normalizer
-    SCHEMA_VERSION = 2
+    SCHEMA_VERSION = 3
     MAX_DOCUMENTS = 20
     # The merchant counts as identified when either its name or its MID/TID is read confidently.
     CRITICAL_FIELDS = %w[document_type total_amount_vnd merchant_name transaction_date transaction_time].freeze
@@ -77,6 +77,8 @@ module BillVision
       end
 
       low_fields = low_confidence_fields(document_type, confidence)
+      integrity = doc["image_integrity"]&.deep_dup || { "status" => "not_assessed", "evidence" => [] }
+      integrity_reason = ImageIntegrity.reason(integrity)
       values.merge(
         "index" => index,
         "recipient_name" => recipient_name,
@@ -96,8 +98,11 @@ module BillVision
         "confidence" => confidence,
         "critical_confidence" => critical_fields(document_type).map { |field| critical_value(confidence, field) }.min,
         "low_confidence_fields" => low_fields,
-        "requires_review" => requires_review?(document_type, low_fields)
-      )
+        "image_integrity" => integrity,
+        "requires_review" => requires_review?(document_type, low_fields) || integrity_reason.present?
+      ).tap do |normalized|
+        normalized["vision_review_reasons"] = [ integrity_reason ] if integrity_reason
+      end
     end
 
     # A "transfer" that shows a QR code is a request to be paid, not money sent;

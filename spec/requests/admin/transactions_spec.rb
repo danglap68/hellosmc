@@ -16,6 +16,24 @@ RSpec.describe "Admin transactions" do
     expect(response.body).not_to include("##{transaction.id}</a>")
   end
 
+  it "puts actual transactions before future OCR dates and unreadable dates in either date direction" do
+    older = create(:transaction, transaction_at: 1.day.ago)
+    today = create(:transaction, transaction_at: 10.minutes.ago)
+    # Includes a legacy row approved despite the bad OCR date, as on production.
+    future = create(:transaction, :approved, transaction_at: Time.zone.local(2026, 12, 10, 16, 59, 39))
+    undated = create(:transaction, transaction_at: nil)
+    snapshot = future.attributes
+    ordered_ids = -> { Nokogiri::HTML(response.body).css("tbody tr[data-bulk-id]").map { |row| row["data-bulk-id"].to_i } }
+
+    [ {}, { sort: "when_desc" }, { sort: "invalid" } ].each do |params|
+      get admin_transactions_path, params: params
+      expect(ordered_ids.call).to eq([ today.id, transaction.id, older.id, future.id, undated.id ])
+    end
+    get admin_transactions_path(sort: "when_asc")
+    expect(ordered_ids.call).to eq([ older.id, transaction.id, today.id, future.id, undated.id ])
+    expect(future.reload.attributes).to eq(snapshot)
+  end
+
   it "approves with audit trail" do
     post approve_admin_transaction_path(transaction)
     expect(transaction.reload).to be_approved

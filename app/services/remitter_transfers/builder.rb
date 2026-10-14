@@ -59,7 +59,7 @@ module RemitterTransfers
       # A calculator, a sale slip, any photo that is not a bank transfer: skipped, nobody has to look.
       return [ { status: "rejected", bill_image: image }, [ "not_a_transfer" ] ] if not_a_transfer?(source)
 
-      reasons = []
+      reasons = BillVision::ImageIntegrity.reasons(source.documents)
       amount, confidence, amount_issue = amount_reading(source)
       reasons << amount_issue if amount_issue
 

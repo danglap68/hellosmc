@@ -1201,6 +1201,8 @@ vi:
     terminal_or_merchant_id: "MID / TID"
 
   review_reasons:
+    image_tampering_suspected: "Ảnh có dấu hiệu chỉnh sửa hoặc tổng hợp – cần xác minh bill gốc"
+    image_integrity_uncertain: "Chưa đánh giá được dấu hiệu chỉnh sửa ảnh – cần xác minh bill gốc"
     merchant_ai_match: "HKD do AI đề xuất, cần xác nhận"
     merchant_ai_conflict: "AI và dữ liệu đối chiếu chọn HKD khác nhau"
     merchant_ai_uncertain: "AI chưa xác định chắc chắn HKD trong danh sách"
@@ -1301,6 +1303,8 @@ vi:
       manual: "Người kiểm tra chọn"
     reasons:
       code_missing: "Chưa tìm thấy mã chuyển tiền hợp lệ trong tin nhắn hoặc nội dung chuyển khoản trên ảnh (ví dụ TK01)"
+      image_tampering_suspected: "Ảnh có dấu hiệu chỉnh sửa hoặc tổng hợp – cần xác minh chứng từ gốc"
+      image_integrity_uncertain: "Chưa đánh giá được dấu hiệu chỉnh sửa ảnh – cần xác minh chứng từ gốc"
       code_ambiguous: "Có nhiều mã khớp: kiểm tra tin nhắn, nội dung trên ảnh và các mã chỉ khác số 0 ở đầu"
       code_conflict: "Mã trong tin nhắn khác mã trên ảnh chuyển khoản; cần kiểm tra và chọn lại"
       code_low_confidence: "Mã đọc từ ảnh chưa đủ rõ; cần kiểm tra và xác nhận"

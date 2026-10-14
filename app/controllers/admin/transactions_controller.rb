@@ -15,7 +15,8 @@ module Admin
 
     def index
       @filter = Transactions::Filter.new(params)
-      scope = apply_sort(@filter.apply(Transaction.includes(:dealer, :merchant, :card_type)), SORTS, default: "when_desc")
+      orders = SORTS.merge("when_desc" => transaction_time_order(:desc), "when_asc" => transaction_time_order(:asc))
+      scope = apply_sort(@filter.apply(Transaction.includes(:dealer, :merchant, :card_type)), orders, default: "when_desc")
       @pagy, @transactions = pagy(scope)
     end
 
@@ -74,6 +75,15 @@ module Admin
     end
 
     private
+
+    # An OCR date beyond the evaluator's future tolerance is unverified, even
+    # on a legacy approved row. Keep these and unreadable dates after actual
+    # transactions without substituting the receipt's stored timestamp.
+    def transaction_time_order(direction)
+      column = Transaction.arel_table[:transaction_at]
+      unverified = column.gt(Time.current + Transactions::Evaluator::FUTURE_TOLERANCE).or(column.eq(nil))
+      [ unverified.asc, column.public_send(direction).nulls_last, { id: direction } ]
+    end
 
     def set_transaction
       @transaction = Transaction.find(params[:id])

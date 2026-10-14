@@ -61,6 +61,29 @@ RSpec.describe BillAlbums::Reconciler do
     expect(album.transactions.sole.review_reason_codes).to include("album_total_review")
   end
 
+  it "does not auto-approve a complete settlement when a child image in the album is suspicious" do
+    risky = raw_document("child_receipt", 11_445_000).merge(
+      "image_integrity" => { "status" => "suspicious", "evidence" => [ "Receipt amount has a local pasted rectangle" ] }
+    )
+    analyzed_image(risky)
+    analyzed_image(extraction_fixture("normal_settlement")["documents"].sole)
+    reconcile
+    expect(album.status).to eq("needs_review")
+    expect(album.transactions.sole).to be_needs_review
+    expect(album.transactions.sole.review_reason_codes).to include("image_tampering_suspected")
+    expect(WriteHelloSmcWorkbookJob).not_to have_been_enqueued
+  end
+
+  it "keeps a suspicious unreadable album image visible for review instead of silently skipping it" do
+    analyzed_image(raw_document("unknown", nil).merge(
+      "image_integrity" => { "status" => "suspicious", "evidence" => [ "Receipt text has synthetic repeated character shapes" ] }
+    ))
+    reconcile
+    expect(album.status).to eq("needs_review")
+    expect(album.transactions.sole).to be_needs_review
+    expect(album.transactions.sole.review_reason_codes).to include("image_tampering_suspected")
+  end
+
   it "drops the child bills when the settlement printed everything" do
     child_bill(100_000_000)
     child_bill(50_000_000)

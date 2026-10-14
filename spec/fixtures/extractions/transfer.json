@@ -16,6 +16,10 @@
         "transaction_time": 0.95,
         "merchant_name": 0,
         "terminal_or_merchant_id": 0
+      },
+      "image_integrity": {
+        "status": "no_visible_signs",
+        "evidence": []
       }
     }
   ],

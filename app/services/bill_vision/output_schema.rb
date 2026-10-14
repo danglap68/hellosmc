@@ -4,17 +4,18 @@ module BillVision
   module OutputSchema
     module_function
 
-    def valid?(data)
+    def valid?(data, require_integrity: false)
       return false unless data.is_a?(Hash) && data.keys.sort == %w[documents notes]
       return false unless data["notes"].nil? || data["notes"].is_a?(String)
       return false unless data["documents"].is_a?(Array)
 
-      data["documents"].all? { |document| valid_document?(document) }
+      data["documents"].all? { |document| valid_document?(document, require_integrity: require_integrity) }
     end
 
-    def valid_document?(doc)
+    def valid_document?(doc, require_integrity: false)
       return false unless doc.is_a?(Hash)
-      return false unless (doc.keys - [ Prompt::RECIPIENT_FIELD, Prompt::BANK_FIELD, Prompt::TRANSFER_REFERENCE_FIELD, "merchant_match" ] - Prompt::FLAGS - Prompt::TRANSFER_MEMO_FIELDS).sort == (Prompt::FIELDS + [ "confidence" ]).sort
+      return false unless (doc.keys - [ Prompt::RECIPIENT_FIELD, Prompt::BANK_FIELD, Prompt::TRANSFER_REFERENCE_FIELD, "merchant_match", "image_integrity" ] - Prompt::FLAGS - Prompt::TRANSFER_MEMO_FIELDS).sort == (Prompt::FIELDS + [ "confidence" ]).sort
+      return false if (require_integrity || doc.key?("image_integrity")) && !ImageIntegrity.valid?(doc["image_integrity"])
       return false unless valid_merchant_match?(doc["merchant_match"])
       return false unless doc[Prompt::RECIPIENT_FIELD].nil? || doc[Prompt::RECIPIENT_FIELD].is_a?(String)
       return false unless doc[Prompt::BANK_FIELD].nil? || doc[Prompt::BANK_FIELD].is_a?(String)

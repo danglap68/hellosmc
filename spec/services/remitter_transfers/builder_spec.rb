@@ -66,6 +66,18 @@ RSpec.describe RemitterTransfers::Builder do
     expect(WriteRemitterReportJob).not_to have_been_enqueued
   end
 
+  it "does not auto-approve or write a transfer with image-integrity risk even with a valid caption code" do
+    transfer = transfer_with
+    image = transfer.telegram_message.bill_images.sole
+    data = extraction_fixture("transfer")
+    data["documents"].first["image_integrity"] = { "status" => "suspicious", "evidence" => [ "Amount line has pasted digits" ] }
+    image.update!(normalized_extraction: BillVision::Normalizer.call(data, provider: "openai", model: "gpt-test"))
+    described_class.call(remitter_transfer: transfer)
+    expect(transfer.reload).to be_needs_review
+    expect(transfer.review_reasons).to include("image_tampering_suspected")
+    expect(WriteRemitterReportJob).not_to have_been_enqueued
+  end
+
   it "routes a booked transfer detail with Gt03 to money out even without a success banner" do
     transfer = transfer_with(caption: nil, amount: 26_021_000)
     data = extraction_fixture("transfer")
