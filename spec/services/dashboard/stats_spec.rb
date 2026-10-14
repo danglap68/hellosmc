@@ -46,4 +46,40 @@ RSpec.describe Dashboard::Stats do
     expect(stats.previous_snapshot[:profit]).to eq(0)
     expect(stats.trend_buckets.map { |row| row[:profit] }).to eq([ 0 ] * 7)
   end
+
+  it "reconciles today's approved and waiting amounts, including failed bills, across all breakdowns" do
+    recorded_profit(1_000, at: Time.current, transaction_amount_vnd: 100_000)
+    %w[pending processing needs_review hold failed].each do |status|
+      recorded_profit(9_999, at: Time.current, status: status, transaction_amount_vnd: 20_000)
+    end
+    %w[rejected excluded].each do |status|
+      recorded_profit(9_999, at: Time.current, status: status, transaction_amount_vnd: 999_999)
+    end
+    recorded_profit(8_000, at: 1.day.ago)
+    stats = described_class.new
+    totals = stats.current_snapshot
+
+    expect(stats.period_key).to eq("today")
+    expect(totals).to include(gross: 200_000, approved_gross: 100_000, waiting_gross: 100_000,
+                             count: 6, approved_count: 1, waiting_count: 5, profit: 1_000, auto_approved_count: 1)
+    expect(totals[:gross]).to eq(totals[:approved_gross] + totals[:waiting_gross])
+    expect(stats.settlement_rows.values.sum { |row| row[:amount] }).to eq(totals[:gross])
+    expect(stats.dealer_rows.sum { |row| row[:amount] }).to eq(totals[:gross])
+    expect(stats.merchant_rows.sum { |row| row[:amount] }).to eq(totals[:gross])
+    expect(stats.card_chart[:buckets].sum { |row| row[:total] }).to eq(totals[:gross])
+    expect(stats.trend_buckets.sum { |row| row[:gross] }).to eq(totals[:gross])
+  end
+
+  it "keeps undated and unread transactions visible on receipt day without inventing money" do
+    create(:transaction, status: "failed", transaction_at: nil, transaction_amount_vnd: nil)
+    create(:transaction, status: "needs_review", transaction_at: nil, transaction_amount_vnd: 25_000)
+    create(:transaction, status: "failed", transaction_at: nil, created_at: 1.day.ago, transaction_amount_vnd: nil)
+
+    stats = described_class.new
+    expect(stats.current_snapshot).to include(gross: 25_000, waiting_gross: 25_000, count: 2, unread_count: 1)
+    expect(stats.card_chart[:buckets].sole[:total]).to eq(25_000)
+    expect(stats.trend_buckets.sole[:gross]).to eq(25_000)
+    filtered = Transactions::Filter.new(date_from: stats.date.iso8601, date_to: stats.date.iso8601).apply
+    expect(filtered.count).to eq(2)
+  end
 end

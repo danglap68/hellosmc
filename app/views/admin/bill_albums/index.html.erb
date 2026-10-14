@@ -48,7 +48,7 @@
               <td class="text-end money"><%= format_vnd(album.child_total_vnd) %></td>
               <td class="text-end money"><%= format_vnd(album.transfer_amount_vnd) %></td>
               <td class="text-end money"><%= format_vnd(album.match_difference_vnd) %></td>
-              <td><%= link_to t("actions.view"), admin_bill_album_path(album) %></td>
+              <td><%= link_to admin_bill_album_path(album), class: "btn btn-sm btn-ghost-secondary btn-icon", title: t("actions.view"), aria: { label: t("actions.view") } do %><%= icon("eye") %><% end %></td>
             </tr>
           <% end %>
         </tbody>

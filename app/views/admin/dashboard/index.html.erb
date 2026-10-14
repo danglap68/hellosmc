@@ -5,6 +5,7 @@
 <% trends = @stats.trend_buckets %>
 <% chart = @stats.card_chart %>
 
+<div data-controller="auto-refresh" data-auto-refresh-interval-value="60000" data-action="turbo:visit@document->auto-refresh#stop">
 <header class="overview-intro">
   <div>
     <h1><%= t("dashboard.title") %></h1>
@@ -20,23 +21,57 @@
   </div>
 </header>
 
-<section class="kpi-board" aria-label="<%= t("dashboard.title") %>">
+<section class="settlement-summary" aria-label="<%= t("dashboard.settlement.title") %>">
+  <div class="settlement-total">
+    <h2><%= t(@period == "today" ? "dashboard.settlement.today" : "dashboard.settlement.period") %></h2>
+    <p class="settlement-value"><%= format_vnd(current[:gross]) %></p>
+    <% delta = period_delta(current[:gross], previous[:gross]) %>
+    <span class="delta-pill delta-<%= delta[:direction] %>"><%= delta[:text] %></span>
+    <p class="settlement-hint"><%= t("dashboard.settlement.hint") %></p>
+  </div>
+  <dl class="settlement-equation">
+    <div>
+      <dt><%= t("dashboard.settlement.approved") %></dt>
+      <dd class="money"><%= format_vnd(current[:approved_gross]) %></dd>
+      <dd class="settlement-detail"><%= t("dashboard.settlement.approved_count", count: current[:approved_count], auto: current[:auto_approved_count]) %></dd>
+    </div>
+    <div>
+      <dt><%= t("dashboard.settlement.waiting") %></dt>
+      <dd class="money"><%= format_vnd(current[:waiting_gross]) %></dd>
+      <dd class="settlement-detail"><%= t("dashboard.transaction_count", count: current[:waiting_count]) %></dd>
+    </div>
+  </dl>
+</section>
+
+<section class="settlement-statuses" aria-label="<%= t("dashboard.settlement.details") %>">
+  <% { review: %w[needs_review], hold: %w[hold], processing: %w[pending processing], failed: %w[failed] }.each do |key, statuses| %>
+    <% rows = statuses.filter_map { |status| @stats.settlement_rows[status] } %>
+    <div class="settlement-status">
+      <h3><%= t("dashboard.settlement.statuses.#{key}") %></h3>
+      <p class="money"><%= format_vnd(rows.sum { |row| row[:amount] }) %></p>
+      <span><%= t("dashboard.transaction_count", count: rows.sum { |row| row[:count] }) %></span>
+    </div>
+  <% end %>
+</section>
+<% if current[:unread_count].positive? || @stats.unprocessed_images.positive? %>
+  <p class="overview-note" role="status"><%= icon("info-circle") %> <%= t("dashboard.settlement.unread", count: current[:unread_count], images: @stats.unprocessed_images) %></p>
+<% end %>
+
+<section class="kpi-board" aria-label="<%= t("dashboard.settlement.other_stats") %>">
   <% [
-       [:gross, format_vnd(current[:gross]), period_delta(current[:gross], previous[:gross]), trends.map { |row| row[:gross] }, t("dashboard.kpis.gross_context"), true],
-       [:count, current[:count], period_delta(current[:count], previous[:count]), trends.map { |row| row[:count] }, t("dashboard.kpis.count_context", count: current[:approved_count]), false],
-       [:fee, format_vnd(current[:base_fee]), period_delta(current[:base_fee], previous[:base_fee]), trends.map { |row| row[:base_fee] }, t("dashboard.kpis.fee_context"), false],
-       [:after_fee, format_vnd(current[:after_fee]), period_delta(current[:after_fee], previous[:after_fee]), trends.map { |row| row[:after_fee] }, t("dashboard.kpis.after_fee_context"), false],
-       [:profit, format_vnd(current[:profit]), period_delta(current[:profit], previous[:profit]), trends.map { |row| row[:profit] }, t("dashboard.kpis.profit_context"), false],
-       [:approval, share_percent(current[:approval_rate]), period_delta(current[:approval_rate], previous[:approval_rate], mode: :rate), trends.map { |row| row[:approval_rate].to_f }, current[:decided].zero? ? t("dashboard.kpis.approval_empty") : t("dashboard.kpis.approval_context", approved: current[:approved_count], decided: current[:decided]), false]
-     ].each do |key, value, delta, series, context, hero| %>
-    <article class="kpi-card<%= " is-hero" if hero %>">
+       [:count, current[:count], period_delta(current[:count], previous[:count]), trends.map { |row| row[:count] }, t("dashboard.kpis.count_context", count: current[:approved_count])],
+       [:profit, format_vnd(current[:profit]), period_delta(current[:profit], previous[:profit]), trends.map { |row| row[:profit] }, t("dashboard.kpis.profit_context")],
+       [:fee, format_vnd(current[:base_fee]), period_delta(current[:base_fee], previous[:base_fee]), trends.map { |row| row[:base_fee] }, t("dashboard.kpis.fee_context")],
+       [:after_fee, format_vnd(current[:after_fee]), period_delta(current[:after_fee], previous[:after_fee]), trends.map { |row| row[:after_fee] }, t("dashboard.kpis.after_fee_context")]
+     ].each do |key, value, delta, series, context| %>
+    <article class="kpi-card">
       <h2><%= t("dashboard.kpis.#{key}") %></h2>
       <p class="kpi-value"><%= value %></p>
       <p class="kpi-meta">
         <span class="delta-pill delta-<%= delta[:direction] %>"><%= delta[:text] %></span>
         <span class="kpi-context"><%= context %></span>
       </p>
-      <div class="spark"><%= sparkline(series) %></div>
+      <% unless @period == "today" %><div class="spark"><%= sparkline(series) %></div><% end %>
     </article>
   <% end %>
 </section>
@@ -102,4 +137,6 @@
 <div class="overview-breakdowns">
   <%= render "breakdown", title: t("dashboard.by_dealer"), rows: @stats.dealer_rows, filter_key: :dealer_id %>
   <%= render "breakdown", title: t("dashboard.by_merchant"), rows: @stats.merchant_rows, filter_key: :merchant_id %>
+</div>
+
 </div>

@@ -1,6 +1,10 @@
 class DownloadTelegramAttachmentJob < ApplicationJob
   queue_as :telegram
 
+  # The inbox receiver creates the message inside a database transaction.
+  # Redis workers must not see this job until that message is committed.
+  self.enqueue_after_transaction_commit = true
+
   # Permanent problems: wrong file type, oversized file, bad request.
   # Declared before retry_on so that TransientError (a BotClient::Error) is retried.
   rescue_from(Telegram::AttachmentDownloader::InvalidImageError, Telegram::BotClient::Error) do |error|

@@ -48,7 +48,7 @@
               <td><%= format_datetime(export.generated_at) %></td>
               <td>
                 <% if export.completed? && export.file.attached? %>
-                  <%= link_to download_admin_excel_export_path(export), class: "btn btn-sm btn-outline-primary", data: { turbo: false } do %><%= icon("download") %> <%= t("actions.download") %><% end %>
+                  <%= link_to download_admin_excel_export_path(export), class: "btn btn-sm btn-ghost-primary btn-icon", title: t("actions.download"), aria: { label: t("actions.download") }, data: { turbo: false } do %><%= icon("download") %><% end %>
                 <% end %>
               </td>
             </tr>

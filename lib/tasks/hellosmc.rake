@@ -45,6 +45,14 @@ namespace :hellosmc do
     RetryStuckTelegramUpdatesJob.perform_now
   end
 
+  desc "Preview queued Telegram images missing downloads; APPLY=1 to re-enqueue after deploying the commit-order fix"
+  task retry_stuck_telegram_downloads: :environment do
+    apply = ENV["APPLY"] == "1"
+    count = Telegram::StuckDownloads.call(apply: apply)
+    puts "#{apply ? 'Enqueued' : 'Would enqueue'} #{count} Telegram image download(s)."
+    puts "Preview only. Set APPLY=1 to recover these downloads." unless apply
+  end
+
   desc "Build the clean \"thu chi mẫu\" tab from the newest day tab (SOURCE=\"thu chi 1110\" to pick one); day tabs are then made from it"
   task build_thu_chi_template: :environment do
     client = Workbook::GoogleSheetClient.new(spreadsheet_id: AppConfig.hello_smc_spreadsheet_id)

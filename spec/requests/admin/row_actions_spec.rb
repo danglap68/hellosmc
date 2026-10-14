@@ -28,19 +28,19 @@ RSpec.describe "Row actions of the configuration tables" do
     default_rule
   end
 
-  it "gives every row a three-dot menu with Sửa and Xoá to someone who can manage the table" do
+  it "gives every row direct icon actions for Sửa and Xoá to someone who can manage the table" do
     sign_in admin
 
     pages.each do |name, path|
       get path
       follow_redirect! if response.redirect?
       body = Nokogiri::HTML(response.body)
-      row = body.css("tbody tr").find { |tr| tr.css("button").any? { |button| button.text.strip == "Xoá" } }
+      row = body.css("tbody tr").find { |tr| tr.at_css('button[aria-label="Xoá"]') }
 
       expect(row).to be_present, "#{name}: no row with a Xoá button"
-      expect(row.at_css(%(.row-actions button[data-bs-toggle="dropdown"][aria-label="Thao tác khác"]))).to be_present, "#{name}: no three-dot toggle"
-      expect(row.css(".row-actions .dropdown-menu a.dropdown-item").map { _1.text.strip }).to include("Sửa")
-      delete = row.css(".row-actions .dropdown-menu button.dropdown-item.text-danger").find { |button| button.text.strip == "Xoá" }
+      expect(row.css(".row-actions [data-bs-toggle=dropdown]")).to be_empty, "#{name}: actions still use a dropdown"
+      expect(row.at_css('.row-actions a[aria-label="Sửa"][title="Sửa"]')).to be_present
+      delete = row.at_css('.row-actions button[aria-label="Xoá"][title="Xoá"]')
       expect(delete).to be_present, "#{name}: no Xoá button"
       expect(row.at_css("form[data-turbo-confirm]")).to be_present, "#{name}: Xoá asks no confirmation"
       expect(row.css("td").last["class"]).to include("text-nowrap", "text-end"), "#{name}: actions are not the last, right-aligned cell"
@@ -54,8 +54,8 @@ RSpec.describe "Row actions of the configuration tables" do
     rows = Nokogiri::HTML(response.body).css("tbody tr")
     mine = rows.find { |tr| tr.text.include?(admin.email) }
 
-    expect(mine.css("button").map { |button| button.text.strip }).to include("Gửi link đặt lại mật khẩu")
-    expect(mine.css("button").map { |button| button.text.strip }).not_to include("Xoá")
+    expect(mine.css("button").map { |button| button["aria-label"] }).to include("Gửi link đặt lại mật khẩu")
+    expect(mine.css("button").map { |button| button["aria-label"] }).not_to include("Xoá")
   end
 
   it "shows no actions to someone who cannot manage the table" do

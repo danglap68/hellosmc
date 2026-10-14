@@ -4,7 +4,7 @@ module Admin
 
     def index
       @period = params[:period].to_s
-      @period = "30d" unless @period.in?(Dashboard::Stats::PERIODS)
+      @period = "today" unless @period.in?(Dashboard::Stats::PERIODS)
       @stats = Dashboard::Stats.new(period: @period)
     end
   end

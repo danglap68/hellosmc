@@ -24,6 +24,30 @@ RSpec.describe ProcessTelegramUpdateJob do
     expect { described_class.perform_now(inbox.id) }.to raise_error(RuntimeError, "boom")
     expect(inbox.reload).to have_attributes(status: "failed", attempts: 1)
   end
+
+  it "does not expose a download job until the transaction that creates the message commits" do
+    create(:telegram_chat, telegram_chat_id: update.dig("message", "chat", "id"), active: true)
+    message = nil
+
+    ActiveRecord::Base.transaction(requires_new: true) do
+      message = Telegram::UpdateReceiver.call(update).telegram_message
+      expect(DownloadTelegramAttachmentJob).not_to have_been_enqueued
+    end
+
+    expect(DownloadTelegramAttachmentJob).to have_been_enqueued.with(message.id)
+  end
+
+  it "never enqueues a download for a rolled-back message" do
+    create(:telegram_chat, telegram_chat_id: update.dig("message", "chat", "id"), active: true)
+
+    ActiveRecord::Base.transaction(requires_new: true) do
+      Telegram::UpdateReceiver.call(update)
+      raise ActiveRecord::Rollback
+    end
+
+    expect(TelegramMessage.count).to eq(0)
+    expect(DownloadTelegramAttachmentJob).not_to have_been_enqueued
+  end
 end
 
 RSpec.describe RetryStuckTelegramUpdatesJob do

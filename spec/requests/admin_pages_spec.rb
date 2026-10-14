@@ -41,6 +41,18 @@ RSpec.describe "Admin pages" do
     expect(card.text).to include("Tiền sau phí gốc trừ tiền đại lý, trên giao dịch đã duyệt")
   end
 
+  it "defaults to today, splits total money into approved and waiting, and refreshes once a minute" do
+    get admin_root_path
+    page = Nokogiri::HTML(response.body)
+
+    expect(page.at_css('.period-option[aria-current="page"]').text).to eq("Hôm nay")
+    expect(page.at_css(".settlement-total h2").text).to eq("Tiền kết toán hôm nay")
+    expect(page.css(".settlement-equation dt").map(&:text)).to eq([ "Đã duyệt", "Chờ xử lý / kiểm tra" ])
+    expect(page.css(".settlement-status").size).to eq(4)
+    expect(page.at_css('[data-controller="auto-refresh"]')["data-auto-refresh-interval-value"]).to eq("60000")
+    expect(page.css(".sparkline")).to be_empty
+  end
+
   it "lists every page once by default and moves starred pages into Ghim" do
     get admin_root_path
     page = Nokogiri::HTML(response.body)

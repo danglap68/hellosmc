@@ -1,5 +1,7 @@
 class Transaction < ApplicationRecord
   STATUSES = %w[pending processing needs_review approved rejected hold failed excluded].freeze
+  # A bill without a readable date remains visible on the day it was received.
+  REPORTING_TIME_SQL = "COALESCE(transactions.transaction_at, transactions.created_at)".freeze
 
   # Why a bill was taken out of the accounting flow (status "excluded"). Hidden from
   # the transaction list by default, see Transactions::Filter.
@@ -56,6 +58,7 @@ class Transaction < ApplicationRecord
   scope :recent_first, -> { order(created_at: :desc, id: :desc) }
   scope :review_queue, -> { where(status: "needs_review") }
   scope :not_rejected, -> { where.not(status: "rejected") }
+  scope :within_reporting_period, ->(range) { where("#{REPORTING_TIME_SQL} BETWEEN ? AND ?", range.begin, range.end) }
   scope :with_skip_tag, -> { where("transactions.tags && ARRAY[?]::varchar[]", SKIP_TAGS) }
   scope :on_business_date, ->(date) {
     zone = Time.zone

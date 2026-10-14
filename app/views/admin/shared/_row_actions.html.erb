@@ -2,22 +2,15 @@
 <%# The last cell of every configuration table: same actions, same look, same permission. %>
 <td class="text-nowrap text-end w-1">
   <% if can?(:manage, resource) %>
-    <div class="dropdown row-actions">
-      <button type="button" class="btn btn-sm btn-ghost-secondary btn-icon" data-bs-toggle="dropdown"
-              data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false" aria-label="<%= t("actions.more") %>">
-        <%= icon("dots-vertical") %>
-      </button>
-      <div class="dropdown-menu dropdown-menu-end">
-        <%= link_to edit_path, class: "dropdown-item" do %><%= icon("edit", "dropdown-item-icon") %> <%= t("actions.edit") %><% end %>
-        <%= extra %>
-        <% if delete_path %>
-          <div class="dropdown-divider"></div>
-          <%= button_to delete_path, method: :delete, class: "dropdown-item text-danger",
-                form: { data: { turbo_confirm: confirm || t("actions.confirm_delete") } } do %>
-            <%= icon("trash", "dropdown-item-icon") %> <%= t("actions.delete") %>
-          <% end %>
+    <div class="row-actions">
+      <%= link_to edit_path, class: "btn btn-sm btn-ghost-secondary btn-icon", title: t("actions.edit"), aria: { label: t("actions.edit") } do %><%= icon("edit") %><% end %>
+      <%= extra %>
+      <% if delete_path %>
+        <%= button_to delete_path, method: :delete, class: "btn btn-sm btn-ghost-danger btn-icon", title: t("actions.delete"), aria: { label: t("actions.delete") },
+              form: { data: { turbo_confirm: confirm || t("actions.confirm_delete") } } do %>
+          <%= icon("trash") %>
         <% end %>
-      </div>
+      <% end %>
     </div>
   <% end %>
 </td>

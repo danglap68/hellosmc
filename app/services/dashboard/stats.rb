@@ -1,12 +1,12 @@
 module Dashboard
   # Figures for the admin dashboard, for one business day (Vietnam time).
   class Stats
-    PERIODS = %w[7d 30d 90d 12m].freeze
+    PERIODS = %w[today 7d 30d 90d 12m].freeze
 
-    def initialize(date: Time.zone.today, period: "30d")
+    def initialize(date: Time.zone.today, period: "today")
       @date = date
       @day = Time.zone.local(date.year, date.month, date.day).all_day
-      @period_key = PERIODS.include?(period.to_s) ? period.to_s : "30d"
+      @period_key = PERIODS.include?(period.to_s) ? period.to_s : "today"
     end
 
     attr_reader :date, :period_key
@@ -32,7 +32,7 @@ module Dashboard
     end
 
     def total_amount_today
-      Transaction.where(transaction_at: @day).where.not(status: %w[rejected failed excluded]).sum(:transaction_amount_vnd)
+      countable.within_reporting_period(@day).sum(:transaction_amount_vnd)
     end
 
     def total_approved_amount_today
@@ -63,6 +63,7 @@ module Dashboard
 
     def period_start
       case @period_key
+      when "today" then @date
       when "7d" then @date - 6
       when "90d" then @date - 89
       when "12m" then (@date << 11).beginning_of_month
@@ -104,6 +105,19 @@ module Dashboard
       @previous_snapshot ||= snapshot(previous_range)
     end
 
+    def settlement_rows
+      @settlement_rows ||= countable.within_reporting_period(period_range).group(:status)
+        .pluck(:status, Arel.sql("COUNT(*)"), Arel.sql("COALESCE(SUM(transaction_amount_vnd), 0)"))
+        .to_h { |status, count, amount| [ status, { count: count.to_i, amount: amount.to_i } ] }
+    end
+
+    # These images have no accounting row yet, so their amount cannot be added.
+    # Keep them visible as images, without claiming they are settlement bills.
+    def unprocessed_images
+      @unprocessed_images ||= BillImage.analyzable.where(created_at: period_range, ocr_status: %w[pending processing failed])
+        .where.missing(:transactions).count
+    end
+
     # One point per chart bucket (day, week, or month) inside the selected period.
     def trend_buckets
       @trend_buckets ||= build_buckets
@@ -114,7 +128,7 @@ module Dashboard
       names = {}
       totals = Hash.new(0)
       stacks = Hash.new { |hash, key| hash[key] = Hash.new(0) }
-      countable.where(transaction_at: period_range).left_joins(:card_type).group(local_date_sql, "card_types.id", "card_types.name").pluck(
+      countable.within_reporting_period(period_range).left_joins(:card_type).group(local_date_sql, "card_types.id", "card_types.name").pluck(
         local_date_sql,
         Arel.sql("card_types.id"),
         Arel.sql("card_types.name"),
@@ -141,7 +155,7 @@ module Dashboard
     # One point per day, including days with no transactions. Amount uses the
     # same status exclusion as total_amount_today.
     def daily_amounts
-      grouped = countable.where(transaction_at: chart_range).group(local_date_sql).pluck(
+      grouped = countable.within_reporting_period(chart_range).group(local_date_sql).pluck(
         local_date_sql,
         Arel.sql("COUNT(*)"),
         Arel.sql("COALESCE(SUM(transactions.transaction_amount_vnd), 0)")
@@ -198,9 +212,10 @@ module Dashboard
 
     private
 
-    # Same population as total_amount_today: drop rejected, failed, and excluded.
+    # Failed and unfinished bills with a known amount remain in the total.
+    # Rejected and deliberately excluded bills are outside accounting.
     def countable
-      Transaction.where.not(status: %w[rejected failed excluded])
+      Transaction.where.not(status: %w[rejected excluded])
     end
 
     def chart_range
@@ -212,7 +227,7 @@ module Dashboard
     end
 
     def breakdown(association, table)
-      countable.where(transaction_at: period_range)
+      countable.within_reporting_period(period_range)
         .left_joins(association)
         .group("#{table}.id", "#{table}.name")
         .order(Arel.sql("COALESCE(SUM(transactions.transaction_amount_vnd), 0) DESC"))
@@ -239,7 +254,7 @@ module Dashboard
 
     def local_date_sql
       zone = ActiveRecord::Base.connection.quote(Time.zone.tzinfo.name)
-      Arel.sql("(transactions.transaction_at AT TIME ZONE 'UTC' AT TIME ZONE #{zone})::date")
+      Arel.sql("(#{Transaction::REPORTING_TIME_SQL} AT TIME ZONE 'UTC' AT TIME ZONE #{zone})::date")
     end
 
     def coerce_date(value)
@@ -259,14 +274,16 @@ module Dashboard
     end
 
     def snapshot(range)
-      gross, count, approved_gross, after_fee, profit, approved_count, decided = Transaction.where(transaction_at: range).where.not(status: "excluded").pick(
-        Arel.sql("COALESCE(SUM(transaction_amount_vnd) FILTER (WHERE transactions.status NOT IN ('rejected', 'failed')), 0)"),
-        Arel.sql("COUNT(*) FILTER (WHERE transactions.status NOT IN ('rejected', 'failed'))"),
+      gross, count, approved_gross, after_fee, profit, approved_count, decided, unread_count, auto_approved_count = Transaction.within_reporting_period(range).where.not(status: "excluded").pick(
+        Arel.sql("COALESCE(SUM(transaction_amount_vnd) FILTER (WHERE transactions.status != 'rejected'), 0)"),
+        Arel.sql("COUNT(*) FILTER (WHERE transactions.status != 'rejected')"),
         Arel.sql("COALESCE(SUM(transaction_amount_vnd) FILTER (WHERE transactions.status = 'approved'), 0)"),
         Arel.sql("COALESCE(SUM(amount_after_base_fee_vnd) FILTER (WHERE transactions.status = 'approved'), 0)"),
         Arel.sql("COALESCE(SUM(profit_amount_vnd) FILTER (WHERE transactions.status = 'approved'), 0)"),
         Arel.sql("COUNT(*) FILTER (WHERE transactions.status = 'approved')"),
-        Arel.sql("COUNT(*) FILTER (WHERE transactions.status NOT IN ('pending', 'processing'))")
+        Arel.sql("COUNT(*) FILTER (WHERE transactions.status NOT IN ('pending', 'processing'))"),
+        Arel.sql("COUNT(*) FILTER (WHERE transactions.status != 'rejected' AND transaction_amount_vnd IS NULL)"),
+        Arel.sql("COUNT(*) FILTER (WHERE transactions.status = 'approved' AND approved_by_id IS NULL)")
       )
       approved_gross = approved_gross.to_i
       after_fee = after_fee.to_i
@@ -280,16 +297,20 @@ module Dashboard
         profit: profit.to_i,
         base_fee: approved_gross - after_fee,
         approved_count: approved_count,
+        waiting_gross: gross.to_i - approved_gross,
+        waiting_count: count.to_i - approved_count,
+        unread_count: unread_count.to_i,
+        auto_approved_count: auto_approved_count.to_i,
         decided: decided,
         approval_rate: decided.zero? ? nil : approved_count.to_f / decided
       }
     end
 
     def daily_facts
-      @daily_facts ||= Transaction.where(transaction_at: period_range).where.not(status: "excluded").group(local_date_sql).pluck(
+      @daily_facts ||= Transaction.within_reporting_period(period_range).where.not(status: "excluded").group(local_date_sql).pluck(
         local_date_sql,
-        Arel.sql("COALESCE(SUM(transaction_amount_vnd) FILTER (WHERE transactions.status NOT IN ('rejected', 'failed')), 0)"),
-        Arel.sql("COUNT(*) FILTER (WHERE transactions.status NOT IN ('rejected', 'failed'))"),
+        Arel.sql("COALESCE(SUM(transaction_amount_vnd) FILTER (WHERE transactions.status != 'rejected'), 0)"),
+        Arel.sql("COUNT(*) FILTER (WHERE transactions.status != 'rejected')"),
         Arel.sql("COALESCE(SUM(transaction_amount_vnd) FILTER (WHERE transactions.status = 'approved'), 0)"),
         Arel.sql("COALESCE(SUM(amount_after_base_fee_vnd) FILTER (WHERE transactions.status = 'approved'), 0)"),
         Arel.sql("COALESCE(SUM(profit_amount_vnd) FILTER (WHERE transactions.status = 'approved'), 0)"),

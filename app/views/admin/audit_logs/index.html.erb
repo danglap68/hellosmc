@@ -38,7 +38,7 @@
               <td><%= audit_action_label(log.action) %></td>
               <td><%= log.auditable_type ? "#{auditable_label(log.auditable_type)} ##{log.auditable_id}" : "—" %></td>
               <td class="small text-secondary"><%= log.before_data.present? ? log.changed_keys.first(5).join(", ") : "" %></td>
-              <td><%= link_to t("actions.view"), admin_audit_log_path(log), class: "btn btn-sm" %></td>
+              <td><%= link_to admin_audit_log_path(log), class: "btn btn-sm btn-ghost-secondary btn-icon", title: t("actions.view"), aria: { label: t("actions.view") } do %><%= icon("eye") %><% end %></td>
             </tr>
           <% end %>
         </tbody>

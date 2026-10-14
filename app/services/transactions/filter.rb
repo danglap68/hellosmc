@@ -48,8 +48,8 @@ module Transactions
     def apply_dates(scope)
       from = parse_date(self[:date_from])
       to = parse_date(self[:date_to])
-      scope = scope.where(transaction_at: Time.zone.local(from.year, from.month, from.day)..) if from
-      scope = scope.where(transaction_at: ..Time.zone.local(to.year, to.month, to.day).end_of_day) if to
+      scope = scope.where("#{Transaction::REPORTING_TIME_SQL} >= ?", Time.zone.local(from.year, from.month, from.day)) if from
+      scope = scope.where("#{Transaction::REPORTING_TIME_SQL} <= ?", Time.zone.local(to.year, to.month, to.day).end_of_day) if to
       scope
     end
 

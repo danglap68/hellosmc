@@ -64,8 +64,8 @@
                   <td><%= active_badge(merchant_alias.active?) %></td>
                   <td class="text-nowrap">
                     <% if can?(:manage, :merchants) %>
-                      <%= link_to t("actions.edit"), edit_admin_merchant_merchant_alias_path(@merchant, merchant_alias), class: "btn btn-sm" %>
-                      <%= button_to t("actions.delete"), admin_merchant_merchant_alias_path(@merchant, merchant_alias), method: :delete, class: "btn btn-sm btn-ghost-danger", form_class: "d-inline", form: { data: { turbo_confirm: t("actions.confirm_delete") } } %>
+                      <%= link_to edit_admin_merchant_merchant_alias_path(@merchant, merchant_alias), class: "btn btn-sm btn-ghost-secondary btn-icon", title: t("actions.edit"), aria: { label: t("actions.edit") } do %><%= icon("edit") %><% end %>
+                      <%= button_to admin_merchant_merchant_alias_path(@merchant, merchant_alias), method: :delete, class: "btn btn-sm btn-ghost-danger btn-icon", title: t("actions.delete"), aria: { label: t("actions.delete") }, form_class: "d-inline", form: { data: { turbo_confirm: t("actions.confirm_delete") } } do %><%= icon("trash") %><% end %>
                     <% end %>
                   </td>
                 </tr>
