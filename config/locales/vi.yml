@@ -198,6 +198,7 @@ vi:
       before_start: "phải từ ngày bắt đầu trở đi"
       range_too_long: "không được vượt quá %{count} ngày"
       not_editable: "Giao dịch ở trạng thái này không thể chỉnh sửa"
+      already_booked: "Bill đã ghi Google Sheet. Không thể sửa, từ chối, tạm giữ hoặc đọc lại OCR; cần đối soát và điều chỉnh sổ đã ghi."
       cannot_approve_from: "Không thể duyệt giao dịch ở trạng thái hiện tại"
       invalid_transition: "Không thể chuyển trạng thái giao dịch"
       not_reprocessable: "Không thể chạy lại OCR cho giao dịch này"

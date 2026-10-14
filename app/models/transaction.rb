@@ -23,6 +23,9 @@ class Transaction < ApplicationRecord
   FINALIZED_STATUSES = %w[approved].freeze
   EDITABLE_STATUSES = %w[needs_review hold failed].freeze
   REPROCESSABLE_STATUSES = %w[needs_review hold failed].freeze
+  BOOKED_FIELDS = %w[dealer_id merchant_id card_type_id fee_rule_id lot_number transaction_at
+                    transaction_amount_vnd applied_base_fee_rate applied_card_base_fee_rate
+                    amount_after_base_fee_vnd applied_dealer_rate dealer_amount_vnd profit_amount_vnd].freeze
 
   class InvalidTransition < StandardError; end
 
@@ -51,6 +54,7 @@ class Transaction < ApplicationRecord
   validates :applied_card_base_fee_rate, numericality: { greater_than_or_equal_to: 0, less_than: 1 }, allow_nil: true
   validates :applied_dealer_rate, numericality: { greater_than_or_equal_to: 0, less_than: 1 }, allow_nil: true
   validates :source_index, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
+  validate :booked_values_unchanged, on: :update
   with_options if: :finalized? do
     validates :dealer, :merchant, :card_type, :transaction_at, :transaction_amount_vnd,
               :applied_base_fee_rate, :amount_after_base_fee_vnd, presence: true
@@ -88,11 +92,15 @@ class Transaction < ApplicationRecord
   end
 
   def editable?
-    status.in?(EDITABLE_STATUSES)
+    status.in?(EDITABLE_STATUSES) && !booked?
   end
 
   def reprocessable?
-    status.in?(REPROCESSABLE_STATUSES) && bill_image.present? && bill_image.image.attached? && bill_image.ocr_runs_remaining?
+    status.in?(REPROCESSABLE_STATUSES) && !booked? && bill_image.present? && bill_image.image.attached? && bill_image.ocr_runs_remaining?
+  end
+
+  def booked?
+    persisted? && WorkbookEntry.exists?(transaction_id: id)
   end
 
   def open_review
@@ -129,5 +137,11 @@ class Transaction < ApplicationRecord
       "transaction_amount_vnd", "applied_base_fee_rate", "amount_after_base_fee_vnd", "applied_dealer_rate",
       "dealer_amount_vnd", "profit_amount_vnd", "confidence_score", "approved_by_id", "approved_at", "exported_at"
     )
+  end
+
+  private
+
+  def booked_values_unchanged
+    errors.add(:base, :already_booked) if (changes_to_save.keys & BOOKED_FIELDS).any? && booked?
   end
 end

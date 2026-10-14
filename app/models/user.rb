@@ -44,6 +44,11 @@ class User < ApplicationRecord
     Permissions.allowed?(self, ability, resource)
   end
 
+  # users.manage delegates ordinary accounts, never administrator accounts.
+  def manageable_by?(actor)
+    actor.can?(:manage, :users) && (actor.admin? || !admin?)
+  end
+
   def permission_snapshot
     @permission_snapshot ||= Permissions.snapshot_for(role)
   end

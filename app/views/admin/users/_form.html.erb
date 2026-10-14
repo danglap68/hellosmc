@@ -6,7 +6,7 @@
         <div class="col-md-6"><%= form.field :email, as: :email_field, required: true, autocomplete: "off" %></div>
         <div class="col-md-6"><%= form.field :name %></div>
       </div>
-      <%= form.select_field :role, Role.choices, {}, required: true, hint: t("users.form.role_hint") %>
+      <%= form.select_field :role, Role.choices.reject { |_name, key| key == "admin" && !current_user.admin? }, {}, required: true, hint: t("users.form.role_hint") %>
       <div class="row">
         <div class="col-md-6"><%= form.field :password, as: :password_field, autocomplete: "new-password",
               hint: user.persisted? ? t("users.form.password_keep_hint") : t("users.form.password_new_hint") %></div>

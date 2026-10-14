@@ -54,6 +54,14 @@ module Workbook
     end
 
     def call
+      # Hold the same row lock as review decisions until the external write
+      # and its local receipt finish. A queued job must use current values.
+      @transaction.with_lock { write_locked }
+    end
+
+    private
+
+    def write_locked
       return :skipped_no_amount if @transaction.transaction_amount_vnd.blank?
       return :skipped_failed if @transaction.failed?
       return :skipped_rejected if @transaction.rejected?
@@ -72,8 +80,6 @@ module Workbook
         resolution.identified? ? write_identified(client, resolution) : write_unidentified(client, resolution)
       end
     end
-
-    private
 
     def marker
       "TX#{@transaction.id}"
@@ -298,7 +304,7 @@ module Workbook
         c_formula,
         @transaction.applied_dealer_rate&.to_f,
         e_formula,
-        @transaction.lot_number,
+        "'#{@transaction.lot_number}",
         date_text("%d/%m/%Y"),
         date_text("%H:%M:%S"),
         text_cell(resolution.merchant_dealer.dealer.name),

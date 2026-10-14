@@ -22,6 +22,10 @@ module Transactions
       changed = false
       Transaction.transaction do
         @transaction.lock!
+        if @transaction.booked?
+          @transaction.errors.add(:base, :already_booked)
+          raise ActiveRecord::Rollback
+        end
         unless @transaction.can_transition_to?(@config[:status])
           @transaction.errors.add(:base, :invalid_transition)
           raise ActiveRecord::Rollback

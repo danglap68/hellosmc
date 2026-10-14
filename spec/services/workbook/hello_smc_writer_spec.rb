@@ -62,6 +62,32 @@ RSpec.describe Workbook::HelloSmcWriter do
   end
 
   describe "identified transaction" do
+    it "writes lot numbers as literal text, preserving zeros and refusing formula execution" do
+      [ "000269", "=1+1", "+123", "@SUM(A1:A2)" ].each do |lot|
+        client = memory
+        transaction = build_transaction
+        transaction.update!(lot_number: lot)
+        allow(client).to receive(:batch_update_values).and_call_original
+
+        expect(described_class.call(transaction: transaction, client: client, spreadsheet_id: "sheet-id")).to eq(:identified)
+        expect(client).to have_received(:batch_update_values).with(satisfy { |updates|
+          updates.find { |update| update[:sheet] == "MB" }[:rows].first[5] == "'#{lot}"
+        })
+        expect(client.cell("MB", "F2")).to eq(lot)
+      end
+    end
+
+    it "reloads queued transactions and skips a bill that was put on hold" do
+      stale = build_transaction
+      Transaction.find(stale.id).update!(status: "hold")
+      client = memory
+      allow(client).to receive(:batch_update_values).and_call_original
+
+      expect(described_class.call(transaction: stale, client: client, spreadsheet_id: "sheet-id")).to eq(:skipped_not_approved)
+      expect(client).not_to have_received(:batch_update_values)
+      expect(WorkbookEntry.where(transaction_id: stale.id)).not_to exist
+    end
+
     it "writes DS MB and MB in a single batch and records the entry" do
       client = memory
       allow(client).to receive(:batch_update_values).and_call_original

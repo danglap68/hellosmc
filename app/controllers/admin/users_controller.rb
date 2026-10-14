@@ -3,6 +3,9 @@ module Admin
     permission :users
 
     before_action :set_user, only: %i[edit update destroy send_reset_password]
+    before_action :authorize_role_assignment!, only: %i[create update]
+    before_action :authorize_admin_account!, only: :edit
+    around_action :lock_managed_account, only: %i[update destroy send_reset_password]
 
     def index
       scope = User.includes(:access_role)
@@ -95,10 +98,28 @@ module Admin
       params.require(:user).permit(:email, :name, :role, :active, :password, :password_confirmation)
     end
 
+    def authorize_role_assignment!
+      forbid! if !current_user.admin? && user_params[:role] == "admin"
+    end
+
+    def authorize_admin_account!
+      forbid! unless @user.manageable_by?(current_user)
+    end
+
+    def lock_managed_account
+      @user.with_lock do
+        if @user.manageable_by?(current_user)
+          yield
+        else
+          forbid!
+        end
+      end
+    end
+
     def self_lockout?(attributes)
       return false unless @user == current_user
 
-      (attributes.key?(:role) && attributes[:role] != "admin") ||
+      (@user.admin? && attributes.key?(:role) && attributes[:role] != "admin") ||
         (attributes.key?(:active) && ActiveModel::Type::Boolean.new.cast(attributes[:active]) == false)
     end
   end

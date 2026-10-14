@@ -33,7 +33,7 @@ gem "thruster", require: false
 gem "sidekiq", "~> 8.0"
 
 # Authentication
-gem "devise", "~> 4.9"
+gem "devise", "~> 5.0", ">= 5.0.4"
 
 # Vietnamese locale data for Rails and Devise
 gem "rails-i18n", "~> 8.0"
@@ -90,7 +90,7 @@ group :test do
   gem "shoulda-matchers", "~> 6.4"
   gem "capybara"
   gem "csv"
-  gem "roo", "~> 2.10", require: false
+  gem "roo", "~> 3.0", require: false
 end
 
 group :development do

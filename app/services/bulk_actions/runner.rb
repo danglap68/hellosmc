@@ -111,6 +111,7 @@ module BulkActions
     end
 
     def apply_configuration(record)
+      return I18n.t("bulk.forbidden") if record.is_a?(User) && !record.manageable_by?(@actor)
       return I18n.t("users.flash.cannot_delete_self") if record.is_a?(User) && record == @actor && @operation.in?(%w[deactivate destroy])
       return I18n.t("bulk.missing") if @resource == "transfer_codes" && record.transfer_code.blank?
 

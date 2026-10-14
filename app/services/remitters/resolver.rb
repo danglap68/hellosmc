@@ -15,7 +15,9 @@ module Remitters
       if @telegram_user_id && (remitter = Remitter.active.find_by(telegram_user_id: @telegram_user_id))
         return Result.new(remitter:, source: "telegram_user_id")
       end
-      if @telegram_username && (remitter = Remitter.active.find_by(telegram_username: @telegram_username))
+      # Usernames can change owners. Never use one to override a pinned ID,
+      # even when the incoming message has no ID at all.
+      if @telegram_username && (remitter = Remitter.active.where(telegram_user_id: nil).find_by(telegram_username: @telegram_username))
         return Result.new(remitter:, source: "telegram_username")
       end
 

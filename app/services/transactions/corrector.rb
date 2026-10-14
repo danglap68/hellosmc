@@ -31,6 +31,7 @@ module Transactions
     def call
       Transaction.transaction do
         @transaction.lock!
+        return failure(:base, :already_booked) if @transaction.booked?
         return failure(:base, :not_editable) unless @transaction.editable?
         return failure(:base, :stale) if stale?
 

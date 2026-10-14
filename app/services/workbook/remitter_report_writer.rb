@@ -40,19 +40,23 @@ module Workbook
     end
 
     def call
+      # Reviewer/Retrier/Builder all lock this row. Keep decisions and writes
+      # serialized, including while waiting for the per-sheet try-lock.
+      @transfer.with_lock { write_locked }
+    end
+
+    private
+
+    def write_locked
       return :already_written if @transfer.written?
       return :skipped_not_approved unless @transfer.writable?
       raise ConfigurationError, "hello_smc_spreadsheet_id is not configured" if @spreadsheet_id.blank?
 
       client = @client || GoogleSheetClient.new(spreadsheet_id: @spreadsheet_id)
       SheetLock.with(@spreadsheet_id) do
-        return :already_written if @transfer.reload.written?
-
         write(client)
       end
     end
-
-    private
 
     def write(client)
       title = sheet_title(client)

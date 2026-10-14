@@ -38,6 +38,35 @@ RSpec.describe "Authentication" do
     expect(response).to redirect_to(new_user_session_path)
   end
 
+  it "does not redirect an expired session to an external Referer on POST" do
+    post user_session_path, params: { user: { email: user.email, password: "Password-12345" } }
+    get admin_root_path
+    travel 9.hours
+    post admin_bulk_actions_path, params: { resource: "users", operation: "destroy", ids: [ user.id ] },
+         headers: { "HTTP_REFERER" => "https://attacker.example/fake-login" }
+
+    expect(response).to have_http_status(:redirect)
+    expect(URI.parse(response.location).host).to eq("www.example.com")
+    expect(response.location).not_to include("attacker.example")
+    expect(user.reload).to be_active
+  end
+
+  it "accepts a reset token once and authenticates only with the new password" do
+    token = user.send_reset_password_instructions
+    patch user_password_path, params: { user: { reset_password_token: token,
+      password: "New-Password-12345", password_confirmation: "New-Password-12345" } }
+    expect(response).to have_http_status(:redirect)
+    expect(user.reload.valid_password?("New-Password-12345")).to be(true)
+    expect(user.valid_password?("Password-12345")).to be(false)
+    expect(user.reset_password_token).to be_nil
+
+    sign_out user
+    patch user_password_path, params: { user: { reset_password_token: token,
+      password: "Reused-Password-12345", password_confirmation: "Reused-Password-12345" } }
+    expect(response).to have_http_status(:unprocessable_content)
+    expect(user.reload.valid_password?("New-Password-12345")).to be(true)
+  end
+
   it "offers password reset" do
     get new_user_password_path
     expect(response).to have_http_status(:ok)

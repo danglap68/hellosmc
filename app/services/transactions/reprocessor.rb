@@ -16,6 +16,10 @@ module Transactions
       requested = false
       Transaction.transaction do
         @transaction.lock!
+        if @transaction.booked?
+          @transaction.errors.add(:base, :already_booked)
+          raise ActiveRecord::Rollback
+        end
         # Re-check the persisted image budget; hiding a button is not a guard.
         @transaction.bill_image&.reload
         unless @transaction.reprocessable?

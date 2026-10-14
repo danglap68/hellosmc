@@ -25,4 +25,20 @@ RSpec.describe Remitters::Resolver do
     create(:remitter, name: "Lập", telegram_user_id: 123, active: false)
     expect(described_class.call(telegram_user_id: 123).remitter).to be_nil
   end
+
+  it "refuses a matching username owned by a different pinned Telegram ID" do
+    create(:remitter, telegram_user_id: 123, telegram_username: "old_handle")
+    [ nil, 999 ].each do |incoming_id|
+      result = described_class.call(telegram_user_id: incoming_id, telegram_username: "@Old_Handle")
+      expect(result.remitter).to be_nil
+      expect(result.source).to be_nil
+    end
+  end
+
+  it "keeps ID matches working after a username changes and supports username-only configuration" do
+    pinned = create(:remitter, telegram_user_id: 123, telegram_username: "old_handle")
+    legacy = create(:remitter, telegram_username: "legacy_handle")
+    expect(described_class.call(telegram_user_id: 123, telegram_username: "new_handle").remitter).to eq(pinned)
+    expect(described_class.call(telegram_user_id: 999, telegram_username: "legacy_handle").remitter).to eq(legacy)
+  end
 end

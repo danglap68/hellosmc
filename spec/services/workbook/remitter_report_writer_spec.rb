@@ -46,6 +46,17 @@ RSpec.describe Workbook::RemitterReportWriter do
     described_class.call(remitter_transfer: record, client: client, spreadsheet_id: "sheet-id")
   end
 
+  it "reloads queued transfers and skips a transfer rejected by a reviewer" do
+    stale = transfer
+    expect(RemitterTransfers::Reviewer.reject(transfer: RemitterTransfer.find(stale.id), actor: create(:user, :admin))).to be_ok
+    client = memory
+    allow(client).to receive(:insert_row_with_value).and_call_original
+
+    expect(write(stale, client)).to eq(:skipped_not_approved)
+    expect(client).not_to have_received(:insert_row_with_value)
+    expect(stale.reload).not_to be_written
+  end
+
   it "inserts a row in Chương's block with Lập's amount and the TOTAL covers it" do
     client = memory
     record = transfer
