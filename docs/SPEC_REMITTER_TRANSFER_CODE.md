@@ -486,7 +486,7 @@ Rà lại sau khi trả bill kết toán của remitter về transaction và b�
 ## 9. Triển khai và rollback
 
 **Deploy**
-1. Chạy `bundle exec rspec` ở local, sửa nếu fail.
+1. Chạy `bin/parallel_rspec` ở local (thêm `--prepare` khi chạy lần đầu hoặc schema thay đổi), sửa nếu fail.
 2. Merge vào `main`, redeploy Coolify (migration `create_remitter_transfers` chạy qua `db:prepare`).
 3. Admin → **Người đi tiền**: điền Telegram user ID hoặc username cho Lập, Kim, An, Yến, Cô Tuyết.
 4. Kiểm tra nhãn `thu chi` của đại lý (`rd_agent_label`) khớp tab thật (`Anh Hải`, `Anh Thọ`, `Chị Mến`, `Tuân` cần sửa).

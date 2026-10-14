@@ -25,7 +25,7 @@ Theme chỉ là tùy chọn trình duyệt, không ghi vào tài khoản hoặc 
 
 ```sh
 node --test spec/javascript/theme_test.cjs
-bundle exec rspec spec/requests/admin_pages_spec.rb spec/requests/admin/transactions_spec.rb spec/requests/role_restrictions_spec.rb spec/requests/authentication_spec.rb spec/system/ocr_review_flow_spec.rb spec/system/fee_rule_crud_spec.rb spec/system/transaction_approval_spec.rb
+bin/parallel_rspec spec/requests/admin_pages_spec.rb spec/requests/admin/transactions_spec.rb spec/requests/role_restrictions_spec.rb spec/requests/authentication_spec.rb spec/system/ocr_review_flow_spec.rb spec/system/fee_rule_crud_spec.rb spec/system/transaction_approval_spec.rb
 ```
 
 Khi sửa UI, kiểm tra dashboard, bảng giao dịch, form và trang đăng nhập ở cả sáng/tối.

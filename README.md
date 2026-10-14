@@ -266,8 +266,22 @@ to Asia/Ho_Chi_Minh; timestamps are stored in UTC. Definitions live in `app/mode
 ## Tests
 
 ```bash
-bundle exec rspec
+bin/parallel_rspec --prepare # first run, after schema changes, or after adding workers
+bin/parallel_rspec           # subsequent full-suite runs
+bin/parallel_rspec spec/models spec/services
+bin/parallel_rspec spec/models/dealer_spec.rb:10
+bin/parallel_rspec -o '--example "code"' spec/models
+PARALLEL_TEST_PROCESSORS=2 bin/parallel_rspec
 ```
+
+Use `rbenv exec ruby bin/parallel_rspec` if your shell has not activated this repo's Ruby version.
+RSpec always runs through [parallel_tests](https://github.com/grosser/parallel_tests), using up to 4 workers
+by default. Each worker has its own numbered PostgreSQL database (`hellosmc_test1`, etc.), Active Storage
+directory and log file. `--prepare` loads the checked-in schema into these scratch databases; it does not
+load development data. Leave `DATABASE_URL` unset and use `DB_*` for connection overrides.
+Recorded spec runtimes in `tmp/parallel_runtime_rspec.log` help balance later runs. Parallelism is by file,
+so a single spec file/example still goes through the same runner but cannot use multiple workers.
+The persistent agent rule is in `AGENTS.md`; CI uses the same command.
 
 Models, services (resolvers, calculator, duplicate detector, builder, normalizer, providers via WebMock,
 Telegram receiver/downloader, Excel generator), jobs, request specs (auth, roles, webhook, every admin page)

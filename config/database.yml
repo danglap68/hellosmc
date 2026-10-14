@@ -1,6 +1,9 @@
 # Development and test use the local PostgreSQL socket; the optional DB_*
 # variables override it (e.g. for the PostgreSQL in docker-compose.yml).
 # Never set DATABASE_URL locally: it would point the test suite at that database.
+<% if ENV["RAILS_ENV"] == "test" && ENV["DATABASE_URL"].to_s != "" %>
+<% raise "Unset DATABASE_URL for tests; use DB_HOST/DB_PORT/DB_USERNAME/DB_PASSWORD instead so each worker uses its own test database." %>
+<% end %>
 default: &default
   adapter: postgresql
   encoding: unicode
@@ -16,7 +19,7 @@ development:
 
 test:
   <<: *default
-  database: hellosmc_test
+  database: hellosmc_test<%= ENV.fetch("TEST_ENV_NUMBER", "") %>
 
 # Production reads DATABASE_URL (merged over this block by Rails).
 production:

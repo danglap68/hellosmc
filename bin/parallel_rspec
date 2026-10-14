@@ -1,0 +1,30 @@
+#!/usr/bin/env ruby
+
+require "rbconfig"
+
+Dir.chdir(File.expand_path("..", __dir__))
+require_relative "../config/boot"
+require "parallel_tests"
+
+abort "Run RSpec with RAILS_ENV=test." if ENV["RAILS_ENV"] && ENV["RAILS_ENV"] != "test"
+abort "Unset DATABASE_URL for tests; use the DB_* connection variables instead." unless ENV["DATABASE_URL"].to_s.empty?
+
+ENV["RAILS_ENV"] = "test"
+ENV["PARALLEL_RAILS_ENV"] = "test"
+ENV["PARALLEL_TEST_FIRST_IS_1"] = "true"
+ENV["PARALLEL_TEST_PROCESSORS"] ||= [ Parallel.processor_count, 4 ].min.to_s
+
+workers = ENV.fetch("PARALLEL_TEST_PROCESSORS")
+abort "PARALLEL_TEST_PROCESSORS must be a positive integer." unless workers.match?(/\A[1-9]\d*\z/)
+
+# Prepare only on first use or after schema changes, keeping subsequent runs fast.
+# This loads db/schema.rb into numbered test databases without touching development.
+if ARGV.delete("--prepare")
+  success = system(RbConfig.ruby, "bin/rails", "parallel:create[#{workers}]", "parallel:load_schema[#{workers}]")
+  exit($?.exitstatus || 1) unless success
+end
+
+# RSpec accepts file:line, but parallel_tests' default filesize grouping does not.
+ARGV.unshift("--group-by", "found") if ARGV.any? { |argument| argument.match?(/\.rb:\d+(?::\d+)*\z/) }
+
+load Gem.bin_path("parallel_tests", "parallel_rspec")

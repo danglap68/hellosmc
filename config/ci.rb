@@ -5,7 +5,7 @@ CI.run do
 
   step "Style: Ruby", "bin/rubocop"
 
-  step "Tests: RSpec", "bundle exec rspec"
+  step "Tests: RSpec (parallel)", "bin/parallel_rspec --prepare"
 
   step "Security: Gem audit", "bin/bundler-audit"
   step "Security: Importmap vulnerability audit", "bin/importmap audit"

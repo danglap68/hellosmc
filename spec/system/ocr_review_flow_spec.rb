@@ -19,7 +19,7 @@ RSpec.describe "OCR review flow" do
 
     fill_in "Số tiền giao dịch", with: "11.445.000"
     select "001_ HỘ KINH DOANH THIÊN KIM GV [001]", from: "Hộ kinh doanh"
-    fill_in "note", with: "Đã đối chiếu với bill giấy"
+    fill_in id: "note", with: "Đã đối chiếu với bill giấy"
     click_button "Lưu & duyệt"
 
     expect(page).to have_content("Đã duyệt giao dịch.")
@@ -42,14 +42,20 @@ RSpec.describe "OCR review flow" do
     expect(transaction).to be_needs_review
   end
 
-  it "puts a bill on hold and then rejects it" do
+  it "puts a bill on hold and requires confirmation before rejecting it" do
     visit admin_review_path(transaction)
     click_button "Tạm giữ"
     expect(transaction.reload).to be_hold
 
     visit admin_review_path(transaction)
+    trigger = find_button("Từ chối")
+    expect(trigger["type"]).to eq("button")
+    expect(trigger["data-rejection-url"]).to eq(admin_review_path(transaction))
+    expect(trigger["data-rejection-method"]).to eq("patch")
     click_button "Từ chối"
-    expect(transaction.reload).to be_rejected
+    # rack_test does not execute the dialog's JavaScript. Opening it must not
+    # submit a decision; the confirmed rejection is covered by request specs.
+    expect(transaction.reload).to be_hold
   end
 
   it "shows validation errors when approval is impossible" do

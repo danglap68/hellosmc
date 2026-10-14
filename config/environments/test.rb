@@ -8,6 +8,7 @@ Rails.application.configure do
 
   # While tests run files are not watched, reloading is not necessary.
   config.enable_reloading = false
+  config.paths["log"] = "log/test#{ENV.fetch('TEST_ENV_NUMBER', '')}.log"
 
   # Eager loading loads your entire application. When running a single test locally,
   # this is usually not necessary, and can slow down your test suite. However, it's
