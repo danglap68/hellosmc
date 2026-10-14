@@ -28,6 +28,12 @@ the same configured code; `TK10` remains different. New configurations cannot re
 variants. Legacy collisions go to review. The configured spelling is stored, and duplicate checking
 recognizes its zero-padded variants, including after a configuration rename.
 
+The transfer table and detail page offer **Thử lại** to resume the unfinished stage: download an absent
+photo, rerun OCR within its existing lifetime budget, re-evaluate codes/remitter using stored OCR, or
+requeue the idempotent sheet write for an approved transfer. Recent processing attempts, written rows,
+human rejections and settlement handoffs are protected. Retry requests are audited and jobs enqueue
+only after commit; re-evaluation never bypasses the normal approval or duplicate checks.
+
 ## Architecture
 
 | Layer | Where | Notes |

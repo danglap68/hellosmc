@@ -117,4 +117,44 @@ RSpec.describe "Admin remitter transfers" do
     expect(response).to have_http_status(:forbidden)
     expect(transfer.reload).to be_needs_review
   end
+
+  it "offers a direct retry action on both the table and detail page" do
+    [ admin_remitter_transfers_path, admin_remitter_transfer_path(transfer) ].each do |path|
+      get path
+      document = Nokogiri::HTML(response.body)
+      form = document.at_css("form[action='#{retry_processing_admin_remitter_transfer_path(transfer)}']")
+      expect(form).to be_present
+      expect(form.at_css('button[aria-label="Thử lại"]')).to be_present
+      expect(form["data-turbo-confirm"]).to include("Kiểm tra lại mã")
+    end
+  end
+
+  it "retries the processing stage without immediately approving a transfer" do
+    post retry_processing_admin_remitter_transfer_path(transfer), params: { lock_version: transfer.lock_version }
+    expect(response).to redirect_to(admin_remitter_transfer_path(transfer))
+    expect(transfer.reload).to be_processing
+    expect(BuildRemitterTransferJob).to have_been_enqueued.with(transfer.id)
+    expect(flash[:notice]).to include("Đang kiểm tra lại mã")
+  end
+
+  it "guards the OCR budget on direct retry requests and disables the button" do
+    transfer.update!(review_reasons: [ "amount_missing" ])
+    transfer.bill_image.update!(ocr_attempts: AppConfig.max_ocr_attempts)
+    get admin_remitter_transfer_path(transfer)
+    button = Nokogiri::HTML(response.body).at_css('button[aria-label="Thử lại"]')
+    expect(button["disabled"]).to be_present
+    post retry_processing_admin_remitter_transfer_path(transfer)
+    expect(transfer.reload).to be_needs_review
+    expect(flash[:alert]).to include("hết số lần đọc OCR")
+    expect(AnalyzeBillImageJob).not_to have_been_enqueued
+  end
+
+  it "hides retry and refuses the endpoint for a viewer" do
+    sign_in create(:user, :viewer)
+    get admin_remitter_transfer_path(transfer)
+    expect(Nokogiri::HTML(response.body).css('button[aria-label="Thử lại"]')).to be_empty
+    post retry_processing_admin_remitter_transfer_path(transfer)
+    expect(response).to have_http_status(:forbidden)
+    expect(transfer.reload).to be_needs_review
+  end
 end

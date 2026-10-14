@@ -1,0 +1,20 @@
+<%# locals: (transfer:, icon_only: false) %>
+<% if can?(:manage, :remitter_transfers) %>
+  <% plan = RemitterTransfers::Retrier.plan_for(transfer) %>
+  <% unless plan.error.in?(%i[already_written not_retryable]) %>
+    <% label = t("remitter_transfers.retry.label") %>
+    <% title = plan.allowed? ? t("remitter_transfers.retry.steps.#{plan.step}") : t("remitter_transfers.errors.#{plan.error}") %>
+    <% css = icon_only ? "btn btn-sm btn-ghost-primary btn-icon" : "btn btn-outline-primary" %>
+    <% if plan.allowed? %>
+      <%= button_to retry_processing_admin_remitter_transfer_path(transfer), class: css, title: title, aria: { label: label },
+            params: { lock_version: transfer.lock_version },
+            form: { data: { turbo_confirm: t("remitter_transfers.retry.confirm", step: title) } } do %>
+        <%= icon("refresh") %><% unless icon_only %> <%= label %><% end %>
+      <% end %>
+    <% else %>
+      <%= button_tag type: "button", class: css, disabled: true, title: title, aria: { label: label } do %>
+        <%= icon("refresh") %><% unless icon_only %> <%= label %><% end %>
+      <% end %>
+    <% end %>
+  <% end %>
+<% end %>

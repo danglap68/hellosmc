@@ -13,12 +13,13 @@ module Admin
       "rejected" => -> { RemitterTransfer.where(status: %w[rejected failed]) }
     }.freeze
 
-    before_action :set_transfer, only: %i[show update write]
+    before_action :set_transfer, only: %i[show update write retry_processing]
 
     def index
       @queue = QUEUES.key?(params[:queue]) ? params[:queue] : "needs_review"
       @counts = QUEUES.transform_values { |scope| scope.call.count }
-      scope = QUEUES.fetch(@queue).call.includes(:remitter, :telegram_message, bill_image: :duplicate_of, merchant_dealer: %i[dealer merchant])
+      scope = QUEUES.fetch(@queue).call.includes(:remitter, telegram_message: { bill_images: :duplicate_of },
+                                                        bill_image: :duplicate_of, merchant_dealer: %i[dealer merchant])
       scope = scope.where(merchant_dealer_id: MerchantDealer.where(dealer_id: params[:dealer_id]).select(:id)) if params[:dealer_id].present?
       scope = apply_time_range(scope, :transferred_at)
       if params[:q].present?
@@ -68,6 +69,15 @@ module Admin
         redirect_to admin_remitter_transfer_path(@transfer), notice: t("remitter_transfers.flash.write_queued")
       else
         redirect_to admin_remitter_transfer_path(@transfer), alert: t("remitter_transfers.errors.not_writable")
+      end
+    end
+
+    def retry_processing
+      result = RemitterTransfers::Retrier.call(transfer: @transfer, actor: current_user, lock_version: params[:lock_version])
+      if result.ok?
+        redirect_back_or_to admin_remitter_transfer_path(@transfer), notice: t("remitter_transfers.retry.queued.#{result.step}")
+      else
+        redirect_back_or_to admin_remitter_transfer_path(@transfer), alert: t("remitter_transfers.errors.#{result.error}")
       end
     end
 

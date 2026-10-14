@@ -953,7 +953,10 @@
 .row-actions { display: inline-flex; align-items: center; justify-content: flex-end; gap: 0.25rem; }
 .row-actions form { display: inline-flex; margin: 0; }
 .row-actions .btn-icon { min-width: 2.25rem; min-height: 2.25rem; }
-.transaction-actions { position: sticky; right: 0; z-index: 1; min-width: 10.5rem; background: var(--tblr-bg-surface); border-left: 1px solid var(--tblr-border-color); }
+.transaction-actions, .transfer-actions { position: sticky; right: 0; z-index: 1; min-width: 10.5rem; background: var(--tblr-bg-surface); border-left: 1px solid var(--tblr-border-color); }
+.transfer-actions { min-width: 6.5rem; }
+.app-ui .table td.transfer-actions,
+.app-ui .table:not(.table-diff) tbody tr:hover > td.transfer-actions,
 .app-ui .table td.transaction-actions,
 .app-ui .table:not(.table-diff) tbody tr:hover > td.transaction-actions { background-color: var(--tblr-bg-surface); }
 .transaction-actions .row-actions { width: 10rem; flex-wrap: wrap; }

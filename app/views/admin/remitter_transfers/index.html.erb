@@ -33,7 +33,7 @@
             <th class="text-end"><%= RemitterTransfer.human_attribute_name(:amount_vnd) %></th>
             <th><%= RemitterTransfer.human_attribute_name(:status) %></th>
             <th><%= RemitterTransfer.human_attribute_name(:rd_cell) %></th>
-            <th class="w-1"></th>
+            <th class="w-1 transfer-actions"></th>
           </tr>
         </thead>
         <tbody>
@@ -53,7 +53,12 @@
                 <% end %>
               </td>
               <td><%= transfer.rd_cell ? "#{transfer.rd_sheet}!#{transfer.rd_cell}" : "—" %></td>
-              <td><%= link_to admin_remitter_transfer_path(transfer), class: "btn btn-sm btn-ghost-secondary btn-icon", title: t("actions.view"), aria: { label: t("actions.view") } do %><%= icon("eye") %><% end %></td>
+              <td class="text-nowrap text-end transfer-actions">
+                <div class="row-actions">
+                  <%= link_to admin_remitter_transfer_path(transfer), class: "btn btn-sm btn-ghost-secondary btn-icon", title: t("actions.view"), aria: { label: t("actions.view") } do %><%= icon("eye") %><% end %>
+                  <%= render "retry_button", transfer: transfer, icon_only: true %>
+                </div>
+              </td>
             </tr>
           <% end %>
         </tbody>

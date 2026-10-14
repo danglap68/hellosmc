@@ -1,4 +1,7 @@
 <% content_for :title, t("remitter_transfers.show.title", id: @transfer.id) %>
+<% content_for :actions do %>
+  <%= render "retry_button", transfer: @transfer %>
+<% end %>
 <% content_for :breadcrumbs do %>
   <li class="breadcrumb-item"><%= link_to t("navigation.remitter_transfers"), admin_remitter_transfers_path %></li>
   <li class="breadcrumb-item active">#<%= @transfer.id %></li>
@@ -61,9 +64,6 @@
     <% if (issue = @transfer.metadata["write_issue"]) && !@transfer.written? %>
       <div class="alert alert-danger">
         <%= t("remitter_transfers.write_issues.#{issue}", default: issue, sheet: @transfer.metadata["write_sheet"]) %>
-        <% if can?(:manage, :remitter_transfers) && @transfer.writable? %>
-          <%= button_to t("remitter_transfers.show.write_again"), write_admin_remitter_transfer_path(@transfer), class: "btn btn-sm btn-outline-danger mt-2" %>
-        <% end %>
       </div>
     <% end %>
     <% if @transfer.written? %>

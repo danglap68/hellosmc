@@ -829,6 +829,7 @@ vi:
       remitter_transfer_approved: "Duyệt lệnh chuyển tiền"
       remitter_transfer_rejected: "Từ chối lệnh chuyển tiền"
       remitter_transfer_written: "Ghi lệnh chuyển tiền vào tab thu chi"
+      remitter_transfer_retry_requested: "Yêu cầu thử lại xử lý tiền đi"
 
   users:
     you: "Bạn"
@@ -1225,6 +1226,19 @@ vi:
     album_total_review: "Giao dịch tổng kết của album – cần kiểm tra"
 
   remitter_transfers:
+    retry:
+      label: "Thử lại"
+      confirm: "%{step}?"
+      steps:
+        download: "Tải lại ảnh và xử lý tiền đi"
+        ocr: "Đọc lại ảnh chuyển tiền (OCR)"
+        evaluate: "Kiểm tra lại mã và người đi tiền"
+        write: "Ghi lại lệnh đã duyệt vào sheet"
+      queued:
+        download: "Đã yêu cầu tải lại ảnh và xử lý tiền đi."
+        ocr: "Đã yêu cầu đọc lại ảnh chuyển tiền."
+        evaluate: "Đang kiểm tra lại mã và người đi tiền từ kết quả OCR đã có."
+        write: "Đang ghi lại lệnh đã duyệt vào sheet."
     index:
       title: "Chuyển tiền"
       empty: "Không có lệnh chuyển tiền nào."
@@ -1271,6 +1285,11 @@ vi:
       amount_invalid: "Số tiền không hợp lệ"
       remitter_missing: "Chưa chọn người đi tiền"
       not_writable: "Lệnh chưa duyệt hoặc đã ghi sheet"
+      not_retryable: "Không thử lại lệnh đã bị admin từ chối hoặc đã chuyển sang luồng bill kết toán."
+      retry_in_progress: "Lệnh đang được xử lý hoặc vừa yêu cầu thử lại. Vui lòng chờ."
+      retry_image_missing: "Không có ảnh để xử lý lại. Kiểm tra tin nhắn Telegram gốc."
+      retry_shared_image: "Ảnh này trùng ảnh gốc đang lỗi. Hãy kiểm tra ảnh gốc trước."
+      retry_budget_exhausted: "Ảnh đã hết số lần đọc OCR cho phép. Vui lòng kiểm tra thủ công."
     flash:
       approved: "Đã duyệt, đang ghi vào tab thu chi."
       rejected: "Đã từ chối lệnh chuyển tiền."
