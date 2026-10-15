@@ -10,7 +10,7 @@
             hint: t("dealers.form.default_card_type_hint") %>
       <%= form.switch_field :active %>
       <hr>
-      <section data-controller="bank-qr-upload" data-bank-qr-upload-url-value="<%= admin_dealer_bank_qrs_path %>" aria-label="Thông tin nhận chuyển khoản">
+      <section id="dealer-bank-profile" data-controller="bank-qr-upload" data-bank-qr-upload-url-value="<%= admin_dealer_bank_qrs_path %>" aria-label="Thông tin nhận chuyển khoản">
       <h3>Thông tin nhận chuyển khoản</h3>
       <p class="text-secondary">Dùng để chuẩn bị tiền đi sau khi bill được duyệt. QR chỉ được tạo khi có người xác nhận.</p>
       <div class="d-flex gap-3 align-items-start flex-wrap mb-3">

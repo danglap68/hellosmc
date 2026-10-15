@@ -526,6 +526,15 @@ vi:
   dealers:
     telegram_groups: "Nhóm Telegram"
     merchants: "Hộ kinh doanh"
+    bank_profile:
+      title: "Thông tin chuyển khoản"
+      absent: "Chưa có tài khoản"
+      incomplete: "Chưa đầy đủ"
+      missing_fields: "Thiếu: %{fields}"
+      add: "Bổ sung"
+      add_for: "Bổ sung thông tin chuyển khoản cho %{name}"
+      filter_missing: "Chưa có / còn thiếu (%{count})"
+      filter_complete: "Đã đầy đủ (%{count})"
     index:
       title: "Đại lý / Nhóm"
       new: "Thêm đại lý"
@@ -1328,6 +1337,8 @@ vi:
         write: "Đang ghi lại lệnh đã duyệt vào sheet."
     index:
       title: "Chuyển tiền"
+      code: "Mã"
+      more_reasons: "Thêm %{count} lý do"
       sheet_location: "Thu chi"
       empty: "Không có lệnh chuyển tiền nào."
     queues:

@@ -16,29 +16,62 @@
         { key: "newest", label: t("toolbar.sorts.newest") }
       ],
       filters: [
-        { type: :single, name: "active", label: t("toolbar.active_state"), value: params[:active], options: [[t("common.active"), "1"], [t("common.inactive"), "0"]] }
+        { type: :single, name: "active", label: t("toolbar.active_state"), value: params[:active], options: [[t("common.active"), "1"], [t("common.inactive"), "0"]] },
+        { type: :single, name: "bank_profile", label: t("dealers.bank_profile.title"), value: params[:bank_profile],
+          options: [[t("dealers.bank_profile.filter_missing", count: @bank_profile_counts[:missing]), "missing"],
+                    [t("dealers.bank_profile.filter_complete", count: @bank_profile_counts[:complete]), "complete"]] }
       ]
     ) %>
 
 <div class="card">
   <% if @dealers.any? %>
-    <div class="table-responsive">
-      <table class="table table-vcenter card-table">
+    <div class="table-responsive dealers-table-scroll" tabindex="0" role="region" aria-label="<%= t("dealers.index.title") %>">
+      <table class="table table-vcenter card-table dealers-table">
+        <colgroup>
+          <col>
+          <col class="dealer-bank-column">
+          <col class="dealer-merchants-column">
+          <col class="dealer-card-column">
+          <col class="dealer-active-column">
+          <col class="dealer-actions-column">
+        </colgroup>
         <thead>
           <tr>
-            <th><%= Dealer.human_attribute_name(:name) %></th>
-            <th><%= Dealer.human_attribute_name(:code) %></th>
-            <th><%= t("dealers.merchants") %></th>
-            <th><%= Dealer.human_attribute_name(:default_card_type) %></th>
-            <th><%= Dealer.human_attribute_name(:active) %></th>
-            <th class="w-1"></th>
+            <th scope="col"><%= Dealer.human_attribute_name(:name) %></th>
+            <th scope="col"><%= t("dealers.bank_profile.title") %></th>
+            <th scope="col"><%= t("transactions.show.hkd") %></th>
+            <th scope="col"><%= Dealer.human_attribute_name(:default_card_type) %></th>
+            <th scope="col"><%= Dealer.human_attribute_name(:active) %></th>
+            <th scope="col"><span class="visually-hidden"><%= t("actions.edit") %></span></th>
           </tr>
         </thead>
         <tbody>
           <% @dealers.each do |dealer| %>
-            <tr>
-              <td><%= link_to dealer.name, admin_dealer_path(dealer) %></td>
-              <td><code><%= dealer.code %></code></td>
+            <% missing_fields = dealer.missing_bank_profile_fields %>
+            <tr data-dealer-id="<%= dealer.id %>">
+              <td class="dealer-identity">
+                <%= link_to dealer.name, admin_dealer_path(dealer) %>
+                <div class="dealer-secondary"><%= dealer.code %></div>
+              </td>
+              <td class="dealer-bank-profile" data-bank-profile="<%= missing_fields.empty? ? "complete" : "missing" %>">
+                <% if [ dealer.bank_bin, dealer.bank_account_number, dealer.bank_account_name ].any?(&:present?) %>
+                  <div class="dealer-bank-account">
+                    <span><%= PaymentQrs::Banks.name(dealer.bank_bin) || dealer.bank_bin.presence || "—" %></span>
+                    <span class="dealer-account-number"><%= dealer.bank_account_number.presence || "—" %></span>
+                  </div>
+                  <% if dealer.bank_account_name.present? %><div class="dealer-secondary"><%= dealer.bank_account_name %></div><% end %>
+                <% end %>
+                <% if missing_fields.any? %>
+                  <div class="dealer-bank-status">
+                    <span class="badge bg-yellow-lt"><%= t(missing_fields.size == 3 ? "dealers.bank_profile.absent" : "dealers.bank_profile.incomplete") %></span>
+                    <% if can?(:manage, :dealers) %>
+                      <%= link_to t("dealers.bank_profile.add"), edit_admin_dealer_path(dealer, anchor: "dealer-bank-profile"),
+                                  aria: { label: t("dealers.bank_profile.add_for", name: dealer.name) } %>
+                    <% end %>
+                  </div>
+                  <% unless missing_fields.size == 3 %><p class="dealer-bank-missing"><%= t("dealers.bank_profile.missing_fields", fields: missing_fields.map { |field| Dealer.human_attribute_name(field) }.join(", ")) %></p><% end %>
+                <% end %>
+              </td>
               <td><%= @merchant_counts[dealer.id].to_i %></td>
               <td><%= dealer.default_card_type&.name || "—" %></td>
               <td><%= active_badge(dealer.active?) %></td>

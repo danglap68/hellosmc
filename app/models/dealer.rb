@@ -27,6 +27,19 @@ class Dealer < ApplicationRecord
 
   scope :active, -> { where(active: true) }
   scope :ordered, -> { order(:name) }
+  scope :with_bank_profile, -> {
+    where(bank_bin: PaymentQrs::Banks.all.map { |bank| bank.fetch("bin") })
+      .where("bank_account_number ~ :filled AND bank_account_name ~ :filled", filled: "[^[:space:]]")
+  }
+  scope :without_bank_profile, -> { where.not(id: with_bank_profile.select(:id)) }
+
+  def missing_bank_profile_fields
+    fields = []
+    fields << :bank_bin unless PaymentQrs::Banks.name(bank_bin)
+    fields << :bank_account_number if bank_account_number.blank?
+    fields << :bank_account_name if bank_account_name.blank?
+    fields
+  end
 
   def display_name
     name

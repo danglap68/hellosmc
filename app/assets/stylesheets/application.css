@@ -976,10 +976,7 @@
 .row-actions { display: inline-flex; align-items: center; justify-content: flex-end; gap: 0.25rem; }
 .row-actions form { display: inline-flex; margin: 0; }
 .row-actions .btn-icon { min-width: 2.25rem; min-height: 2.25rem; }
-.transaction-actions, .transfer-actions { position: sticky; right: 0; z-index: 1; min-width: 10.5rem; background: var(--tblr-bg-surface); border-left: 1px solid var(--tblr-border-color); }
-.transfer-actions { min-width: 6.5rem; }
-.app-ui .table td.transfer-actions,
-.app-ui .table:not(.table-diff) tbody tr:hover > td.transfer-actions,
+.transaction-actions { position: sticky; right: 0; z-index: 1; min-width: 10.5rem; background: var(--tblr-bg-surface); border-left: 1px solid var(--tblr-border-color); }
 .app-ui .table td.transaction-actions,
 .app-ui .table:not(.table-diff) tbody tr:hover > td.transaction-actions { background-color: var(--tblr-bg-surface); }
 .transaction-actions .row-actions { width: 10rem; flex-wrap: wrap; }
@@ -1360,6 +1357,59 @@ dialog.chat-preview img {
 .transactions-table .transaction-party { min-width: 12rem; }
 .transactions-table .transaction-money { min-width: 10rem; }
 .transactions-table .transaction-state { min-width: 8rem; }
+.dealers-table-scroll { position: relative; }
+.dealers-table { table-layout: fixed; min-width: 55rem; }
+.dealers-table .dealer-bank-column { width: 18rem; }
+.dealers-table .dealer-merchants-column { width: 5rem; }
+.dealers-table .dealer-card-column, .dealers-table .dealer-active-column { width: 8.5rem; }
+.dealers-table .dealer-actions-column { width: 6.5rem; }
+.app-ui .dealers-table thead th { white-space: normal; color: var(--ev-ink-2); line-height: 1.5; }
+.dealer-identity, .dealer-bank-profile { overflow-wrap: anywhere; }
+.app-ui .dealer-identity > a { font-weight: 600; color: var(--tblr-link-hover-color); }
+.dealer-secondary { margin-top: 0.125rem; color: var(--ev-ink-2); font-size: 0.75rem; line-height: 1.5; }
+.dealer-bank-account { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.125rem 0.75rem; }
+.dealer-account-number { font-variant-numeric: tabular-nums; font-weight: 500; }
+.dealer-bank-status { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.75rem; margin-top: 0.25rem; }
+.dealer-bank-status:first-child { margin-top: 0; }
+.app-ui .dealer-bank-status a { font-size: 0.75rem; color: var(--tblr-link-hover-color); text-decoration: underline; text-underline-offset: 0.125rem; }
+.dealer-bank-missing { margin: 0.25rem 0 0; color: var(--ev-amber-ink); font-size: 0.75rem; line-height: 1.5; }
+.dealers-table-scroll:focus-visible { outline: 2px solid var(--tblr-primary); outline-offset: -2px; }
+#dealer-bank-profile { scroll-margin-top: 1.5rem; }
 @media (max-width: 767.98px) {
-  .transaction-actions, .transfer-actions { position: static; border-left: 0; }
+  .dealers-table .dealer-actions-column { width: 7.5rem; }
+  .dealers-table .row-actions .btn-icon { min-width: 2.75rem; min-height: 2.75rem; }
+  .dealer-bank-status a { display: inline-flex; align-items: center; min-height: 2.75rem; }
+}
+.transfer-table-scroll { position: relative; }
+.remitter-transfers-table { table-layout: fixed; min-width: 62rem; }
+.remitter-transfers-table .transfer-reference-column { width: 5.5rem; }
+.remitter-transfers-table .transfer-time-column { width: 8.5rem; }
+.remitter-transfers-table .transfer-sender-column { width: 7.5rem; }
+.remitter-transfers-table .transfer-amount-column { width: 10.5rem; }
+.remitter-transfers-table .transfer-state-column { width: 15rem; }
+.remitter-transfers-table .transfer-actions-column { width: 6.5rem; }
+.app-ui .remitter-transfers-table thead th { white-space: normal; line-height: 1.5; color: var(--ev-ink-2); }
+.app-ui .remitter-transfers-table td { padding-top: 0.625rem; padding-bottom: 0.625rem; }
+.remitter-transfers-table .transfer-reference > a, .transfer-merchant { font-weight: 600; }
+.app-ui .remitter-transfers-table .transfer-reference > a { color: var(--tblr-link-hover-color); }
+.transfer-time { display: flex; flex-direction: column; white-space: nowrap; }
+.transfer-secondary { margin-top: 0.125rem; font-size: 0.75rem; line-height: 1.5; color: var(--ev-ink-2); }
+.transfer-reference, .transfer-party, .transfer-sender, .transfer-state { overflow-wrap: anywhere; }
+.transfer-amount { font-weight: 600; }
+.transfer-review-reason { margin: 0.25rem 0 0; font-size: 0.75rem; line-height: 1.5; color: var(--ev-amber-ink); }
+.transfer-more-reasons { margin-top: 0.125rem; font-size: 0.75rem; line-height: 1.5; }
+.transfer-more-reasons summary { cursor: pointer; color: var(--ev-ink-2); width: fit-content; padding: 0.125rem 0; }
+.transfer-more-reasons ul { margin: 0.25rem 0 0; padding-left: 1rem; color: var(--ev-amber-ink); }
+.transfer-more-reasons li + li { margin-top: 0.25rem; }
+.transfer-sheet span { overflow-wrap: anywhere; }
+.transfer-table-scroll:focus-visible, .transfer-more-reasons summary:focus-visible { outline: 2px solid var(--tblr-primary); outline-offset: -2px; }
+@media (max-width: 1399.98px) {
+  .remitter-transfers-table .transfer-sender-column { width: 6rem; }
+  .remitter-transfers-table .transfer-state-column { width: 14rem; }
+}
+@media (max-width: 767.98px) {
+  .transaction-actions { position: static; border-left: 0; }
+  .remitter-transfers-table .row-actions .btn-icon { min-width: 2.75rem; min-height: 2.75rem; }
+  .remitter-transfers-table .transfer-actions-column { width: 7.5rem; }
+  .transfer-more-reasons summary { min-height: 2.75rem; align-content: center; }
 }

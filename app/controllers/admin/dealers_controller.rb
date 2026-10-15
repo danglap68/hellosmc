@@ -8,6 +8,9 @@ module Admin
       scope = Dealer.includes(:default_card_type)
       scope = scope.where("dealers.name ILIKE :q OR dealers.code ILIKE :q", q: "%#{Dealer.sanitize_sql_like(params[:q])}%") if params[:q].present?
       scope = apply_active_filter(scope)
+      @bank_profile_counts = { complete: scope.with_bank_profile.count, missing: scope.without_bank_profile.count }
+      scope = scope.with_bank_profile if params[:bank_profile] == "complete"
+      scope = scope.without_bank_profile if params[:bank_profile] == "missing"
       scope = apply_sort(scope, {
         "name_asc" => { name: :asc, id: :asc },
         "name_desc" => { name: :desc, id: :desc },

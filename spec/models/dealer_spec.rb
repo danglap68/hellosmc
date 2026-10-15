@@ -6,6 +6,20 @@ RSpec.describe Dealer do
     expect(build(:dealer, bank_bin: "123456", bank_account_number: "000123", bank_account_name: "A")).not_to be_valid
     expect(build(:dealer, bank_bin: "970422", bank_account_number: "000123", bank_account_name: "A", auto_payment_qr: true)).to be_valid
   end
+
+  it "finds missing recipient details independently of the automatic QR switch" do
+    complete = create(:dealer, bank_bin: "970422", bank_account_number: "000123", bank_account_name: "NGUYEN VAN AN", auto_payment_qr: false)
+    absent = create(:dealer)
+    partial = create(:dealer)
+    partial.update_columns(bank_bin: "unknown", bank_account_number: "000123", bank_account_name: " \t ")
+    dealers = Dealer.where(id: [ complete.id, absent.id, partial.id ])
+
+    expect(complete.missing_bank_profile_fields).to be_empty
+    expect(absent.missing_bank_profile_fields).to eq(%i[bank_bin bank_account_number bank_account_name])
+    expect(partial.missing_bank_profile_fields).to eq(%i[bank_bin bank_account_name])
+    expect(dealers.with_bank_profile).to contain_exactly(complete)
+    expect(dealers.without_bank_profile).to contain_exactly(absent, partial)
+  end
   subject { build(:dealer) }
 
   it { is_expected.to validate_presence_of(:name) }

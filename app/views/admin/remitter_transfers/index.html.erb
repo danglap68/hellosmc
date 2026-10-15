@@ -20,35 +20,64 @@
 
 <div class="card">
   <% if @transfers.any? %>
-    <div class="table-responsive">
-      <table class="table table-vcenter card-table">
+    <div class="table-responsive transfer-table-scroll" tabindex="0" role="region" aria-label="<%= t("remitter_transfers.index.title") %>">
+      <table class="table table-vcenter card-table remitter-transfers-table">
+        <colgroup>
+          <col class="transfer-reference-column">
+          <col class="transfer-time-column">
+          <col>
+          <col class="transfer-sender-column">
+          <col class="transfer-amount-column">
+          <col class="transfer-state-column">
+          <col class="transfer-actions-column">
+        </colgroup>
         <thead>
           <tr>
-            <th>ID</th>
-            <th><%= RemitterTransfer.human_attribute_name(:slip_at) %></th>
-            <th><%= RemitterTransfer.human_attribute_name(:remitter) %></th>
-            <th><%= RemitterTransfer.human_attribute_name(:transfer_code) %></th>
-            <th><%= t("transactions.show.hkd") %> / <%= RemitterTransfer.human_attribute_name(:dealer) %></th>
-            <th class="text-end"><%= RemitterTransfer.human_attribute_name(:amount_vnd) %></th>
-            <th><%= RemitterTransfer.human_attribute_name(:status) %></th>
-            <th class="w-1 transfer-actions"></th>
+            <th scope="col">ID / <%= t("remitter_transfers.index.code") %></th>
+            <th scope="col"><%= RemitterTransfer.human_attribute_name(:slip_at) %></th>
+            <th scope="col"><%= t("transactions.show.hkd") %> / <%= RemitterTransfer.human_attribute_name(:dealer) %></th>
+            <th scope="col"><%= RemitterTransfer.human_attribute_name(:remitter) %></th>
+            <th scope="col" class="text-end"><%= RemitterTransfer.human_attribute_name(:amount_vnd) %></th>
+            <th scope="col"><%= RemitterTransfer.human_attribute_name(:status) %></th>
+            <th scope="col"><span class="visually-hidden"><%= t("actions.view") %></span></th>
           </tr>
         </thead>
         <tbody>
           <% @transfers.each do |transfer| %>
             <tr>
-              <td><%= link_to "##{transfer.id}", admin_remitter_transfer_path(transfer) %></td>
-              <td class="text-nowrap"><%= remitter_slip_datetime(transfer) %></td>
-              <td><%= transfer.remitter&.name || content_tag(:span, t("remitter_transfers.unknown_remitter"), class: "text-orange") %></td>
-              <td><%= transfer.transfer_code ? content_tag(:code, transfer.transfer_code) : "—" %></td>
-              <td><%= transfer.merchant_dealer&.merchant&.name || "—" %><div class="small text-secondary"><%= transfer.dealer&.name || "—" %></div></td>
-              <td class="text-end money"><%= format_vnd(transfer.amount_vnd) %></td>
+              <td class="transfer-reference">
+                <%= link_to "##{transfer.id}", admin_remitter_transfer_path(transfer) %>
+                <div class="transfer-secondary" title="<%= RemitterTransfer.human_attribute_name(:transfer_code) %>"><%= transfer.transfer_code.presence || "—" %></div>
+              </td>
               <td>
-                <%= remitter_transfer_status_badge(transfer) %>
-                <% transfer.active_review_reasons.each do |reason| %>
-                  <span class="badge bg-yellow-lt"><%= remitter_transfer_reason(reason) %></span>
+                <% if (slip_at = transfer.slip_at) %>
+                  <time class="transfer-time" datetime="<%= slip_at.iso8601 %>">
+                    <span><%= l(slip_at.to_date) %></span>
+                    <% unless slip_at.is_a?(Date) %><span class="transfer-secondary"><%= l(slip_at, format: "%H:%M:%S") %></span><% end %>
+                  </time>
+                <% else %>
+                  <span class="text-secondary">—</span>
                 <% end %>
-                <% if transfer.rd_cell %><div class="small text-secondary mt-1"><%= t("remitter_transfers.index.sheet_location") %>: <code><%= transfer.rd_sheet %>!<%= transfer.rd_cell %></code></div><% end %>
+              </td>
+              <td class="transfer-party">
+                <div class="transfer-merchant"><%= transfer.merchant_dealer&.merchant&.name || "—" %></div>
+                <div class="transfer-secondary"><%= transfer.dealer&.name || "—" %></div>
+              </td>
+              <td class="transfer-sender"><%= transfer.remitter&.name || content_tag(:span, t("remitter_transfers.unknown_remitter"), class: "text-orange") %></td>
+              <td class="text-end money transfer-amount"><%= format_vnd(transfer.amount_vnd) %></td>
+              <td class="transfer-state">
+                <%= remitter_transfer_status_badge(transfer) %>
+                <% reasons = transfer.active_review_reasons %>
+                <% if reasons.any? %>
+                  <p class="transfer-review-reason"><%= remitter_transfer_reason(reasons.first) %></p>
+                  <% if reasons.many? %>
+                    <details class="transfer-more-reasons">
+                      <summary><%= t("remitter_transfers.index.more_reasons", count: reasons.size - 1) %></summary>
+                      <ul><% reasons.drop(1).each do |reason| %><li><%= remitter_transfer_reason(reason) %></li><% end %></ul>
+                    </details>
+                  <% end %>
+                <% end %>
+                <% if transfer.rd_cell %><div class="transfer-secondary transfer-sheet"><%= t("remitter_transfers.index.sheet_location") %>: <span><%= transfer.rd_sheet %>!<%= transfer.rd_cell %></span></div><% end %>
               </td>
               <td class="text-nowrap text-end transfer-actions">
                 <div class="row-actions">
