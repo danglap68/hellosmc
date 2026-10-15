@@ -96,8 +96,8 @@
     <% end %>
 
     <% editable = can?(:manage, :settings) %>
-    <details class="card mt-3" id="tinh-chinh" <%= "open" if @tuning_form.errors.any? || params[:action] == "tuning" %>>
-      <summary class="card-header"><span class="card-title"><%= icon("adjustments") %> <%= t("settings.tuning.title") %></span></summary>
+    <details class="card mt-3 technical-details" id="tinh-chinh" <%= "open" if @tuning_form.errors.any? || params[:action] == "tuning" %>>
+      <summary class="card-header"><span class="card-title"><%= icon("adjustments") %> <%= t("settings.tuning.title") %></span><%= icon("chevron-right", "technical-details-chevron") %></summary>
       <%= form_with url: tuning_admin_settings_path, method: :patch, scope: :tuning do |form| %>
         <div class="card-body small text-secondary"><%= t("settings.tuning.help") %></div>
         <% if @tuning_form.errors.any? %>
@@ -109,7 +109,7 @@
           </div>
         <% end %>
         <div class="table-responsive">
-          <table class="table card-table table-sm table-vcenter" <%= bulk_table_attributes %>>
+          <table class="table card-table table-sm table-vcenter">
             <thead>
               <tr>
                 <th><%= t("settings.tuning.name") %></th>
@@ -200,7 +200,7 @@
         </div>
       </div>
       <div class="table-responsive">
-        <table class="table card-table" <%= bulk_table_attributes %>>
+        <table class="table card-table">
           <% @services.each do |service, configured| %>
             <tr>
               <td><%= t("settings.services.#{service}") %><div class="small text-secondary"><code><%= t("settings.services.env.#{service}") %></code></div></td>
@@ -228,20 +228,6 @@
           <div class="small text-secondary mt-2"><%= t("settings.r2_check.help") %></div>
         </div>
       <% end %>
-    </div>
-
-    <div class="card mb-3">
-      <div class="card-header">
-        <h3 class="card-title"><%= t("navigation.card_types") %></h3>
-        <div class="card-actions"><%= link_to t("actions.manage"), admin_card_types_path %></div>
-      </div>
-      <div class="table-responsive">
-        <table class="table card-table" <%= bulk_table_attributes(:card_types) %>>
-          <% @card_types.each do |card_type| %>
-            <tr <%= bulk_row_attributes(card_type) %>><td><code><%= card_type.key %></code></td><td><%= card_type.name %></td><td><%= active_badge(card_type.active?) %></td></tr>
-          <% end %>
-        </table>
-      </div>
     </div>
 
     <div class="card">

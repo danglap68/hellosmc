@@ -41,9 +41,8 @@
                  data-nav-pins-cookie-value="<%= SettingsNavHelper::NAV_PINS_COOKIE %>"
                  data-nav-pins-labels-value="<%= { pin: t("navigation.pin"), unpin: t("navigation.unpin"), pin_short: t("navigation.pin_short"), unpin_short: t("navigation.unpin_short") }.to_json %>">
               <% pinned = shell_pinned_items %>
-              <section class="shell-pins" data-nav-pins-target="section">
+              <section class="shell-pins" data-nav-pins-target="section" <%= "hidden" if pinned.empty? %>>
                 <div class="shell-label"><%= t("navigation.pinned") %></div>
-                <p class="shell-pins-empty" data-nav-pins-target="empty" <%= "hidden" if pinned.any? %>><%= t("navigation.pins_empty") %></p>
                 <nav class="shell-nav" aria-label="<%= t("navigation.pinned") %>" data-nav-pins-target="pinned">
                   <% pinned.each do |item| %>
                     <%= render "layouts/shell_nav_item", item: item %>
@@ -54,7 +53,7 @@
               <div class="shell-label"><%= t("navigation.pages") %></div>
               <nav class="shell-nav" aria-label="<%= t("ui.main_navigation") %>" data-nav-pins-target="list">
                 <% shell_main_items.each do |item| %>
-                  <%= render "layouts/shell_nav_item", item: item %>
+                  <%= render "layouts/shell_nav_item", item: item, hidden: shell_pinned_keys.include?(item[:key]) %>
                 <% end %>
               </nav>
             </div>
@@ -131,7 +130,6 @@
     </div>
     <%= render "admin/shared/command_palette" %>
     <%= render "admin/shared/rejection_dialog" %>
-    <%= render "admin/shared/bulk_table_templates" %>
     <%= render "layouts/toasts" %>
   </body>
 </html>

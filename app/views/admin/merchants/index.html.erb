@@ -24,7 +24,7 @@
 <div class="card">
   <% if @merchants.any? %>
     <div class="table-responsive">
-      <table class="table table-vcenter card-table" <%= bulk_table_attributes(:merchants) %>>
+      <table class="table table-vcenter card-table">
         <thead>
           <tr>
             <th><%= Merchant.human_attribute_name(:name) %></th>
@@ -37,7 +37,7 @@
         </thead>
         <tbody>
           <% @merchants.each do |merchant| %>
-            <tr <%= bulk_row_attributes(merchant) %>>
+            <tr>
               <td><%= link_to merchant.name, admin_merchant_path(merchant) %></td>
               <td><code><%= merchant.code %></code></td>
               <td><%= merchant.default_card_type&.name || "—" %></td>

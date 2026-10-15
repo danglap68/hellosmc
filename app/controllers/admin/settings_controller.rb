@@ -112,7 +112,6 @@ module Admin
         smtp: AppConfig.smtp_configured?
       }
       @storage_service = AppConfig.active_storage_service
-      @card_types = CardType.ordered
       @last_change = AuditLog.where(action: "settings.updated").includes(:actor_user).recent_first.first
       @tuning_form = TuningForm.new
       load_tuning

@@ -177,11 +177,12 @@ RSpec.describe "Admin messages" do
     get admin_message_path(message)
     expect(response).to have_http_status(:ok)
     expect(response.body).to include("MB", admin_transaction_path(message.transactions.sole), admin_remitter_transfer_path(message.remitter_transfer))
-    expect(response.body).not_to include("JSON thô", "khong-hien")
+    expect(response.body).not_to include("Dữ liệu kỹ thuật", "khong-hien")
 
     sign_in create(:user, :admin)
     get admin_message_path(message)
-    expect(response.body).to include("JSON thô", "khong-hien")
+    expect(response.body).to include("Dữ liệu kỹ thuật", "khong-hien")
+    expect(Nokogiri::HTML(response.body).at_css("details.technical-details")["open"]).to be_nil
 
     sign_in create(:user, :viewer)
     get admin_messages_path

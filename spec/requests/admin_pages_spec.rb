@@ -82,6 +82,38 @@ RSpec.describe "Admin pages" do
     expect(page.css(".settlement-equation dt").map(&:text)).to include("Đã duyệt", "Chờ xử lý / kiểm tra")
   end
 
+  it "shows only actionable queues and a completed state when no work remains" do
+    get admin_root_path
+    page = Nokogiri::HTML(response.body)
+    expect(page.css(".attention-count").map { |node| node.text.to_i }).to all(be_positive)
+
+    review.update!(status: "rejected")
+    get admin_root_path
+    page = Nokogiri::HTML(response.body)
+    expect(page.css(".attention-row")).to be_empty
+    expect(page.at_css(".attention-card").text).to include("Không có việc đang chờ")
+  end
+
+  it "keeps card-type management in its dedicated section and diagnostics collapsed" do
+    get admin_settings_path
+    page = Nokogiri::HTML(response.body)
+    expect(page.css(".settings-main .card-title").map(&:text)).not_to include("Loại thẻ")
+    expect(page.at_css("details#tinh-chinh")["open"]).to be_nil
+    expect(page.text).to include("Kiểm tra kho ảnh")
+
+    get admin_settings_fees_card_types_path
+    page = Nokogiri::HTML(response.body)
+    expect(page.at_css("table").text).to include(normal_card.name)
+    expect(page.css(%(a[href="#{edit_admin_card_type_path(normal_card)}"]))).not_to be_empty
+
+    get admin_transaction_path(approved)
+    page = Nokogiri::HTML(response.body)
+    details = page.at_css("details.technical-details")
+    expect(details.at_css("summary").text).to include("Chi tiết đọc ảnh và đối chiếu")
+    expect(details["open"]).to be_nil
+    expect(page.text).to include("Cách tính", "Lịch sử trạng thái")
+  end
+
   it "uses a merchant ranking chart with exact totals and period drill-down instead of card types" do
     [ "Cherry Coffee", "Gat Tan Day Coffe", "HKD AS CAFE", "HKD NCT MBV", "HKD tên dài để kiểm tra xuống dòng" ].each_with_index do |name, index|
       amount = (6 - index) * 1_000_000
@@ -122,6 +154,7 @@ RSpec.describe "Admin pages" do
     get admin_root_path
     page = Nokogiri::HTML(response.body)
     expect(page.css("[data-nav-pins-target=pinned] .shell-item")).to be_empty
+    expect(page.at_css(".shell-pins")["hidden"]).not_to be_nil
     expect(page.css("[data-nav-pins-target=list] .shell-item").map { _1["data-nav-pins-key"] })
       .to include("dashboard", "transactions", "reviews", "remitter_transfers")
 
@@ -131,6 +164,9 @@ RSpec.describe "Admin pages" do
     expect(page.css("[data-nav-pins-target=pinned] .shell-item").map { _1["data-nav-pins-key"] })
       .to eq(%w[reviews transactions])
     expect(page.css(%([data-nav-pins-target=list] [data-nav-pins-key=reviews] .shell-pin)).first["aria-pressed"]).to eq("true")
+    expect(page.css("[data-nav-pins-target=list] .shell-item[hidden]").map { _1["data-nav-pins-key"] }).to match_array(%w[reviews transactions])
+    visible_keys = page.css("[data-nav-pins-target] .shell-item:not([hidden])").map { _1["data-nav-pins-key"] }
+    expect(visible_keys.uniq).to eq(visible_keys)
   end
 
   it "shows outgoing totals and the reconciliation formula with a link to all transfers in the selected period" do
@@ -151,6 +187,9 @@ RSpec.describe "Admin pages" do
   end
 
   it "renders index, show, new and edit pages" do
+    merchant_dealer_link.update!(transfer_code: "TK1")
+    transfer = create(:remitter_transfer, status: "needs_review", amount_vnd: 12_000_000, merchant_dealer: merchant_dealer_link)
+    remitter = transfer.remitter || create(:remitter)
     paths = [
       admin_root_path,
       admin_messages_path, admin_messages_path(chat_id: chat.id, q: "MB"),
@@ -159,6 +198,8 @@ RSpec.describe "Admin pages" do
       admin_transaction_path(approved), admin_transaction_path(review), edit_admin_transaction_path(review),
       admin_reviews_path, admin_reviews_path(queue: "hold"), admin_review_path(review), admin_review_path(approved),
       new_admin_bill_upload_path,
+      admin_remitter_transfers_path, admin_remitter_transfer_path(transfer),
+      admin_remitters_path, new_admin_remitter_path, edit_admin_remitter_path(remitter),
       admin_dealers_path, admin_dealer_path(dealer), new_admin_dealer_path, edit_admin_dealer_path(dealer),
       admin_telegram_chats_path, admin_telegram_chats_path(filter: "inactive"), admin_telegram_chat_path(chat),
       new_admin_telegram_chat_path, edit_admin_telegram_chat_path(chat),
@@ -172,15 +213,31 @@ RSpec.describe "Admin pages" do
       admin_audit_logs_path, admin_audit_logs_path(actor: "system"), admin_audit_log_path(AuditLog.first),
       admin_users_path, new_admin_user_path, edit_admin_user_path(admin),
       admin_settings_system_roles_path, admin_transfer_codes_path, new_admin_transfer_code_path,
-      admin_settings_path
+      edit_admin_transfer_code_path(merchant_dealer_link), admin_settings_path
     ]
 
+    inventory = []
+    previews = {}
     paths.each do |path|
       get path
       follow_redirect! if response.redirect?
       expect(response).to have_http_status(:ok), "#{path} returned #{response.status}"
       expect(response.body).not_to include("translation missing"), "#{path} has missing translations"
       expect(response.body).not_to match(/Translation missing/i), "#{path} has missing translations"
+      page = Nokogiri::HTML(response.body)
+      expect(page.css('[data-controller~="bulk-table"], [data-bulk-id], #bulk-table-toolbar, #bulk-table-dialog')).to be_empty, "#{path} still has generic table selection"
+      expect(response.body).not_to include("Xuất CSV", "Đã chọn", "table_csv", "controllers/bulk_table_controller")
+      if ENV["SMC_UI_AUDIT"] == "1"
+        inventory << { path: path, title: page.at_css("title")&.text,
+          headings: page.css("main h1, main h2, main h3, main summary").map { |node| node.text.squish },
+          actions: page.css("main a, main button").map { |node| node["aria-label"].presence || node.text.squish }.reject(&:blank?).uniq }
+        previews[path] = response.body if [ admin_root_path, admin_settings_path, admin_card_types_path, admin_transactions_path, admin_reviews_path, admin_remitter_transfers_path, new_admin_excel_export_path, admin_transaction_path(approved) ].include?(path)
+      end
+    end
+    if ENV["SMC_UI_AUDIT"] == "1"
+      path = Rails.root.join("tmp/diagnostics/ui-audit#{ENV.fetch('TEST_ENV_NUMBER', '')}.json")
+      FileUtils.mkdir_p(path.dirname)
+      path.write(JSON.generate(inventory: inventory, previews: previews))
     end
   end
 

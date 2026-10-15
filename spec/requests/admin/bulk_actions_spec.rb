@@ -204,18 +204,19 @@ RSpec.describe "Admin bulk actions" do
     expect(WriteRemitterReportJob).not_to have_been_enqueued.with(written.id)
   end
 
-  it "renders versioned selectable rows and hides mutation actions from read-only users" do
+  it "renders record-specific actions without generic table selection for admins and viewers" do
     row = create(:transaction, source_data: { "possible_duplicate_ids" => [ 120 ] })
     get admin_transactions_path
     page = Nokogiri::HTML(response.body)
-    table = page.at_css('table[data-controller="bulk-table"]')
-    expect(JSON.parse(table["data-bulk-table-operations-value"]).pluck("key")).to include("approve", "reject")
-    expect(table.at_css("tr[data-bulk-id='#{row.id}']")["data-bulk-reason"]).to eq("Trùng với giao dịch #120")
-    expect(table.at_css("tr[data-bulk-id='#{row.id}']")["data-bulk-version"]).to eq(row.lock_version.to_s)
-    expect(page.at_css("#bulk-table-toolbar")).to be_present
+    rendered_row = page.at_css(%(a[href="#{admin_transaction_path(row)}"])).ancestors("tr").first
+    expect(rendered_row.at_css(%(form[action="#{approve_admin_transaction_path(row)}"]))).to be_present
+    expect(page.css('[data-controller~="bulk-table"], [data-bulk-id], #bulk-table-toolbar')).to be_empty
+    expect(response.body).not_to include("Xuất CSV", "table_csv", "controllers/bulk_table_controller")
+
     sign_in create(:user, :viewer)
     get admin_transactions_path
-    table = Nokogiri::HTML(response.body).at_css('table[data-controller="bulk-table"]')
-    expect(JSON.parse(table["data-bulk-table-operations-value"])).to be_empty
+    page = Nokogiri::HTML(response.body)
+    expect(page.css(%(form[action="#{approve_admin_transaction_path(row)}"]))).to be_empty
+    expect(page.css('[data-controller~="bulk-table"], [data-bulk-id], #bulk-table-toolbar')).to be_empty
   end
 end

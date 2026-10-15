@@ -1,5 +1,5 @@
 <% pinned = shell_pinned_keys.include?(item[:key]) %>
-<div class="shell-item" data-nav-pins-key="<%= item[:key] %>">
+<div class="shell-item" data-nav-pins-key="<%= item[:key] %>" <%= "hidden" if local_assigns[:hidden] %>>
   <%= link_to item[:url], class: "shell-link", aria: { current: ("page" if item[:active]) } do %>
     <span class="shell-link-icon"><%= icon(item[:icon]) %></span>
     <span class="shell-link-label"><%= item[:label] %></span>

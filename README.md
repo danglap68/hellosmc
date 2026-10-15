@@ -297,14 +297,13 @@ needed before the app can reach its database:
 The settings page also shows which secrets are configured (never their values). The business timezone is fixed
 to Asia/Ho_Chi_Minh; timestamps are stored in UTC. Definitions live in `app/models/app_setting.rb`.
 
-## Bulk table actions
+## Administrative table interaction
 
-Every admin table supports row selection, selection of the current page and CSV export of selected rows.
-Editable tables also show actions allowed by the user's resource permissions: transaction/review decisions
-and OCR reruns, outgoing-transfer retry/review/sheet writing, and configuration activation/deactivation/deletion.
-The server rechecks each row's version, state and validations, preserves existing audits and reports each failure
-without undoing successful rows. Rejection requires an editable reason. Shared bill images queue one OCR run per batch.
-History and summary tables only export the visible selected data; they do not gain write permissions.
+Tables display records and their relevant row actions without generic selection or CSV controls.
+Accounting files are created and downloaded through the dedicated Excel export flow. General settings
+shows connection and application state; card types are managed in the dedicated fees/card-types section.
+Optional OCR and raw message diagnostics remain available in collapsed details. Dashboard work queues
+show nonempty queues, and show a completed empty state when no work remains.
 
 Transfer codes are matched against the Telegram caption and the bank-transfer memo extracted from the image.
 For example, a visible `As02` resolves to configured `AS2`, with `image` recorded as the source. Conflicting,

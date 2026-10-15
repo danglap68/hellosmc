@@ -52,7 +52,7 @@ RSpec.describe "Admin transactions" do
     future = create(:transaction, :approved, transaction_at: Time.zone.local(2026, 12, 10, 16, 59, 39))
     undated = create(:transaction, transaction_at: nil)
     snapshot = future.attributes
-    ordered_ids = -> { Nokogiri::HTML(response.body).css("tbody tr[data-bulk-id]").map { |row| row["data-bulk-id"].to_i } }
+    ordered_ids = -> { Nokogiri::HTML(response.body).css(".transactions-table tbody tr > td:first-child a").map { |link| link.text.delete_prefix("#").to_i } }
 
     [ {}, { sort: "when_desc" }, { sort: "invalid" } ].each do |params|
       get admin_transactions_path, params: params

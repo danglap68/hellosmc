@@ -21,38 +21,35 @@
 <div class="card">
   <% if @transfers.any? %>
     <div class="table-responsive">
-      <table class="table table-vcenter card-table" <%= bulk_table_attributes(:remitter_transfers) %>>
+      <table class="table table-vcenter card-table">
         <thead>
           <tr>
             <th>ID</th>
             <th><%= RemitterTransfer.human_attribute_name(:slip_at) %></th>
             <th><%= RemitterTransfer.human_attribute_name(:remitter) %></th>
             <th><%= RemitterTransfer.human_attribute_name(:transfer_code) %></th>
-            <th><%= RemitterTransfer.human_attribute_name(:merchant) %></th>
-            <th><%= RemitterTransfer.human_attribute_name(:dealer) %></th>
+            <th><%= t("transactions.show.hkd") %> / <%= RemitterTransfer.human_attribute_name(:dealer) %></th>
             <th class="text-end"><%= RemitterTransfer.human_attribute_name(:amount_vnd) %></th>
             <th><%= RemitterTransfer.human_attribute_name(:status) %></th>
-            <th><%= RemitterTransfer.human_attribute_name(:rd_cell) %></th>
             <th class="w-1 transfer-actions"></th>
           </tr>
         </thead>
         <tbody>
           <% @transfers.each do |transfer| %>
-            <tr <%= bulk_row_attributes(transfer) %>>
+            <tr>
               <td><%= link_to "##{transfer.id}", admin_remitter_transfer_path(transfer) %></td>
               <td class="text-nowrap"><%= remitter_slip_datetime(transfer) %></td>
               <td><%= transfer.remitter&.name || content_tag(:span, t("remitter_transfers.unknown_remitter"), class: "text-orange") %></td>
               <td><%= transfer.transfer_code ? content_tag(:code, transfer.transfer_code) : "—" %></td>
-              <td><%= transfer.merchant_dealer&.merchant&.name || "—" %></td>
-              <td><%= transfer.dealer&.name || "—" %></td>
+              <td><%= transfer.merchant_dealer&.merchant&.name || "—" %><div class="small text-secondary"><%= transfer.dealer&.name || "—" %></div></td>
               <td class="text-end money"><%= format_vnd(transfer.amount_vnd) %></td>
               <td>
                 <%= remitter_transfer_status_badge(transfer) %>
                 <% transfer.active_review_reasons.each do |reason| %>
                   <span class="badge bg-yellow-lt"><%= remitter_transfer_reason(reason) %></span>
                 <% end %>
+                <% if transfer.rd_cell %><div class="small text-secondary mt-1"><%= t("remitter_transfers.index.sheet_location") %>: <code><%= transfer.rd_sheet %>!<%= transfer.rd_cell %></code></div><% end %>
               </td>
-              <td><%= transfer.rd_cell ? "#{transfer.rd_sheet}!#{transfer.rd_cell}" : "—" %></td>
               <td class="text-nowrap text-end transfer-actions">
                 <div class="row-actions">
                   <%= link_to admin_remitter_transfer_path(transfer), class: "btn btn-sm btn-ghost-secondary btn-icon", title: t("actions.view"), aria: { label: t("actions.view") } do %><%= icon("eye") %><% end %>

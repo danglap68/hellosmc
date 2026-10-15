@@ -156,7 +156,7 @@ RSpec.describe "Settings" do
 
     it "shows the bot token and the sheet on one Kết nối card" do
       get admin_settings_path
-      expect(response.body).to include("Kết nối", "Token bot", "Google Sheet Hello SMC", %(name="spreadsheet_id"),
+      expect(response.body).to include("Kết nối", "Token bot", "Google Sheet kế toán", %(name="spreadsheet_id"),
                                        %(name="telegram_bot_token"))
     end
 

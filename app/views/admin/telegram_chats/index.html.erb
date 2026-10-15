@@ -24,7 +24,7 @@
 <div class="card">
   <% if @telegram_chats.any? %>
     <div class="table-responsive">
-      <table class="table table-vcenter card-table" <%= bulk_table_attributes(:telegram_chats) %>>
+      <table class="table table-vcenter card-table">
         <thead>
           <tr>
             <th><%= TelegramChat.human_attribute_name(:name) %></th>
@@ -36,7 +36,7 @@
         </thead>
         <tbody>
           <% @telegram_chats.each do |chat| %>
-            <tr <%= bulk_row_attributes(chat) %>>
+            <tr>
               <td><%= link_to chat.display_name, admin_telegram_chat_path(chat) %><div class="small text-secondary"><%= chat.chat_type %></div></td>
               <td><code><%= chat.telegram_chat_id %></code></td>
               <td><%= @message_counts[chat.id].to_i %></td>

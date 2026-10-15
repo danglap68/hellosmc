@@ -59,7 +59,7 @@
       <div class="card mt-3">
         <div class="card-header"><h3 class="card-title"><%= t("messages.show.edits") %></h3></div>
         <div class="table-responsive">
-          <table class="table card-table table-vcenter" <%= bulk_table_attributes %>>
+          <table class="table card-table table-vcenter">
             <tbody>
               <% edits.each do |edit| %>
                 <tr>
@@ -73,10 +73,10 @@
       </div>
     <% end %>
     <% if current_user.admin? %>
-      <div class="card mt-3">
-        <div class="card-header"><h3 class="card-title"><%= t("messages.show.raw") %></h3></div>
+      <details class="card mt-3 technical-details">
+        <summary class="card-header"><span class="card-title"><%= t("messages.show.raw") %></span><%= icon("chevron-right", "technical-details-chevron") %></summary>
         <div class="card-body"><%= json_block(@message.raw_payload) %></div>
-      </div>
+      </details>
     <% end %>
   </div>
 </div>

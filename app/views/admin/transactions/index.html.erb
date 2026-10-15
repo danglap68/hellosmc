@@ -14,7 +14,7 @@
       ],
       filters: [
         { type: :single, name: "dealer_id", label: Transaction.human_attribute_name(:dealer), value: @filter[:dealer_id], options: dealer_options },
-        { type: :single, name: "merchant_id", label: Transaction.human_attribute_name(:merchant), value: @filter[:merchant_id], options: merchant_options },
+        { type: :single, name: "merchant_id", label: t("transactions.show.hkd"), value: @filter[:merchant_id], options: merchant_options },
         { type: :single, name: "status", label: Transaction.human_attribute_name(:status), value: @filter[:status], options: enum_options(:transaction, :status, Transaction::STATUSES) },
         { type: :single, name: "card_type_id", label: Transaction.human_attribute_name(:card_type), value: @filter[:card_type_id], options: card_type_options },
         { type: :date_range, key: "dates", label: t("toolbar.transaction_date"), from_name: "date_from", to_name: "date_to", from_value: @filter[:date_from], to_value: @filter[:date_to] },
@@ -28,25 +28,20 @@
 <div class="card">
   <% if @transactions.any? %>
     <div class="table-responsive">
-      <table class="table table-vcenter card-table table-sm" <%= bulk_table_attributes(:transactions) %>>
+      <table class="table table-vcenter card-table table-sm transactions-table">
         <thead>
           <tr>
             <th>ID</th>
             <th><%= Transaction.human_attribute_name(:transaction_at) %></th>
             <th><%= Transaction.human_attribute_name(:merchant) %> / <%= Transaction.human_attribute_name(:dealer) %></th>
-            <th><%= Transaction.human_attribute_name(:card_type) %></th>
-            <th><%= Transaction.human_attribute_name(:lot_number) %></th>
             <th class="text-end"><%= Transaction.human_attribute_name(:transaction_amount_vnd) %></th>
-            <th class="text-end"><%= Transaction.human_attribute_name(:applied_base_fee_rate) %></th>
-            <th class="text-end"><%= Transaction.human_attribute_name(:amount_after_base_fee_vnd) %></th>
             <th><%= Transaction.human_attribute_name(:status) %></th>
-            <th class="text-center"><%= Transaction.human_attribute_name(:confidence_score) %></th>
             <th class="transaction-actions"></th>
           </tr>
         </thead>
         <tbody>
           <% @transactions.each do |transaction| %>
-            <tr <%= bulk_row_attributes(transaction) %>>
+            <tr>
               <td><%= link_to "##{transaction.id}", admin_transaction_path(transaction) %></td>
               <td class="text-nowrap">
                 <% if transaction.transaction_at %>
@@ -54,21 +49,25 @@
                   <div class="small text-secondary"><%= transaction.transaction_at.strftime("%H:%M:%S") %></div>
                 <% else %>—<% end %>
               </td>
-              <td>
+              <td class="transaction-party">
                 <% if transaction.merchant %>
                   <div><%= transaction.merchant.name %></div>
                 <% else %>
                   <div class="text-secondary" title="<%= t('transactions.raw_ocr_name') %>"><%= transaction.raw_merchant_name || "—" %></div>
                 <% end %>
                 <div class="small text-secondary"><%= transaction.dealer&.name || "—" %></div>
+                <div class="small text-secondary"><%= t("transactions.index.bill_details", card: transaction.card_type&.name || "—", lot: transaction.lot_number || "—") %></div>
               </td>
-              <td><%= transaction.card_type&.name || "—" %></td>
-              <td><%= transaction.lot_number || "—" %></td>
-              <td class="text-end money"><%= format_vnd(transaction.transaction_amount_vnd) %></td>
-              <td class="text-end text-nowrap"><%= format_rate(transaction.base_fee_rate_used) %></td>
-              <td class="text-end money"><%= format_vnd(transaction.amount_after_base_fee_vnd) %></td>
-              <td class="text-nowrap"><%= status_badge(transaction.status) %><%= skip_tag_badges(transaction) %></td>
-              <td class="text-center"><%= confidence_badge(transaction.confidence_score) %><div class="mt-1"><%= image_integrity_badge(transaction) %></div></td>
+              <td class="text-end transaction-money">
+                <div class="money fw-semibold"><%= format_vnd(transaction.transaction_amount_vnd) %></div>
+                <div class="small text-secondary"><%= t("transactions.index.after_fee") %>: <span class="money"><%= format_vnd(transaction.amount_after_base_fee_vnd) %></span></div>
+                <div class="small text-secondary"><%= t("transactions.index.base_fee") %>: <%= format_rate(transaction.base_fee_rate_used) %></div>
+              </td>
+              <td class="transaction-state">
+                <div><%= status_badge(transaction.status) %><%= skip_tag_badges(transaction) %></div>
+                <% if transaction.confidence_score %><div class="small text-secondary mt-1"><%= t("transactions.index.ocr_confidence") %>: <%= confidence_badge(transaction.confidence_score) %></div><% end %>
+                <div class="mt-1"><%= image_integrity_badge(transaction) %></div>
+              </td>
               <td class="transaction-actions text-end"><%= render "admin/transactions/row_actions", transaction: transaction %></td>
             </tr>
           <% end %>

@@ -3,7 +3,7 @@ import { Controller } from "@hotwired/stimulus"
 const ONE_YEAR = 60 * 60 * 24 * 365
 
 export default class extends Controller {
-  static targets = ["section", "pinned", "list", "empty"]
+  static targets = ["section", "pinned", "list"]
   static values = { cookie: String, labels: Object }
 
   toggle(event) {
@@ -16,6 +16,9 @@ export default class extends Controller {
 
     this.writeKeys(keys)
     this.render(keys)
+    const row = [...this.element.querySelectorAll("[data-nav-pins-key]")]
+      .find(row => row.dataset.navPinsKey === key && !row.hidden)
+    row?.querySelector(".shell-pin")?.focus()
   }
 
   render(keys) {
@@ -24,8 +27,13 @@ export default class extends Controller {
     )
     const pinnedKeys = keys.filter((key) => rows.has(key))
 
-    this.pinnedTarget.replaceChildren(...pinnedKeys.map((key) => rows.get(key).cloneNode(true)))
-    this.emptyTarget.hidden = pinnedKeys.length > 0
+    this.pinnedTarget.replaceChildren(...pinnedKeys.map((key) => {
+      const row = rows.get(key).cloneNode(true)
+      row.hidden = false
+      return row
+    }))
+    this.sectionTarget.hidden = pinnedKeys.length === 0
+    rows.forEach((row, key) => { row.hidden = pinnedKeys.includes(key) })
 
     this.element.querySelectorAll("[data-nav-pins-key]").forEach((row) => {
       this.paintStar(row, pinnedKeys.includes(row.dataset.navPinsKey))

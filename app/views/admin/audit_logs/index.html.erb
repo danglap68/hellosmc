@@ -19,7 +19,7 @@
 <div class="card">
   <% if @audit_logs.any? %>
     <div class="table-responsive">
-      <table class="table table-vcenter card-table" <%= bulk_table_attributes %>>
+      <table class="table table-vcenter card-table">
         <thead>
           <tr>
             <th><%= AuditLog.human_attribute_name(:created_at) %></th>

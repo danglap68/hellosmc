@@ -62,6 +62,7 @@
     <% end %>
     <% queues << [:unmatched, @stats.unmatched_albums, admin_bill_albums_path, "warning"] if !feature_hidden?(:bill_albums) && can?(:read, :bill_albums) %>
     <% queues << [:transfers, @stats.transfers_needing_review, admin_remitter_transfers_path(queue: "needs_review"), "warning"] if can?(:read, :remitter_transfers) %>
+    <% queues.select! { |_, count, _, _| count.positive? } %>
     <% if queues.any? %>
       <ul class="attention-list">
         <% queues.each do |key, count, url, tone| %>
