@@ -3,7 +3,6 @@
 <% current = @stats.current_snapshot %>
 <% previous = @stats.previous_snapshot %>
 <% trends = @stats.trend_buckets %>
-<% chart = @stats.card_chart %>
 
 <div data-controller="auto-refresh" data-auto-refresh-interval-value="60000" data-action="turbo:visit@document->auto-refresh#stop">
 <header class="overview-intro">
@@ -79,32 +78,7 @@
 </section>
 
 <div class="overview-split">
-  <section class="card overview-chart">
-    <div class="card-header">
-      <div>
-        <h2 class="card-title"><%= t("dashboard.chart_by_card") %></h2>
-        <div class="text-secondary small"><%= t("dashboard.chart_hint") %></div>
-      </div>
-    </div>
-    <% if chart[:buckets].any? { |bucket| bucket[:total].positive? } %>
-      <div class="card-body">
-        <div class="chart-legend">
-          <% chart[:legend].each_with_index do |series, index| %>
-            <div class="chart-legend-item">
-              <span class="chart-legend-name">
-                <i style="background: <%= DashboardHelper::CHART_COLORS[index % DashboardHelper::CHART_COLORS.size] %>"></i>
-                <%= series[:name] %>
-              </span>
-              <span class="chart-legend-value"><%= format_vnd(series[:total]) %></span>
-            </div>
-          <% end %>
-        </div>
-        <div class="chart-scroll"><%= stacked_amount_chart(chart) %></div>
-      </div>
-    <% else %>
-      <div class="card-body"><%= empty_state t("dashboard.empty_window") %></div>
-    <% end %>
-  </section>
+  <%= render "merchant_chart", chart: @stats.merchant_chart %>
 
   <aside class="card attention-card">
     <div class="card-header">

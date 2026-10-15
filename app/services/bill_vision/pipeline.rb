@@ -12,9 +12,14 @@ module BillVision
       @bill_image = image if image.is_a?(BillImage)
       @image = @bill_image ? Image.from_bill_image(image) : image
       @extractor, @budget = extractor, budget
-      # Retrying cannot erase a previously observed integrity risk. Its source
-      # evidence remains in vision_history; a human can verify and approve.
-      @review_reasons = @bill_image ? ImageIntegrity.reasons(@bill_image.documents) : []
+      # Image screening stays advisory; extraction failures still need review.
+      @review_reasons = []
+      @integrity_assessments = if @bill_image
+        [ @bill_image.normalized_extraction.to_h["image_integrity"],
+          *@bill_image.documents.select { |doc| ImageIntegrity.applicable?(doc) }.map { |doc| doc["image_integrity"] } ]
+      else
+        []
+      end
     end
 
     def call
@@ -116,13 +121,12 @@ module BillVision
     end
 
     def normalize(vision)
-      if vision.provider == "openai" && !OutputSchema.valid?(vision.data, require_integrity: true)
+      if vision.provider == "openai" && !OutputSchema.valid?(vision.data)
         raise InvalidExtraction.new("openai answer does not match the extraction schema", raw: vision.raw, model: vision.model)
       end
       normalized = Normalizer.call(vision.data, provider: vision.provider, model: vision.model)
-      # Either independent read can flag a risk. Agreement about amounts does
-      # not clear that risk, nor does a clean validator overrule the primary.
-      @review_reasons |= ImageIntegrity.reasons(normalized["documents"])
+      # Preserve either read's assessment for the advisory label.
+      @integrity_assessments << normalized["image_integrity"]
       normalized
     rescue ArgumentError, TypeError, NoMethodError
       raise PermanentError, "#{vision.provider} normalization failed" unless vision.provider == "openai"
@@ -159,6 +163,8 @@ module BillVision
     end
 
     def outcome(primary, normalized)
+      normalized = normalized.deep_dup
+      normalized["image_integrity"] = ImageIntegrity.combine(@integrity_assessments)
       if @review_reasons.any?
         normalized = normalized.deep_dup
         normalized["requires_review"] = true

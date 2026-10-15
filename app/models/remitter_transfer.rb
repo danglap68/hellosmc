@@ -23,8 +23,24 @@ class RemitterTransfer < ApplicationRecord
   validates :code_source, inclusion: { in: CODE_SOURCES }, allow_nil: true
   validates :amount_vnd, numericality: { only_integer: true, greater_than: 0 }, allow_nil: true
 
+  NON_TRANSFER_REASONS = %w[not_a_transfer settlement_photo].freeze
+  # Legacy placeholders created before OCR are source evidence, not transfers.
+  scope :non_transfer_images, -> {
+    rejected.where(reviewed_by_id: nil, written_at: nil)
+      .where("review_reasons && ARRAY[?]::varchar[]", NON_TRANSFER_REASONS)
+  }
+  scope :accounting_records, -> { where.not(id: non_transfer_images.select(:id)) }
+
   scope :recent_first, -> { order(transferred_at: :desc, id: :desc) }
   scope :pending_write, -> { approved.where(written_at: nil) }
+
+  def non_transfer_image?
+    rejected? && !reviewed_by_human? && !written? && (review_reasons & NON_TRANSFER_REASONS).any?
+  end
+
+  def active_review_reasons
+    BillVision::ImageIntegrity.blocking_reasons(review_reasons)
+  end
 
   def marker
     "RT#{id}"

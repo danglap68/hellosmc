@@ -43,20 +43,37 @@ RSpec.describe BillVision::Pipeline do
     expect(Transactions::Builder.call(bill_image: bill_image).sole).to be_approved
   end
 
-  it "keeps a primary tampering warning even when the validator agrees on facts and sees no anomaly" do
+  it "keeps a primary image warning advisory without a validator request or approval block" do
     data = clean.deep_dup
     data["documents"].first["image_integrity"] = { "status" => "suspicious", "evidence" => [ "Amount digits overlap a rectangular background patch" ] }
     primary = stub_model("gpt-6-luna", data: data)
-    validator = stub_model("gpt-6.1-sol")
     analyze
     transaction = Transactions::Builder.call(bill_image: bill_image).sole
-    expect(transaction).to be_needs_review
-    expect(transaction.review_reason_codes).to include("image_tampering_suspected")
-    expect(metadata.dig("calls")).to eq("primary" => 1, "validator" => 1)
+    expect(transaction).to be_approved
+    expect(transaction.review_reason_codes).to be_empty
+    expect(transaction.image_integrity_assessment["status"]).to eq("suspicious")
+    expect(metadata.dig("calls")).to eq("primary" => 1, "validator" => 0)
     expect(metadata.dig("primary", "normalized_output", "documents", 0, "image_integrity", "evidence")).to be_present
     expect(primary).to have_been_requested.once
+  end
+
+  it "keeps a conflicting QR confirmation for review even when the validator sees a clean transfer" do
+    data = extraction_fixture("transfer")
+    data["documents"].first.merge!("shows_success_message" => true, "shows_qr_code" => true,
+                                   "transfer_memo" => "CH02", "transfer_memo_confidence" => 0.99)
+    primary = stub_model("gpt-6-luna", data: data)
+    validator_data = data.deep_dup
+    validator_data["documents"].first["shows_qr_code"] = false
+    validator = stub_model("gpt-6.1-sol", data: validator_data)
+
+    analyze
+
+    expect(bill_image).to be_ocr_needs_review
+    expect(bill_image.documents.sole["vision_review_reasons"])
+      .to include("transfer_confirmation_conflict", "model_disagreement")
+    expect(metadata["calls"]).to eq("primary" => 1, "validator" => 1)
+    expect(primary).to have_been_requested.once
     expect(validator).to have_been_requested.once
-    expect(WriteHelloSmcWorkbookJob).not_to have_been_enqueued
   end
 
   it "keeps a risk found only by the validator and never replaces the primary receipt facts" do
@@ -66,25 +83,98 @@ RSpec.describe BillVision::Pipeline do
     validator = stub_model("gpt-6.1-sol", data: data)
     analyze
     transaction = Transactions::Builder.call(bill_image: bill_image).sole
-    expect(transaction).to be_needs_review
-    expect(transaction.review_reason_codes).to include("image_tampering_suspected")
+    expect(transaction).to be_approved
+    expect(transaction.review_reason_codes).to be_empty
+    expect(transaction.image_integrity_assessment["status"]).to eq("suspicious")
     expect(transaction.transaction_amount_vnd).to eq(11_445_000)
     expect(metadata.dig("validator", "normalized_output", "documents", 0, "image_integrity", "evidence")).to be_present
     expect(primary).to have_been_requested.once
     expect(validator).to have_been_requested.once
   end
 
-  it "requires manual review for uncertain integrity even when the optional validator is disabled" do
+  it "keeps uncertain integrity as advisory information without blocking approval" do
     allow(AppConfig).to receive(:vision_validation_enabled?).and_return(false)
     data = clean.deep_dup
     data["documents"].first["image_integrity"] = { "status" => "uncertain", "evidence" => [] }
     stub_model("gpt-6-luna", data: data)
     analyze
-    expect(Transactions::Builder.call(bill_image: bill_image).sole.review_reason_codes).to include("image_integrity_uncertain")
+    transaction = Transactions::Builder.call(bill_image: bill_image).sole
+    expect(transaction).to be_approved
+    expect(transaction.review_reason_codes).not_to include("image_integrity_uncertain")
+    expect(transaction.image_integrity_assessment["status"]).to eq("uncertain")
     expect(metadata.dig("calls", "validator")).to eq(0)
   end
 
-  it "keeps a previous integrity warning after retry instead of letting repeated reads bypass manual verification" do
+  it "stores an advisory score during the normal incoming OCR call without buying a validator read" do
+    data = clean.deep_dup
+    data["documents"].first["image_integrity"]["risk_score"] = 0.12
+    request = stub_model("gpt-6-luna", data: data)
+
+    analyze
+    transaction = Transactions::Builder.call(bill_image: bill_image).sole
+
+    expect(transaction).to be_approved
+    expect(transaction.image_integrity_assessment).to include("risk_score" => 0.12, "status" => "no_visible_signs")
+    expect(metadata.dig("calls", "validator")).to eq(0)
+    expect(request).to have_been_requested.once
+  end
+
+  it "does not fail or buy another read when only the optional image assessment is malformed" do
+    data = clean.deep_dup
+    data["documents"].first["image_integrity"] = { "status" => "suspicious", "risk_score" => "78%", "evidence" => [] }
+    stub_model("gpt-6-luna", data: data)
+
+    analyze
+    transaction = Transactions::Builder.call(bill_image: bill_image).sole
+
+    expect(transaction).to be_approved
+    expect(transaction.image_integrity_assessment).to include("status" => "not_assessed", "risk_score" => nil)
+    expect(metadata.dig("calls", "validator")).to eq(0)
+  end
+
+  it "does not escalate merely because incoming image integrity is uncertain" do
+    data = clean.deep_dup
+    data["documents"].first["image_integrity"] = { "status" => "uncertain", "risk_score" => nil, "evidence" => [] }
+    stub_model("gpt-6-luna", data: data)
+
+    analyze
+
+    expect(metadata.dig("calls", "validator")).to eq(0)
+    expect(Transactions::Builder.call(bill_image: bill_image).sole).to be_approved
+  end
+
+  it "displays the validator's suspicious score without blocking agreed receipt facts" do
+    primary = clean.deep_dup
+    primary["documents"].first["confidence"]["total_amount_vnd"] = 0.5
+    primary["documents"].first["image_integrity"]["risk_score"] = 0.04
+    validator = clean.deep_dup
+    validator["documents"].first["image_integrity"] = { "status" => "suspicious", "risk_score" => 0.86,
+      "evidence" => [ "Pasted digits in amount field" ] }
+    stub_model("gpt-6-luna", data: primary)
+    stub_model("gpt-6.1-sol", data: validator)
+
+    analyze
+    transaction = Transactions::Builder.call(bill_image: bill_image).sole
+
+    expect(transaction).to be_approved
+    expect(transaction.image_integrity_assessment).to include("risk_score" => 0.86, "status" => "suspicious")
+    expect(transaction.transaction_amount_vnd).to eq(11_445_000)
+  end
+
+  it "does not inspect or escalate image integrity for an outgoing transfer" do
+    data = extraction_fixture("transfer")
+    data["documents"].first["image_integrity"] = { "status" => "suspicious", "risk_score" => 0.99,
+      "evidence" => [ "Legacy transfer screening" ] }
+    stub_model("gpt-6-luna", data: data)
+
+    analyze
+
+    expect(bill_image.documents.sole["image_integrity"]).to be_nil
+    expect(bill_image.documents.sole["vision_review_reasons"]).to be_blank
+    expect(metadata.dig("calls", "validator")).to eq(0)
+  end
+
+  it "retains previous image assessments for audit without making them approval blockers" do
     data = clean.deep_dup
     data["documents"].first["image_integrity"] = { "status" => "suspicious", "evidence" => [ "Amount has visible pasted digits" ] }
     stub_model("gpt-6-luna", data: data)
@@ -93,9 +183,10 @@ RSpec.describe BillVision::Pipeline do
     stub_model("gpt-6-luna")
     BillImages::Analyzer.call(bill_image, force: true, job_id: "job-2")
     expect(bill_image.reload.ocr_attempts).to eq(2)
-    expect(bill_image.documents.sole["vision_review_reasons"]).to include("image_tampering_suspected")
+    expect(bill_image.documents.sole["vision_review_reasons"]).to be_blank
+    expect(bill_image.normalized_extraction.dig("image_integrity", "status")).to eq("suspicious")
     expect(bill_image.metadata["vision_history"].sole.dig("primary", "normalized_output", "documents", 0, "image_integrity", "evidence")).to be_present
-    expect(Transactions::Builder.call(bill_image: bill_image).sole).to be_needs_review
+    expect(Transactions::Builder.call(bill_image: bill_image).sole).to be_approved
   end
 
   it "reads a meaningfully unreadable visual field independently with Sol, exactly twice" do

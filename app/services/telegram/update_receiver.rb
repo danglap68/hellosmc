@@ -86,12 +86,13 @@ module Telegram
       return false if parsed.media_group_id.blank?
 
       siblings = TelegramMessage.where(telegram_chat: chat, media_group_id: parsed.media_group_id).select(:id)
-      RemitterTransfer.where(telegram_message_id: siblings).exists?
+      TelegramMessage.where(id: siblings).where("raw_payload @> ?::jsonb", { remitter_transfer_candidate: true }.to_json).exists? ||
+        RemitterTransfer.where(telegram_message_id: siblings).exists?
     end
 
-    # A transfer photo becomes a RemitterTransfer (code from the caption,
-    # amount from OCR; a settlement bill is handed back after OCR). Albums are
-    # not collected: every photo is its own transfer.
+    # Sender/caption only identify candidates. Create a transfer after OCR,
+    # so calculators and confirmation forms never become accounting records.
+    # Albums are not collected: every candidate photo is judged separately.
     def receive_remitter_image(chat, parsed, message, remitter)
       unless chat.active?
         message.update!(processing_status: "ignored")
@@ -99,11 +100,8 @@ module Telegram
         return result(:ignored_inactive_chat, message)
       end
 
-      # remitter is nil for a code-only caption from an unknown sender: a person
-      # picks the remitter while reviewing.
-      RemitterTransfer.create!(telegram_message: message, remitter: remitter,
-                               transferred_at: message.sent_at || Time.current)
-      message.update!(processing_status: "queued")
+      message.update!(processing_status: "queued",
+                      raw_payload: message.raw_payload.merge("remitter_transfer_candidate" => true))
       DownloadTelegramAttachmentJob.perform_later(message.id)
       log("telegram.remitter_transfer_received", chat, parsed, telegram_message_record_id: message.id,
                                                                 remitter_id: remitter&.id)

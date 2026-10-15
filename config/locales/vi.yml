@@ -255,6 +255,17 @@ vi:
     open_settings: "Mở %{name}"
 
   dashboard:
+    merchant_chart:
+      title: "Doanh số theo hộ kinh doanh"
+      hint: "Đã duyệt và còn chờ xử lý trong kỳ. Không gồm bill từ chối hoặc bỏ qua."
+      waiting: "Chờ xử lý"
+      waiting_amount: "Chờ %{amount}"
+      other: "HKD khác (%{count})"
+      accessible: "%{name}: đã duyệt %{approved}, chờ xử lý %{waiting}"
+      details: "Xem đầy đủ số liệu và lợi nhuận HKD"
+      unread_amount: "Chưa đọc được số tiền"
+      unread: "%{count} bill chưa đọc tiền"
+      approved_waiting_column: "Đã duyệt / Chờ"
     title: "Tổng quan"
     description: "Tiền vào, tiền đi, đối soát và hàng chờ trong kỳ."
     period_label: "Kỳ thống kê"
@@ -670,6 +681,7 @@ vi:
       raw: "JSON thô"
       edits: "Lịch sử sửa"
     results:
+      source_image: "Xem ảnh gốc"
       transaction: "Giao dịch #%{id}"
       transfer: "Chuyển tiền #%{id}"
       album: "Album #%{id}"
@@ -1263,6 +1275,19 @@ vi:
     album_total_review: "Giao dịch tổng kết của album – cần kiểm tra"
 
   remitter_transfers:
+    duplicates:
+      title: "Đối chiếu lệnh nghi trùng"
+      transfer: "Lệnh chuyển tiền #%{id}"
+      sent_at: "Gửi lúc %{time}"
+      written: "Đã ghi sheet: %{cell}"
+      current_written: "Lệnh #%{id} đã ghi sheet: %{cell}"
+      both_written: "Cả hai lệnh đã ghi sheet. Kiểm tra các dòng thu chi để tránh tính hai lần."
+      original_image: "Trùng ảnh bill #%{id}; ảnh gốc chưa có lệnh chuyển tiền để đối chiếu."
+      open_image: "Mở ảnh gốc để đối chiếu"
+      unavailable: "Lệnh từng bị cảnh báo trùng nhưng hiện không tìm thấy lệnh hoặc ảnh gốc để đối chiếu. Kiểm tra tin nhắn gốc trước khi duyệt."
+      reasons:
+        same_image: "Trùng ảnh gốc đã gửi trước đó."
+        same_payment_details: "Cùng người đi tiền, mã chuyển tiền và số tiền trong vòng %{minutes} phút."
     retry:
       label: "Thử lại"
       confirm: "%{step}?"
@@ -1310,6 +1335,8 @@ vi:
       code_conflict: "Mã trong tin nhắn khác mã trên ảnh chuyển khoản; cần kiểm tra và chọn lại"
       code_low_confidence: "Mã đọc từ ảnh chưa đủ rõ; cần kiểm tra và xác nhận"
       code_ocr_disagreement: "Hai lần đọc ảnh không thống nhất; cần kiểm tra mã chuyển tiền"
+      model_disagreement: "Hai lần đọc ảnh không thống nhất; cần kiểm tra chứng từ gốc"
+      transfer_confirmation_conflict: "Ảnh có thông tin chuyển thành công nhưng OCR cũng nhận diện mã QR; cần kiểm tra chứng từ gốc"
       code_dealer_inactive: "Mã chuyển tiền trỏ tới đại lý đã tắt hoặc không tìm thấy"
       amount_missing: "Không đọc được số tiền"
       amount_ambiguous: "Ảnh có nhiều số tiền khác nhau"
@@ -1339,6 +1366,7 @@ vi:
       retry_shared_image: "Ảnh này trùng ảnh gốc đang lỗi. Hãy kiểm tra ảnh gốc trước."
       retry_budget_exhausted: "Ảnh đã hết số lần đọc OCR cho phép. Vui lòng kiểm tra thủ công."
     flash:
+      non_transfer_image: "Ảnh này không phải chứng từ chuyển tiền; xem tin nhắn gốc bên dưới."
       approved: "Đã duyệt, đang ghi vào tab thu chi."
       rejected: "Đã từ chối lệnh chuyển tiền."
       write_queued: "Đang ghi lại vào sheet."
@@ -1675,3 +1703,14 @@ vi:
           child_receipt: "Bill con"
           transfer: "Hình chuyển tiền"
           unknown: "Không xác định"
+
+  image_integrity:
+    title: "AI phát hiện chỉnh sửa ảnh"
+    score: "AI nghi ngờ: %{percent}%"
+    no_score: "AI: Chưa có điểm"
+    hint: "Mức dấu hiệu chỉnh sửa do AI ước tính, không phải xác suất ảnh giả."
+    statuses:
+      no_visible_signs: "Không thấy dấu hiệu rõ."
+      suspicious: "AI ghi nhận dấu hiệu chỉnh sửa."
+      uncertain: "Ảnh chưa đủ rõ để đánh giá."
+      not_assessed: "Chưa được đánh giá."

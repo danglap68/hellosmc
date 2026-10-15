@@ -23,6 +23,25 @@ RSpec.describe AnalyzeBillImageJob do
     expect(bill_image.reload).to be_ocr_needs_review
   end
 
+  it "routes conflicting transfer evidence to transfer review even for an unregistered sender" do
+    message = create(:telegram_message)
+    image = create(:bill_image, telegram_message: message)
+    data = extraction_fixture("transfer")
+    data["documents"].first.merge!("shows_success_message" => true, "shows_qr_code" => true)
+    stub_vision(data)
+
+    described_class.perform_now(image.id)
+
+    transfer = message.reload.remitter_transfer
+    expect(transfer).to be_present
+    expect(BuildRemitterTransferJob).to have_been_enqueued.with(transfer.id)
+    expect(BuildTransactionJob).not_to have_been_enqueued
+    BuildRemitterTransferJob.perform_now(transfer.id)
+    expect(transfer.reload).to be_needs_review
+    expect(transfer.review_reasons).to include("transfer_confirmation_conflict", "remitter_unknown")
+    expect(WriteRemitterReportJob).not_to have_been_enqueued
+  end
+
   it "does not call the provider twice for an analyzed image" do
     stub_vision(extraction_fixture("normal_settlement"))
     described_class.perform_now(bill_image.id)
@@ -153,6 +172,19 @@ RSpec.describe RetryFailedExtractionJob do
     described_class.perform_now
     expect(bill_image.reload).to be_ocr_failed
     expect(BuildTransactionJob).to have_been_enqueued.with(bill_image.id)
+  end
+
+  it "routes an abandoned transfer candidate to failed outgoing review instead of incoming transactions" do
+    allow(AppConfig).to receive(:remitter_features_enabled?).and_return(true)
+    message = create(:telegram_message, raw_payload: { "remitter_transfer_candidate" => true })
+    image = create(:bill_image, telegram_message: message, ocr_status: "processing", ocr_attempts: AppConfig.max_ocr_attempts)
+    image.update_columns(updated_at: 2.hours.ago)
+
+    described_class.perform_now
+
+    expect(RemitterTransfer.sole.telegram_message).to eq(message)
+    expect(BuildRemitterTransferJob).to have_been_enqueued.with(RemitterTransfer.sole.id)
+    expect(BuildTransactionJob).not_to have_been_enqueued
   end
 
   it "retries failed images that have runs left" do

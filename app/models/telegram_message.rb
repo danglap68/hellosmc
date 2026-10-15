@@ -23,6 +23,10 @@ class TelegramMessage < ApplicationRecord
   # Images received while the chat was inactive: stored, never downloaded.
   scope :stored_unprocessed_images, -> { processing_ignored.with_image.where.missing(:bill_images) }
 
+  def remitter_transfer_candidate?
+    raw_payload["remitter_transfer_candidate"] == true
+  end
+
   # The message object inside the stored update payload.
   def raw_message
     keys = Telegram::MessageParser::MESSAGE_KEYS + Telegram::MessageParser::EDIT_KEYS

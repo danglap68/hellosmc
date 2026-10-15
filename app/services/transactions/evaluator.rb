@@ -14,7 +14,7 @@ module Transactions
     def initialize(document:, bill_image:)
       @doc = document
       @bill_image = bill_image
-      @reasons = Array(@doc["vision_review_reasons"]).dup
+      @reasons = BillVision::ImageIntegrity.blocking_reasons(@doc["vision_review_reasons"])
     end
 
     def call
@@ -218,6 +218,7 @@ module Transactions
     def source_data(merchant_result, card_type_result, fee_result)
       {
         "extraction" => @doc,
+        "image_integrity" => @bill_image.normalized_extraction.to_h["image_integrity"] || @doc["image_integrity"],
         "message_text" => @bill_image.message_text,
         "ocr_provider" => @bill_image.ocr_provider,
         "ocr_model" => @bill_image.ocr_model,

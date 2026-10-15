@@ -5,7 +5,7 @@ module BillVision
   #
   # It validates and cleans facts; it never invents or corrects them.
   class Normalizer
-    SCHEMA_VERSION = 3
+    SCHEMA_VERSION = 4
     MAX_DOCUMENTS = 20
     # The merchant counts as identified when either its name or its MID/TID is read confidently.
     CRITICAL_FIELDS = %w[document_type total_amount_vnd merchant_name transaction_date transaction_time].freeze
@@ -41,6 +41,7 @@ module BillVision
         "model" => @model,
         "notes" => @data["notes"].presence,
         "documents" => normalized,
+        "image_integrity" => ImageIntegrity.combine(normalized.filter_map { |doc| doc["image_integrity"] }),
         "documents_truncated" => truncated,
         "min_critical_confidence" => normalized.map { |doc| doc["critical_confidence"] }.min,
         # Settlements beyond MAX_DOCUMENTS would be silently lost: a human must look.
@@ -77,8 +78,18 @@ module BillVision
       end
 
       low_fields = low_confidence_fields(document_type, confidence)
-      integrity = doc["image_integrity"]&.deep_dup || { "status" => "not_assessed", "evidence" => [] }
-      integrity_reason = ImageIntegrity.reason(integrity)
+      integrity = if document_type != "transfer" && downgraded_from != "transfer"
+        if ImageIntegrity.valid?(doc["image_integrity"])
+          doc["image_integrity"].deep_dup
+        else
+          { "status" => "not_assessed", "evidence" => [] }
+        end
+      end
+      review_reasons = []
+      if downgraded_from && flag(doc, "shows_qr_code") == true &&
+          (flag(doc, "shows_success_message") == true || booked_transfer?(doc))
+        review_reasons << "transfer_confirmation_conflict"
+      end
       values.merge(
         "index" => index,
         "recipient_name" => recipient_name,
@@ -99,16 +110,17 @@ module BillVision
         "critical_confidence" => critical_fields(document_type).map { |field| critical_value(confidence, field) }.min,
         "low_confidence_fields" => low_fields,
         "image_integrity" => integrity,
-        "requires_review" => requires_review?(document_type, low_fields) || integrity_reason.present?
+        "requires_review" => requires_review?(document_type, low_fields)
       ).tap do |normalized|
-        normalized["vision_review_reasons"] = [ integrity_reason ] if integrity_reason
+        normalized["vision_review_reasons"] = review_reasons if review_reasons.any?
       end
     end
 
     # A "transfer" that shows a QR code is a request to be paid, not money sent;
     # one without a success banner or a verifiable booked history entry is
     # not a confirmation. Either way the
-    # photo is not a transfer: it becomes "unknown" and is skipped. A run that
+    # photo becomes "unknown". Conflicting completion evidence needs review,
+    # rather than being silently skipped. A run that
     # does not report the flags (older output) keeps its type.
     def transfer_not_confirmed?(document_type, doc)
       document_type == "transfer" && (flag(doc, "shows_qr_code") == true ||

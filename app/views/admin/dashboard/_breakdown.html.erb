@@ -1,11 +1,10 @@
 <%# locals: (title:, rows:, filter_key:) %>
-<section class="card">
+<section class="card" <%= tag.attributes(id: "merchant-breakdown") if filter_key == :merchant_id %>>
   <div class="card-header">
     <h2 class="card-title"><%= title %></h2>
     <div class="card-actions text-secondary small"><%= t("dashboard.period_range", from: l(@stats.period_start), to: l(@stats.period_end)) %></div>
   </div>
   <% if rows.any? %>
-    <% max_amount = [rows.map { |row| row[:amount] }.max.to_f, 1].max %>
     <div class="table-responsive breakdown-scroll">
       <table class="table table-vcenter card-table" <%= bulk_table_attributes %>>
         <thead>
@@ -13,7 +12,7 @@
             <th><%= title %></th>
             <th class="text-end"><%= t("dashboard.count_column") %></th>
             <th class="text-end"><%= t("dashboard.amount_column") %></th>
-            <th class="text-end"><%= t("dashboard.approved_column") %></th>
+            <th class="text-end"><%= t("dashboard.merchant_chart.approved_waiting_column") %></th>
             <th class="text-end"><%= t("dashboard.profit_column") %></th>
           </tr>
         </thead>
@@ -26,11 +25,18 @@
                 <% else %>
                   <%= row[:name] %>
                 <% end %>
-                <div class="share-bar" style="--share: <%= (row[:amount] / max_amount * 100).round(1) %>%"></div>
               </td>
               <td class="text-end"><%= row[:count] %></td>
               <td class="text-end money"><%= format_vnd(row[:amount]) %></td>
-              <td class="text-end money"><%= format_vnd(row[:approved_amount]) %></td>
+              <td class="text-end money">
+                <div><%= format_vnd(row[:approved_amount]) %></div>
+                <% if row[:amount] > row[:approved_amount] %>
+                  <div class="small text-secondary"><%= t("dashboard.merchant_chart.waiting_amount", amount: format_vnd(row[:amount] - row[:approved_amount])) %></div>
+                <% end %>
+                <% if row[:unread_count].positive? %>
+                  <div class="small text-secondary"><%= t("dashboard.merchant_chart.unread", count: row[:unread_count]) %></div>
+                <% end %>
+              </td>
               <td class="text-end money"><%= format_vnd(row[:profit]) %></td>
             </tr>
           <% end %>

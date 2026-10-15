@@ -100,6 +100,11 @@
       <div class="card-body">
         <div class="datagrid">
           <div class="datagrid-item">
+            <div class="datagrid-title"><%= t("image_integrity.title") %></div>
+            <div class="datagrid-content"><%= image_integrity_badge(@transaction) %></div>
+            <div class="small text-secondary mt-1"><%= t("image_integrity.hint") %></div>
+          </div>
+          <div class="datagrid-item">
             <div class="datagrid-title"><%= Transaction.human_attribute_name(:dealer) %></div>
             <div class="datagrid-content"><%= @transaction.dealer&.name || "—" %></div>
           </div>

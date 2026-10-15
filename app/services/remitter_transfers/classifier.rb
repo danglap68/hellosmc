@@ -2,13 +2,8 @@ module RemitterTransfers
   # Decides whether a Telegram photo is a remitter's transfer ("đi tiền") or a
   # settlement bill ("kết toán"). A transfer never becomes a Transaction.
   #
-  # Before OCR (on receipt), any of:
-  #   * the sender is an active Remitter (Telegram user id, then username)
-  #   * the caption carries a known transfer code ("TK01")
-  # After OCR, for a photo that was not routed above:
-  #   * a single photo (not part of an album) whose documents are bank
-  #     transfers and no settlement. Album totals of an agent stay in the
-  #     album flow (a transfer total there is reconciled against child bills).
+  # A known sender or caption code marks a candidate; OCR must then identify
+  # a transfer. Agent album totals remain part of their settlement album.
   module Classifier
     module_function
 
@@ -16,9 +11,7 @@ module RemitterTransfers
       Remitters::Resolver.call(telegram_user_id: sender_id, telegram_username: username).remitter
     end
 
-    # A known remitter's photo is always a transfer. Anyone else needs the code
-    # as a word of its own in the caption (strict), so a settlement caption
-    # cannot be taken for a transfer by accident.
+    # Sender and strict caption codes identify candidates, not confirmed transfers.
     def transfer_message?(remitter:, text:)
       remitter.present? || CodeMatcher.call(text, strict: true).found?
     end
@@ -36,8 +29,18 @@ module RemitterTransfers
       # original when it is a duplicate, stays a settlement.
       return false if bill_image.transactions.exists? || source.transactions.exists?
 
-      types = source.documents.map { |doc| doc["document_type"] }
-      types.include?("transfer") && !types.include?("settlement")
+      return false if source.documents.any? { |doc| doc["document_type"] == "settlement" }
+
+      # A provider failure or conflicting readings must remain visible for a
+      # person, rather than silently losing a potentially genuine transfer.
+      if bill_image.telegram_message.remitter_transfer_candidate?
+        return true if source.ocr_failed? || source.documents.any? { |doc| BillVision::ImageIntegrity.blocking_reasons(doc["vision_review_reasons"]).any? }
+      end
+
+      source.documents.any? do |doc|
+        doc["document_type"] == "transfer" ||
+          (doc["downgraded_from"] == "transfer" && BillVision::ImageIntegrity.blocking_reasons(doc["vision_review_reasons"]).any?)
+      end
     end
 
     # Turns an already-OCR'd photo into a transfer (sender may be unknown).

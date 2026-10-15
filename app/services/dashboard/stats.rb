@@ -124,11 +124,13 @@ module Dashboard
     def unprocessed_images
       @unprocessed_images ||= BillImage.analyzable.where(created_at: period_range, ocr_status: %w[pending processing failed])
         .left_joins(telegram_message: :remitter_transfer).where(remitter_transfers: { id: nil })
+        .where("COALESCE(telegram_messages.raw_payload->>'remitter_transfer_candidate', 'false') != 'true'")
         .where.missing(:transactions).count
     end
 
     def queued_downloads
       @queued_downloads ||= TelegramMessage.processing_queued.with_image.where(created_at: period_range)
+        .where("COALESCE(raw_payload->>'remitter_transfer_candidate', 'false') != 'true'")
         .where.missing(:remitter_transfer)
         .where.missing(:bill_images).count
     end
@@ -195,11 +197,31 @@ module Dashboard
     end
 
     def dealer_rows
-      breakdown(:dealer, "dealers")
+      @dealer_rows ||= breakdown(:dealer, "dealers")
     end
 
     def merchant_rows
-      breakdown(:merchant, "merchants")
+      @merchant_rows ||= breakdown(:merchant, "merchants")
+    end
+
+    # Rank the meaningful business groups; keep the long tail in the totals.
+    def merchant_chart(limit: 6)
+      rows = merchant_rows.map do |row|
+        row.merge(waiting_amount: row[:amount] - row[:approved_amount],
+                  waiting_count: row[:count] - row[:approved_count])
+      end
+      visible = rows.first(limit)
+      remainder = rows.drop(limit)
+      if remainder.any?
+        visible << {
+          id: nil, other: true, name: I18n.t("dashboard.merchant_chart.other", count: remainder.size),
+          **%i[count amount approved_amount waiting_amount approved_count waiting_count unread_count].to_h do |key|
+            [ key, remainder.sum { |row| row[key] } ]
+          end
+        }
+      end
+      { rows: visible, total: rows.sum { |row| row[:amount] },
+        max_amount: visible.map { |row| row[:amount] }.max.to_i }
     end
 
     def card_type_rows
@@ -253,8 +275,9 @@ module Dashboard
           Arel.sql("COALESCE(SUM(transactions.transaction_amount_vnd), 0)"),
           Arel.sql("COALESCE(SUM(transactions.transaction_amount_vnd) FILTER (WHERE transactions.status = 'approved'), 0)"),
           Arel.sql("COALESCE(SUM(transactions.profit_amount_vnd) FILTER (WHERE transactions.status = 'approved'), 0)"),
-          Arel.sql("COUNT(*) FILTER (WHERE transactions.status = 'approved')")
-        ).map do |id, name, count, amount, approved_amount, profit, approved_count|
+          Arel.sql("COUNT(*) FILTER (WHERE transactions.status = 'approved')"),
+          Arel.sql("COUNT(*) FILTER (WHERE transactions.transaction_amount_vnd IS NULL)")
+        ).map do |id, name, count, amount, approved_amount, profit, approved_count, unread_count|
           {
             id: id,
             name: name.presence || I18n.t("dashboard.unassigned.#{association}"),
@@ -262,7 +285,8 @@ module Dashboard
             amount: amount.to_i,
             approved_amount: approved_amount.to_i,
             profit: profit.to_i,
-            approved_count: approved_count.to_i
+            approved_count: approved_count.to_i,
+            unread_count: unread_count.to_i
           }
         end
     end

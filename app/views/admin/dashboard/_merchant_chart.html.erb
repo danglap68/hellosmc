@@ -1,0 +1,55 @@
+<%# locals: (chart:) %>
+<section class="card overview-chart" aria-labelledby="merchant-chart-title" data-testid="merchant-chart">
+  <div class="card-header">
+    <div>
+      <h2 class="card-title" id="merchant-chart-title"><%= t("dashboard.merchant_chart.title") %></h2>
+      <div class="text-secondary small"><%= t("dashboard.merchant_chart.hint") %></div>
+    </div>
+  </div>
+  <% if chart[:rows].any? %>
+    <div class="card-body">
+      <div class="merchant-chart-legend" aria-hidden="true">
+        <span><i class="merchant-chart-approved"></i><%= t("dashboard.settlement.approved") %></span>
+        <span><i class="merchant-chart-waiting"></i><%= t("dashboard.merchant_chart.waiting") %></span>
+      </div>
+      <ol class="merchant-chart-list">
+        <% chart[:rows].each do |row| %>
+          <% approved_width = chart[:max_amount].positive? ? row[:approved_amount].fdiv(chart[:max_amount]) * 100 : 0 %>
+          <% waiting_width = chart[:max_amount].positive? ? row[:waiting_amount].fdiv(chart[:max_amount]) * 100 : 0 %>
+          <% accessible = t("dashboard.merchant_chart.accessible", name: row[:name], approved: format_vnd(row[:approved_amount]), waiting: format_vnd(row[:waiting_amount])) %>
+          <% accessible += "; #{t('dashboard.merchant_chart.unread', count: row[:unread_count])}" if row[:unread_count].positive? %>
+          <li class="merchant-chart-row">
+            <div class="merchant-chart-heading">
+              <div class="merchant-chart-name">
+                <% if row[:other] %>
+                  <%= link_to row[:name], "#merchant-breakdown" %>
+                <% elsif row[:id] && can?(:read, :transactions) %>
+                  <%= link_to row[:name], admin_transactions_path(merchant_id: row[:id], date_from: @stats.period_start, date_to: @stats.period_end) %>
+                <% else %>
+                  <%= row[:name] %>
+                <% end %>
+              </div>
+              <span class="merchant-chart-amount money"><%= row[:amount].zero? && row[:unread_count].positive? ? t("dashboard.merchant_chart.unread_amount") : format_vnd(row[:amount]) %></span>
+            </div>
+            <div class="merchant-chart-track" role="img"
+                 aria-label="<%= accessible %>"
+                 title="<%= accessible %>">
+              <span class="merchant-chart-approved" style="width: <%= approved_width.round(3) %>%"></span>
+              <span class="merchant-chart-waiting" style="width: <%= waiting_width.round(3) %>%"></span>
+            </div>
+            <div class="merchant-chart-meta">
+              <span><%= t("dashboard.transaction_count", count: row[:count]) %> · <%= share_percent(chart[:total].positive? ? row[:amount].fdiv(chart[:total]) : nil) %></span>
+              <span class="merchant-chart-pending"><%= safe_join([
+                (t("dashboard.merchant_chart.waiting_amount", amount: format_vnd(row[:waiting_amount])) if row[:waiting_amount].positive?),
+                (t("dashboard.merchant_chart.unread", count: row[:unread_count]) if row[:unread_count].positive?)
+              ].compact, " · ") %></span>
+            </div>
+          </li>
+        <% end %>
+      </ol>
+      <div class="small text-secondary mt-3"><%= link_to t("dashboard.merchant_chart.details"), "#merchant-breakdown" %></div>
+    </div>
+  <% else %>
+    <div class="card-body"><%= empty_state t("dashboard.empty_window") %></div>
+  <% end %>
+</section>

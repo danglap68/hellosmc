@@ -37,10 +37,17 @@ RSpec.describe BillVision::Normalizer do
       )
     end
 
-    it "becomes unknown (skipped) when the image shows a QR code" do
+    it "keeps conflicting success and QR evidence for review instead of silently skipping it" do
       document = transfer(shows_success_message: true, shows_qr_code: true)
 
-      expect(document).to include("document_type" => "unknown", "downgraded_from" => "transfer", "shows_qr_code" => true)
+      expect(document).to include("document_type" => "unknown", "downgraded_from" => "transfer", "shows_qr_code" => true,
+                                 "requires_review" => true, "vision_review_reasons" => [ "transfer_confirmation_conflict" ])
+    end
+
+    it "still skips a payment-request QR without completion evidence" do
+      document = transfer(shows_success_message: false, shows_qr_code: true)
+      expect(document["document_type"]).to eq("unknown")
+      expect(document["vision_review_reasons"]).to be_blank
     end
 
     it "becomes unknown (skipped) when no success wording is printed" do
@@ -67,6 +74,8 @@ RSpec.describe BillVision::Normalizer do
         expect(transfer(**evidence.merge(field => nil))["document_type"]).to eq("unknown"), field.to_s
       end
       expect(transfer(**evidence.merge(shows_qr_code: true))["document_type"]).to eq("unknown")
+      expect(transfer(**evidence.merge(shows_qr_code: true))["vision_review_reasons"])
+        .to include("transfer_confirmation_conflict")
       expect(transfer(**evidence.merge(total_amount_vnd: 0))["document_type"]).to eq("unknown")
     end
 

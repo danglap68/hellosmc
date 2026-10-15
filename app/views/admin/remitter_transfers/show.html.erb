@@ -23,11 +23,15 @@
   </div>
 
   <div class="col-lg-6">
-    <% if @transfer.review_reasons.any? %>
+    <% other_reasons = @transfer.active_review_reasons - [ "possible_duplicate" ] %>
+    <% if other_reasons.any? %>
       <div class="alert alert-warning">
         <h4 class="alert-title"><%= t("remitter_transfers.show.reasons") %></h4>
-        <ul class="mb-0"><% @transfer.review_reasons.each do |reason| %><li><%= remitter_transfer_reason(reason) %></li><% end %></ul>
+        <ul class="mb-0"><% other_reasons.each do |reason| %><li><%= remitter_transfer_reason(reason) %></li><% end %></ul>
       </div>
+    <% end %>
+    <% if @duplicate_check.possible_duplicate? || @transfer.active_review_reasons.include?("possible_duplicate") %>
+      <%= render "duplicate_check", duplicate_check: @duplicate_check, transfer: @transfer %>
     <% end %>
 
     <div class="card mb-3">

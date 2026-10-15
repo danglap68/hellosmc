@@ -11,9 +11,10 @@
       <dd class="col-7"><%= yes_no(pipeline["validation_triggered"]) %></dd>
       <dt class="col-5"><%= t("vision_validation.result") %></dt>
       <dd class="col-7"><%= t("vision_validation.results.#{pipeline['validation_result'] || 'pending'}") %></dd>
-      <% if Array(pipeline["validation_reason"]).any? %>
+      <% validation_reasons = BillVision::ImageIntegrity.blocking_reasons(pipeline["validation_reason"]) %>
+      <% if validation_reasons.any? %>
         <dt class="col-5"><%= t("vision_validation.reason") %></dt>
-        <dd class="col-7"><%= pipeline["validation_reason"].map { |reason| review_reason_label(reason) }.join(", ") %></dd>
+        <dd class="col-7"><%= validation_reasons.map { |reason| review_reason_label(reason) }.join(", ") %></dd>
       <% end %>
     </dl>
     <details class="mt-2">

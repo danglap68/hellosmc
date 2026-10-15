@@ -1,22 +1,25 @@
 module BillVision
-  # Visual risk screening only. A clean assessment never authenticates a bill
-  # or establishes that money moved; suspicious/uncertain results need a human.
+  # Advisory screening of incoming receipt images, never proof of authenticity.
   module ImageIntegrity
     STATUSES = %w[no_visible_signs suspicious uncertain].freeze
     REVIEW_REASONS = %w[image_tampering_suspected image_integrity_uncertain].freeze
     SCHEMA = {
-      type: "object", additionalProperties: false, required: %w[status evidence],
+      type: %w[object null], additionalProperties: false, required: %w[status evidence risk_score],
       properties: {
         status: { type: "string", enum: STATUSES },
-        evidence: { type: "array", maxItems: 2, items: { type: "string", maxLength: 160 } }
+        evidence: { type: "array", maxItems: 2, items: { type: "string", maxLength: 160 } },
+        risk_score: { type: %w[number null], minimum: 0, maximum: 1 }
       }
     }.freeze
 
     module_function
 
     def valid?(assessment)
-      return false unless assessment.is_a?(Hash) && assessment.keys.sort == %w[evidence status]
+      return false unless assessment.is_a?(Hash) &&
+        (assessment.keys - [ "risk_score" ]).sort == %w[evidence status]
       return false unless STATUSES.include?(assessment["status"])
+      score = assessment["risk_score"]
+      return false unless score.nil? || (score.is_a?(Numeric) && score.finite? && score.between?(0, 1))
 
       evidence = assessment["evidence"]
       evidence.is_a?(Array) && evidence.size <= 2 &&
@@ -24,17 +27,26 @@ module BillVision
         (assessment["status"] != "suspicious" || evidence.any?)
     end
 
-    def reason(assessment)
-      case assessment&.dig("status")
-      when "suspicious" then "image_tampering_suspected"
-      when "uncertain" then "image_integrity_uncertain"
-      end
+    def applicable?(document)
+      document["document_type"] != "transfer" && document["downgraded_from"] != "transfer"
     end
 
-    def reasons(documents)
-      documents.flat_map do |doc|
-        [ reason(doc["image_integrity"]), *(Array(doc["vision_review_reasons"]) & REVIEW_REASONS) ]
-      end.compact.uniq
+    def blocking_reasons(reasons)
+      Array(reasons) - REVIEW_REASONS
+    end
+
+    # Keep the strongest observed assessment across independent reads/retries.
+    # An old assessment without a score must not inherit a clean read's score.
+    def combine(assessments)
+      candidates = assessments.compact.select { |item| item.is_a?(Hash) }
+      return if candidates.empty?
+
+      priority = { "not_assessed" => 0, "no_visible_signs" => 1, "uncertain" => 2, "suspicious" => 3 }
+      strongest = candidates.max_by { |item| priority.fetch(item["status"], 0) }["status"]
+      selected = candidates.select { |item| item["status"] == strongest }
+      scores = selected.filter_map { |item| item["risk_score"] if valid?(item) }
+      { "status" => strongest, "risk_score" => scores.max,
+        "evidence" => selected.flat_map { |item| Array(item["evidence"]) }.uniq.first(2) }
     end
   end
 end

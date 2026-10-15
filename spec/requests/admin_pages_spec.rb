@@ -53,6 +53,42 @@ RSpec.describe "Admin pages" do
     expect(page.css(".sparkline")).to be_empty
   end
 
+  it "uses a merchant ranking chart with exact totals and period drill-down instead of card types" do
+    [ "Cherry Coffee", "Gat Tan Day Coffe", "HKD AS CAFE", "HKD NCT MBV", "HKD tên dài để kiểm tra xuống dòng" ].each_with_index do |name, index|
+      amount = (6 - index) * 1_000_000
+      create(:transaction, :calculated, merchant: create(:merchant, name: name), transaction_at: Time.current,
+        status: index.even? ? "approved" : "needs_review", transaction_amount_vnd: amount,
+        amount_after_base_fee_vnd: amount - amount * 88 / 10_000)
+    end
+    get admin_root_path(period: "7d")
+    page = Nokogiri::HTML(response.body)
+    chart = page.at_css('[data-testid="merchant-chart"]')
+
+    expect(chart.text).to include("Doanh số theo hộ kinh doanh", "Đã duyệt", "Chờ xử lý", merchant.name)
+    expect(response.body).not_to include("Doanh số theo loại thẻ")
+    amounts = chart.css(".merchant-chart-amount").map { |node| node.text.gsub(/\D/, "").to_i }
+    expect(amounts.sum).to eq(Dashboard::Stats.new(period: "7d").current_snapshot[:gross])
+    expect(chart.css(".merchant-chart-row").size).to eq(6)
+    expect(chart.at_css(".merchant-chart-name a")["href"]).to eq(admin_transactions_path(merchant_id: merchant.id,
+      date_from: Dashboard::Stats.new(period: "7d").period_start, date_to: Time.zone.today))
+    expect(page.at_css("#merchant-breakdown")).to be_present
+    expect(page.at_css("#merchant-breakdown").text).to include("Đã duyệt / Chờ", "Chờ")
+    if ENV["SMC_DASHBOARD_PREVIEW"] == "1"
+      path = Rails.root.join("tmp/diagnostics/dashboard-merchant-preview#{ENV.fetch('TEST_ENV_NUMBER', '')}.html")
+      FileUtils.mkdir_p(path.dirname)
+      path.write(response.body)
+    end
+  end
+
+  it "labels unread merchant amounts without implying their money is zero" do
+    create(:transaction, merchant: nil, status: "failed", transaction_at: nil, transaction_amount_vnd: nil)
+    get admin_root_path
+    chart = Nokogiri::HTML(response.body).at_css('[data-testid="merchant-chart"]')
+    row = chart.css(".merchant-chart-row").find { |node| node.text.include?("Chưa gán hộ kinh doanh") }
+    expect(row.at_css(".merchant-chart-amount").text).to eq("Chưa đọc được số tiền")
+    expect(chart.text).to include("1 bill chưa đọc tiền", "Chưa gán hộ kinh doanh")
+  end
+
   it "lists every page once by default and moves starred pages into Ghim" do
     get admin_root_path
     page = Nokogiri::HTML(response.body)

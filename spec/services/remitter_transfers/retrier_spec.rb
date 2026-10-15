@@ -103,6 +103,12 @@ RSpec.describe RemitterTransfers::Retrier do
     expect(AnalyzeBillImageJob).not_to have_been_enqueued
   end
 
+  it "rereads a conflicting confirmation within its existing OCR budget" do
+    transfer.update!(review_reasons: [ "transfer_confirmation_conflict", "model_disagreement" ])
+    expect { expect(retry_transfer.step).to eq(:ocr) }.to have_enqueued_job(AnalyzeBillImageJob).with(image.id, force: true)
+    expect(image.reload.ocr_attempts).to eq(0)
+  end
+
   it "only requeues the sheet write for an approved transfer, preserving the approval and lock version" do
     link = RemitterTransfers::Codes.merchant_dealer_for("TK01")
     transfer.update!(status: "approved", merchant_dealer: link, merchant: link.merchant, transfer_code: "TK01",

@@ -53,13 +53,16 @@ RSpec.describe "Remitter transfers" do
     expect(response).to have_http_status(:ok)
   end
 
-  it "lists a skipped photo under the rejected tab with the reason" do
+  it "keeps a skipped photo's source without listing it as a rejected transfer" do
     message.update!(message_text: "TK01")
-    create(:remitter_transfer, telegram_message: message, status: "rejected", review_reasons: [ "not_a_transfer" ])
+    skipped = create(:remitter_transfer, telegram_message: message, status: "rejected", review_reasons: [ "not_a_transfer" ])
 
     get admin_remitter_transfers_path(queue: "rejected")
 
-    expect(response.body).to include("Ảnh không phải biên lai chuyển khoản")
+    expect(response.body).not_to include(admin_remitter_transfer_path(skipped))
+    expect(message.reload.remitter_transfer).to eq(skipped)
+    get admin_remitter_transfer_path(skipped)
+    expect(response).to redirect_to(admin_message_path(message))
   end
   describe "where the message came from" do
     let(:chat) { create(:telegram_chat, name: "Nhóm Thiên Kim", telegram_chat_id: -1001234567890) }

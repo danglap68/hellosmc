@@ -2,8 +2,11 @@
   <% message.transactions.each do |transaction| %>
     <div><%= link_to t("messages.results.transaction", id: transaction.id), admin_transaction_path(transaction) %></div>
   <% end %>
-  <% if message.remitter_transfer %>
+  <% if message.remitter_transfer && !message.remitter_transfer.non_transfer_image? %>
     <div><%= link_to t("messages.results.transfer", id: message.remitter_transfer.id), admin_remitter_transfer_path(message.remitter_transfer) %></div>
+  <% end %>
+  <% if message.remitter_transfer&.non_transfer_image? && message.remitter_transfer.bill_image %>
+    <div><%= link_to t("messages.results.source_image"), admin_bill_image_path(message.remitter_transfer.bill_image) %></div>
   <% end %>
   <% message.bill_images.filter_map(&:bill_album).uniq.each do |album| %>
     <div><%= link_to t("messages.results.album", id: album.id), admin_bill_album_path(album) %></div>

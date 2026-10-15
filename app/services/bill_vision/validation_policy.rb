@@ -24,7 +24,6 @@ module BillVision
     def call
       visual, business = [], []
       documents = @normalized.fetch("documents")
-      visual.concat(ImageIntegrity.reasons(documents))
       in_album = @bill_image&.bill_album_id.present?
       visual << "multiple_settlement_documents" if documents.count { |doc| doc["document_type"] == "settlement" } > 1
       visual << "too_many_documents" if @normalized["documents_truncated"].to_i.positive?

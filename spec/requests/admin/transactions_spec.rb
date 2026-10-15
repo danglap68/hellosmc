@@ -8,6 +8,35 @@ RSpec.describe "Admin transactions" do
 
   before { sign_in operator }
 
+  it "shows the advisory image score separately from OCR confidence on transaction and review pages" do
+    transaction.update!(source_data: transaction.source_data.merge("image_integrity" => {
+      "status" => "suspicious", "risk_score" => 0.78, "evidence" => [ "Visible pasted digits" ] }))
+
+    [ admin_transactions_path, admin_transaction_path(transaction), admin_reviews_path, admin_review_path(transaction) ].each do |path|
+      get path
+      expect(response).to have_http_status(:ok)
+      badge = Nokogiri::HTML(response.body).at_css('[data-testid="image-integrity-score"]')
+      expect(badge.text).to eq("AI nghi ngờ: 78%")
+      expect(badge["title"]).to include("không phải xác suất ảnh giả")
+    end
+    if ENV["SMC_INTEGRITY_PREVIEW"] == "1"
+      path = Rails.root.join("tmp/diagnostics/integrity-preview#{ENV.fetch('TEST_ENV_NUMBER', '')}.html")
+      FileUtils.mkdir_p(path.dirname)
+      path.write(response.body)
+    end
+  end
+
+  it "never displays a fabricated zero percent for a legacy image and omits the old uncertainty alert" do
+    transaction.update!(source_data: transaction.source_data.except("image_integrity").merge(
+      "extraction" => transaction.extraction.except("image_integrity"), "review_reasons" => [ "image_integrity_uncertain", "amount_low_confidence" ]))
+
+    get admin_transaction_path(transaction)
+
+    expect(response.body).to include("AI: Chưa có điểm")
+    expect(response.body).not_to include("AI nghi ngờ: 0%", I18n.t("review_reasons.image_integrity_uncertain"))
+    expect(transaction.reload.review_reason_codes).to eq([ "amount_low_confidence" ])
+  end
+
   it "filters by status and dealer" do
     get admin_transactions_path(status: "needs_review", dealer_id: dealer.id)
     expect(response.body).to include("##{transaction.id}</a>")

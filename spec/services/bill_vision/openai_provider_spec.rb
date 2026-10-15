@@ -27,12 +27,25 @@ RSpec.describe BillVision::OpenaiProvider do
     }).to have_been_made
   end
 
-  it "refuses a fresh provider answer that omitted integrity screening" do
+  it "accepts valid receipt facts when optional integrity screening was omitted" do
     data = extraction_fixture("normal_settlement")
     data["documents"].first.delete("image_integrity")
     stub_openai(body: { "choices" => [ { "message" => { "content" => data.to_json } } ] })
-    expect { provider.extract(image) }.to raise_error(BillVision::InvalidExtraction, /schema/)
-    expect(BillVision::OutputSchema.valid?(data)).to be(true) # stored legacy extraction stays readable
+    expect(provider.extract(image).data).to eq(data)
+    normalized = BillVision::Normalizer.call(data, provider: "openai", model: "test")
+    expect(normalized["documents"].sole["image_integrity"]["status"]).to eq("not_assessed")
+  end
+
+  it "accepts a transfer without image screening while asking incoming receipts for an advisory score" do
+    data = extraction_fixture("transfer")
+    data["documents"].first["image_integrity"] = nil
+    stub_openai(body: { "choices" => [ { "message" => { "content" => data.to_json } } ] })
+
+    expect(provider.extract(image).data["documents"].first["image_integrity"]).to be_nil
+    schema = BillVision::Prompt::SCHEMA.dig(:properties, :documents, :items, :properties, :image_integrity)
+    expect(schema[:required]).to include("risk_score")
+    expect(schema.dig(:properties, :risk_score, :minimum)).to eq(0)
+    expect(schema.dig(:properties, :risk_score, :maximum)).to eq(1)
   end
 
   it "treats rate limits and server errors as transient" do

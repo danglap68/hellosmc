@@ -66,15 +66,30 @@ RSpec.describe RemitterTransfers::Builder do
     expect(WriteRemitterReportJob).not_to have_been_enqueued
   end
 
-  it "does not auto-approve or write a transfer with image-integrity risk even with a valid caption code" do
+  it "ignores image-integrity screening for outgoing transfers while retaining the normal payment checks" do
     transfer = transfer_with
     image = transfer.telegram_message.bill_images.sole
     data = extraction_fixture("transfer")
     data["documents"].first["image_integrity"] = { "status" => "suspicious", "evidence" => [ "Amount line has pasted digits" ] }
     image.update!(normalized_extraction: BillVision::Normalizer.call(data, provider: "openai", model: "gpt-test"))
     described_class.call(remitter_transfer: transfer)
+    expect(transfer.reload).to be_approved
+    expect(transfer.review_reasons).to be_empty
+    expect(WriteRemitterReportJob).to have_been_enqueued.with(transfer.id)
+  end
+
+  it "ignores old outgoing integrity warnings but still blocks an OCR disagreement" do
+    transfer = transfer_with
+    image = transfer.telegram_message.bill_images.sole
+    data = image.normalized_extraction.deep_dup
+    data["documents"].first["vision_review_reasons"] = %w[image_integrity_uncertain image_tampering_suspected model_disagreement]
+    image.update!(normalized_extraction: data)
+
+    described_class.call(remitter_transfer: transfer)
+
     expect(transfer.reload).to be_needs_review
-    expect(transfer.review_reasons).to include("image_tampering_suspected")
+    expect(transfer.review_reasons).to include("model_disagreement")
+    expect(transfer.review_reasons & BillVision::ImageIntegrity::REVIEW_REASONS).to be_empty
     expect(WriteRemitterReportJob).not_to have_been_enqueued
   end
 
@@ -138,14 +153,29 @@ RSpec.describe RemitterTransfers::Builder do
       expect(AuditLog.where(auditable: transfer, action: "remitter_transfer.evaluated")).to exist
     end
 
-    it "is skipped when the image is a QR code to be paid, even if OCR called it a transfer" do
+    it "reviews conflicting QR and success readings without rejecting or writing the bill" do
       transfer = transfer_with
       data = extraction_fixture("transfer")
       data["documents"][0].merge!("shows_qr_code" => true, "shows_success_message" => true)
       normalized = BillVision::Normalizer.call(data, provider: "openai", model: "gpt-test")
       transfer.telegram_message.bill_images.first.update!(normalized_extraction: normalized)
 
+      expect(described_class.call(remitter_transfer: transfer)).to be_needs_review
+      expect(transfer.review_reasons).to include("transfer_confirmation_conflict")
+      expect(transfer.amount_vnd).to eq(600_000_000)
+      expect(transfer.telegram_message.reload.processing_status).to eq("processed")
+      expect(WriteRemitterReportJob).not_to have_been_enqueued
+    end
+
+    it "still rejects a payment-request QR without a success reading" do
+      transfer = transfer_with
+      data = extraction_fixture("transfer")
+      data["documents"][0].merge!("shows_qr_code" => true, "shows_success_message" => false)
+      transfer.telegram_message.bill_images.first.update!(
+        normalized_extraction: BillVision::Normalizer.call(data, provider: "openai", model: "gpt-test")
+      )
       expect(described_class.call(remitter_transfer: transfer)).to be_rejected
+      expect(WriteRemitterReportJob).not_to have_been_enqueued
     end
 
     it "is skipped when the slip does not say the transfer succeeded" do
@@ -170,13 +200,28 @@ RSpec.describe RemitterTransfers::Builder do
       expect(described_class.call(remitter_transfer: transfer)).to be_rejected
     end
 
-    it "is not skipped when OCR itself went wrong: the usual checks decide" do
+    it "never rejects or approves uncertain OCR even with a valid caption and high amount confidence" do
       transfer = transfer_with(document_type: "unknown")
       normalized = transfer.telegram_message.bill_images.first.normalized_extraction
-      normalized["documents"][0]["vision_review_reasons"] = [ "primary_output_truncated" ]
+      normalized["documents"][0]["vision_review_reasons"] = [ "primary_output_truncated", "model_disagreement" ]
       transfer.telegram_message.bill_images.first.update!(normalized_extraction: normalized, ocr_status: "needs_review")
 
-      expect(described_class.call(remitter_transfer: transfer)).not_to be_rejected
+      expect(described_class.call(remitter_transfer: transfer)).to be_needs_review
+      expect(transfer.transfer_code).to eq("TK01")
+      expect(transfer.review_reasons).to include("primary_output_truncated", "model_disagreement")
+      expect(WriteRemitterReportJob).not_to have_been_enqueued
+    end
+
+    it "keeps model disagreement on a transfer even when its caption supplies the code" do
+      transfer = transfer_with
+      image = transfer.telegram_message.bill_images.sole
+      normalized = image.normalized_extraction.deep_dup
+      normalized["documents"].first["vision_review_reasons"] = [ "model_disagreement" ]
+      image.update!(normalized_extraction: normalized, ocr_status: "needs_review")
+
+      expect(described_class.call(remitter_transfer: transfer)).to be_needs_review
+      expect(transfer.review_reasons).to eq([ "model_disagreement" ])
+      expect(WriteRemitterReportJob).not_to have_been_enqueued
     end
 
     it "is not skipped while OCR has not finished" do
@@ -224,6 +269,8 @@ RSpec.describe RemitterTransfers::Builder do
 
     expect(second).to be_needs_review
     expect(second.review_reasons).to eq([ "possible_duplicate" ])
+    expect(second.metadata.dig("duplicate_check", "matches"))
+      .to eq([ { "id" => first.id, "reasons" => [ "same_payment_details" ] } ])
   end
 
   it "fails when the photo could not be read" do

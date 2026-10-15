@@ -12,18 +12,38 @@ class AnalyzeBillImageJob < ApplicationJob
 
   def perform(bill_image_id, force: false)
     bill_image = BillImage.find(bill_image_id)
+    if bill_image.duplicate_of_id
+      source = bill_image.duplicate_of
+      if source.ocr_pending? || source.ocr_processing?
+        # Its completion will route all waiting copies; never pay for OCR twice.
+        self.class.perform_later(source.id)
+      else
+        bill_image.telegram_message&.update!(processing_status: "processed")
+        build_or_finalize(bill_image)
+      end
+      return
+    end
     # A forced re-run re-opens a finished (terminal) album BEFORE analyzing, so
     # the finalizer reconciles even if the re-run ends in a failed or exhausted
     # transient attempt — otherwise the reprocessed row stays stuck in processing.
     reopen_album(bill_image) if force && bill_image.bill_album_id
     result = BillImages::Analyzer.call(bill_image, force: force, job_id: job_id)
-    build_or_finalize(bill_image) if result.status.in?(%i[analyzed failed])
+    build_or_finalize(bill_image) if result.status.in?(%i[analyzed failed already_analyzed])
   end
 
   # A remitter's transfer photo feeds a RemitterTransfer, never a transaction.
   # Album images are built by the album finalizer (after every image is OCR'd),
   # not immediately, so the whole album is reconciled in one place.
   def build_or_finalize(bill_image)
+    route_image(bill_image)
+    unless bill_image.duplicate_of_id
+      BillImage.where(duplicate_of_id: bill_image.id).find_each { |copy| self.class.perform_later(copy.id) }
+    end
+  end
+
+  private
+
+  def route_image(bill_image)
     transfer = bill_image.telegram_message&.remitter_transfer
     # Already handed back as a settlement: an OCR re-run (reprocessed or
     # retried transaction) must rebuild the transaction, not the transfer.
@@ -46,14 +66,15 @@ class AnalyzeBillImageJob < ApplicationJob
 
     if transfer
       BuildRemitterTransferJob.perform_later(transfer.id)
+    elsif bill_image.telegram_message&.remitter_transfer_candidate? &&
+        !RemitterTransfers::Classifier.settlement_image?(bill_image)
+      bill_image.telegram_message.update!(processing_status: "ignored")
     elsif bill_image.bill_album_id
       FinalizeBillAlbumJob.perform_later(bill_image.bill_album_id)
     else
       BuildTransactionJob.perform_later(bill_image.id)
     end
   end
-
-  private
 
   def reopen_album(bill_image)
     bill_image.bill_album.update!(status: "processing", reconciliation_status: nil)

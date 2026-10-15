@@ -68,7 +68,7 @@
               <td class="text-end text-nowrap"><%= format_rate(transaction.base_fee_rate_used) %></td>
               <td class="text-end money"><%= format_vnd(transaction.amount_after_base_fee_vnd) %></td>
               <td class="text-nowrap"><%= status_badge(transaction.status) %><%= skip_tag_badges(transaction) %></td>
-              <td class="text-center"><%= confidence_badge(transaction.confidence_score) %></td>
+              <td class="text-center"><%= confidence_badge(transaction.confidence_score) %><div class="mt-1"><%= image_integrity_badge(transaction) %></div></td>
               <td class="transaction-actions text-end"><%= render "admin/transactions/row_actions", transaction: transaction %></td>
             </tr>
           <% end %>

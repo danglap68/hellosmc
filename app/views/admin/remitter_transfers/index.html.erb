@@ -48,7 +48,7 @@
               <td class="text-end money"><%= format_vnd(transfer.amount_vnd) %></td>
               <td>
                 <%= remitter_transfer_status_badge(transfer) %>
-                <% transfer.review_reasons.each do |reason| %>
+                <% transfer.active_review_reasons.each do |reason| %>
                   <span class="badge bg-yellow-lt"><%= remitter_transfer_reason(reason) %></span>
                 <% end %>
               </td>

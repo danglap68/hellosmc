@@ -16,9 +16,9 @@ module Admin
     before_action :set_transfer, only: %i[show update write retry_processing]
 
     def index
-      @queue = QUEUES.key?(params[:queue]) ? params[:queue] : "needs_review"
-      @counts = QUEUES.transform_values { |scope| scope.call.count }
-      scope = QUEUES.fetch(@queue).call.includes(:remitter, telegram_message: { bill_images: :duplicate_of },
+      @queue = QUEUES.key?(params[:queue]) ? params[:queue] : "all"
+      @counts = QUEUES.transform_values { |scope| scope.call.accounting_records.count }
+      scope = QUEUES.fetch(@queue).call.accounting_records.includes(:remitter, telegram_message: { bill_images: :duplicate_of },
                                                         bill_image: :duplicate_of, merchant_dealer: %i[dealer merchant])
       scope = scope.where(merchant_dealer_id: MerchantDealer.where(dealer_id: params[:dealer_id]).select(:id)) if params[:dealer_id].present?
       scope = apply_time_range(scope, :transferred_at)
@@ -39,7 +39,9 @@ module Admin
       @pagy, @transfers = pagy(scope)
     end
 
-    def show; end
+    def show
+      @duplicate_check = RemitterTransfers::DuplicateDetector.call(transfer: @transfer, include_recorded: true)
+    end
 
     def update
       result =
@@ -86,6 +88,9 @@ module Admin
     def set_transfer
       @transfer = RemitterTransfer.includes(:remitter, :bill_image, telegram_message: :telegram_chat,
                                             merchant_dealer: %i[dealer merchant]).find(params[:id])
+      if @transfer.non_transfer_image?
+        redirect_to admin_message_path(@transfer.telegram_message), notice: t("remitter_transfers.flash.non_transfer_image")
+      end
     end
   end
 end

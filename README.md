@@ -28,11 +28,31 @@ the same configured code; `TK10` remains different. New configurations cannot re
 variants. Legacy collisions go to review. The configured spelling is stored, and duplicate checking
 recognizes its zero-padded variants, including after a configuration rename.
 
+Sender/caption matches only mark Telegram photos as transfer candidates. A `RemitterTransfer` is
+created after OCR identifies a transfer, or when an OCR failure/conflict needs human review. Calculator
+screens, payment requests and uncompleted confirmation screens are kept as ignored source messages,
+without creating transfer rows. Legacy automatic non-transfer placeholders remain in the audit trail,
+are excluded from every transfer-list count, and their old detail links open the source message.
+
 The transfer table and detail page offer **Thử lại** to resume the unfinished stage: download an absent
 photo, rerun OCR within its existing lifetime budget, re-evaluate codes/remitter using stored OCR, or
 requeue the idempotent sheet write for an approved transfer. Recent processing attempts, written rows,
 human rejections and settlement handoffs are protected. Retry requests are audited and jobs enqueue
 only after commit; re-evaluation never bypasses the normal approval or duplicate checks.
+
+Image-integrity screening applies to incoming receipts only, never outgoing remitter transfers.
+The AI supplies an optional 0–1 strength-of-visible-signals score during the existing OCR call; the
+transaction/review UI labels it as an estimate, separate from OCR confidence. Old/unassessable images
+show no score rather than a fabricated 0%. Uncertain integrity alone neither buys another model call
+nor blocks approval. Suspicious scores/evidence are also advisory and never block processing;
+raw readings and prior assessments remain auditable. Financial, code, duplicate and extraction-error checks are unchanged.
+
+Conflicting OCR reads, including a success confirmation also reported as a QR request, stay in the
+transfer review queue with their warnings. They are never automatically rejected or written to the sheet.
+An actual payment-request QR without completion evidence is still skipped.
+
+Duplicate warnings link to the matching transfer and show the matching image/payment details, sent
+time and written sheet cell. The check's evidence is retained with the transfer for later review.
 
 ## Architecture
 

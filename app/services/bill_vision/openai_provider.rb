@@ -44,7 +44,7 @@ module BillVision
         raise PermanentError, "openai answer is not text" unless message["content"].is_a?(String)
 
         data = parse_content(message["content"])
-        raise PermanentError, "openai answer does not match the extraction schema" unless OutputSchema.valid?(data, require_integrity: true)
+        raise PermanentError, "openai answer does not match the extraction schema" unless OutputSchema.valid?(data)
         raise PermanentError, "openai merchant match is outside the supplied catalog" unless MerchantCatalog.valid_matches?(data, catalog)
       rescue PermanentError => e
         raise InvalidExtraction.new(e.message, raw: payload, model: payload["model"] || model)

@@ -18,15 +18,15 @@ class DownloadTelegramAttachmentJob < ApplicationJob
     message = TelegramMessage.find(telegram_message_id)
     bill_image = Telegram::AttachmentDownloader.call(message)
     transfer = message.remitter_transfer
-    if transfer && (bill_image.nil? || bill_image.ocr_duplicate?)
-      # Nothing to OCR (no photo, or the same photo was sent before): decide now.
+    if transfer && bill_image.nil?
+      # Legacy candidate with no downloadable photo: surface the failure.
       return BuildRemitterTransferJob.perform_later(transfer.id)
     end
     return message.update!(processing_status: "ignored") if bill_image.nil?
 
     FinalizeBillAlbumJob.perform_later(bill_image.bill_album_id) if bill_image.bill_album_id
-    AnalyzeBillImageJob.perform_later(bill_image.id) unless bill_image.ocr_duplicate?
-    message.update!(processing_status: "processed") if bill_image.ocr_duplicate?
+    # AnalyzeBillImageJob routes duplicate copies using the original extraction.
+    AnalyzeBillImageJob.perform_later(bill_image.id)
   end
 
   def mark_failed(error)

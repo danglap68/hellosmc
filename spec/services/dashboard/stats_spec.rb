@@ -70,6 +70,44 @@ RSpec.describe Dashboard::Stats do
     expect(stats.trend_buckets.sum { |row| row[:gross] }).to eq(totals[:gross])
   end
 
+  it "ranks merchant sales with approved/waiting segments and preserves the long tail in totals" do
+    merchants = 8.times.map { |index| create(:merchant, name: "HKD #{index}") }
+    merchants.each_with_index do |merchant, index|
+      recorded_profit(1_000, at: Time.current, merchant: merchant, transaction_amount_vnd: (index + 1) * 100_000)
+      recorded_profit(0, at: Time.current, merchant: merchant, status: "needs_review", transaction_amount_vnd: 10_000)
+    end
+    recorded_profit(0, at: Time.current, merchant: merchants.last, status: "rejected", transaction_amount_vnd: 9_999_999)
+    recorded_profit(0, at: 1.day.ago, merchant: merchants.last, transaction_amount_vnd: 9_999_999)
+
+    stats = described_class.new
+    chart = stats.merchant_chart
+    expect(chart[:rows].size).to eq(7)
+    expect(chart[:rows].first[:id]).to eq(merchants.last.id)
+    expect(chart[:rows].last).to include(other: true, count: 4, amount: 320_000, approved_amount: 300_000, waiting_amount: 20_000)
+    expect(chart[:rows].sum { |row| row[:amount] }).to eq(stats.current_snapshot[:gross])
+    expect(chart[:rows].sum { |row| row[:approved_amount] }).to eq(stats.current_snapshot[:approved_gross])
+    expect(chart[:rows].sum { |row| row[:waiting_amount] }).to eq(stats.current_snapshot[:waiting_gross])
+  end
+
+  it "preserves unassigned merchants and unread amounts in the merchant chart" do
+    create(:transaction, merchant: nil, status: "failed", transaction_at: nil, transaction_amount_vnd: nil)
+    row = described_class.new.merchant_chart[:rows].sole
+
+    expect(row).to include(id: nil, name: I18n.t("dashboard.unassigned.merchant"), count: 1,
+                          amount: 0, unread_count: 1, waiting_count: 1)
+  end
+
+  it "excludes transfer candidates that have not produced a transfer record from incoming image counts" do
+    photo = telegram_fixture("photo_update").merge("remitter_transfer_candidate" => true)
+    create(:telegram_message, processing_status: "queued", raw_payload: photo)
+    processing = create(:telegram_message, processing_status: "queued", raw_payload: photo)
+    create(:bill_image, telegram_message: processing, ocr_status: "pending")
+
+    stats = described_class.new
+    expect(stats.queued_downloads).to eq(0)
+    expect(stats.unprocessed_images).to eq(0)
+  end
+
   it "keeps undated and unread transactions visible on receipt day without inventing money" do
     create(:transaction, status: "failed", transaction_at: nil, transaction_amount_vnd: nil)
     create(:transaction, status: "needs_review", transaction_at: nil, transaction_amount_vnd: 25_000)

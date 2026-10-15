@@ -1,6 +1,6 @@
 require "rails_helper"
 
-# A photo from a remitter becomes a RemitterTransfer (never a transaction).
+# A remitter's photo is only a candidate until OCR identifies its contents.
 RSpec.describe Telegram::UpdateReceiver, "remitter transfers" do
   let(:update) { telegram_fixture("photo_update") } # sender id 4242, caption "MB"
   let!(:chat) { create(:telegram_chat, telegram_chat_id: -1001234567890, active: true) }
@@ -11,15 +11,13 @@ RSpec.describe Telegram::UpdateReceiver, "remitter transfers" do
   end
 
   it "routes a remitter matched by Telegram user id to the transfer flow" do
-    lap = create(:remitter, name: "Lập", telegram_user_id: 4242)
+    create(:remitter, name: "Lập", telegram_user_id: 4242)
 
     result = described_class.call(update)
 
     expect(result.status).to eq(:queued_remitter_transfer)
-    transfer = RemitterTransfer.sole
-    expect(transfer.remitter).to eq(lap)
-    expect(transfer).to be_processing
-    expect(transfer.transferred_at).to eq(result.telegram_message.sent_at)
+    expect(RemitterTransfer.count).to eq(0)
+    expect(result.telegram_message).to be_remitter_transfer_candidate
     expect(DownloadTelegramAttachmentJob).to have_been_enqueued.with(result.telegram_message.id)
   end
 
@@ -35,7 +33,7 @@ RSpec.describe Telegram::UpdateReceiver, "remitter transfers" do
     update["message"]["caption"] = "chuyen khoan TK01"
 
     expect(described_class.call(update).status).to eq(:queued_remitter_transfer)
-    expect(RemitterTransfer.sole.remitter).to be_nil
+    expect(RemitterTransfer.count).to eq(0)
   end
 
   it "keeps an unknown sender's settlement whose caption only looks like a code (Bích 01 -> CH01)" do
@@ -48,7 +46,7 @@ RSpec.describe Telegram::UpdateReceiver, "remitter transfers" do
   it "recognises a zero-padding variant from an unknown sender without relaxing word boundaries" do
     update["message"]["caption"] = "chuyen khoan TK1"
     expect(described_class.call(update).status).to eq(:queued_remitter_transfer)
-    expect(RemitterTransfer.sole.remitter).to be_nil
+    expect(RemitterTransfer.count).to eq(0)
   end
 
   it "routes the caption-less photos of a transfer album" do
@@ -58,7 +56,9 @@ RSpec.describe Telegram::UpdateReceiver, "remitter transfers" do
                "message" => update["message"].merge("message_id" => 78).except("caption") }
 
     expect(described_class.call(second).status).to eq(:queued_remitter_transfer)
-    expect(RemitterTransfer.count).to eq(2)
+    expect(RemitterTransfer.count).to eq(0)
+    expect(TelegramMessage.all).to all(be_remitter_transfer_candidate)
+    expect(BillAlbum.count).to eq(0)
   end
 
   it "treats other senders and inactive remitters as settlement bills" do
@@ -87,7 +87,7 @@ RSpec.describe Telegram::UpdateReceiver, "remitter transfers" do
   it "re-reads the code when the caption is edited before the sheet write" do
     create(:remitter, telegram_user_id: 4242)
     message = described_class.call(update).telegram_message
-    transfer = message.remitter_transfer
+    transfer = create(:remitter_transfer, telegram_message: message)
     transfer.update!(status: "needs_review", review_reasons: [ "code_missing" ])
     allow(RemitterTransfers::Builder).to receive(:call)
 
@@ -99,7 +99,7 @@ RSpec.describe Telegram::UpdateReceiver, "remitter transfers" do
 
   it "only flags a caption edit after the sheet write" do
     create(:remitter, telegram_user_id: 4242)
-    transfer = described_class.call(update).telegram_message.remitter_transfer
+    transfer = create(:remitter_transfer, telegram_message: described_class.call(update).telegram_message)
     transfer.update!(status: "approved", written_at: Time.current)
 
     described_class.call({ "update_id" => 900_002, "edited_message" => update["message"].merge("caption" => "TK02") })
@@ -124,6 +124,104 @@ RSpec.describe AnalyzeBillImageJob, "remitter transfers" do
     expect(transfer.bill_image).to eq(bill_image)
     expect(transfer.remitter).to be_nil
     expect(BuildRemitterTransferJob).to have_been_enqueued.with(transfer.id)
+    expect(BuildTransactionJob).not_to have_been_enqueued
+  end
+
+  def candidate_message
+    create(:telegram_message, raw_payload: { "remitter_transfer_candidate" => true })
+  end
+
+  it "does not create accounting records for a calculator photo from a remitter" do
+    message = candidate_message
+    image = create(:bill_image, telegram_message: message, ocr_status: "needs_review",
+                                normalized_extraction: BillVision::Normalizer.call({ "documents" => [] }, provider: "openai", model: "test"))
+
+    described_class.new.build_or_finalize(image)
+
+    expect(RemitterTransfer.count).to eq(0)
+    expect(BuildTransactionJob).not_to have_been_enqueued
+    expect(message.reload).to be_processing_ignored
+    expect(image.image).to be_attached
+  end
+
+  it "does not create a transfer for an uncompleted bank confirmation even with a code and amount" do
+    message = candidate_message
+    message.update!(message_text: "TK01")
+    data = extraction_fixture("transfer")
+    data["documents"].first.merge!("shows_success_message" => false, "shows_booked_transfer" => false)
+    image = create(:bill_image, telegram_message: message, ocr_status: "needs_review",
+                                normalized_extraction: BillVision::Normalizer.call(data, provider: "openai", model: "test"))
+
+    described_class.new.build_or_finalize(image)
+
+    expect(RemitterTransfer.count).to eq(0)
+    expect(BuildTransactionJob).not_to have_been_enqueued
+    expect(message.reload).to be_processing_ignored
+  end
+
+  it "routes a remitter's settlement to transactions without creating a transfer placeholder" do
+    image = create(:bill_image, :analyzed, telegram_message: candidate_message)
+
+    described_class.new.build_or_finalize(image)
+
+    expect(RemitterTransfer.count).to eq(0)
+    expect(BuildTransactionJob).to have_been_enqueued.with(image.id)
+  end
+
+  it "preserves an unreadable candidate for review when the models disagree" do
+    message = candidate_message
+    normalized = BillVision::Normalizer.call({ "documents" => [] }, provider: "openai", model: "test")
+    normalized["documents"].first["vision_review_reasons"] = [ "model_disagreement" ]
+    image = create(:bill_image, telegram_message: message, ocr_status: "needs_review", normalized_extraction: normalized)
+
+    described_class.new.build_or_finalize(image)
+    BuildRemitterTransferJob.perform_now(RemitterTransfer.sole.id)
+
+    expect(RemitterTransfer.sole).to be_needs_review
+    expect(RemitterTransfer.sole.review_reasons).to include("model_disagreement")
+    expect(BuildTransactionJob).not_to have_been_enqueued
+    expect(WriteRemitterReportJob).not_to have_been_enqueued
+  end
+
+  it "surfaces a candidate OCR failure as a failed transfer, never an incoming transaction" do
+    image = create(:bill_image, telegram_message: candidate_message, ocr_status: "failed")
+
+    described_class.new.build_or_finalize(image)
+    BuildRemitterTransferJob.perform_now(RemitterTransfer.sole.id)
+
+    expect(RemitterTransfer.sole).to be_failed
+    expect(RemitterTransfer.sole.review_reasons).to eq([ "ocr_failed" ])
+    expect(BuildTransactionJob).not_to have_been_enqueued
+  end
+
+  it "waits for an original photo's OCR then routes its duplicate without another model call" do
+    original = create(:bill_image, telegram_message: candidate_message)
+    duplicate = create(:bill_image, telegram_message: candidate_message, duplicate_of: original, ocr_status: "duplicate")
+    stub_vision(extraction_fixture("transfer"))
+
+    described_class.perform_now(duplicate.id)
+    expect(RemitterTransfer.count).to eq(0)
+    expect(described_class).to have_been_enqueued.with(original.id)
+
+    described_class.perform_now(original.id)
+    expect(described_class).to have_been_enqueued.with(duplicate.id)
+    described_class.perform_now(duplicate.id)
+
+    expect(RemitterTransfer.count).to eq(2)
+    expect(duplicate.telegram_message.reload.remitter_transfer.bill_image).to eq(duplicate)
+    expect(BillVision::Extractor).to have_received(:call).once
+    expect(BuildTransactionJob).not_to have_been_enqueued
+  end
+
+  it "ignores duplicate calculator photos using the original OCR" do
+    source = create(:bill_image, telegram_message: candidate_message, ocr_status: "needs_review",
+                                normalized_extraction: BillVision::Normalizer.call({ "documents" => [] }, provider: "openai", model: "test"))
+    duplicate = create(:bill_image, telegram_message: candidate_message, duplicate_of: source, ocr_status: "duplicate")
+
+    described_class.perform_now(duplicate.id)
+
+    expect(RemitterTransfer.count).to eq(0)
+    expect(duplicate.telegram_message.reload).to be_processing_ignored
     expect(BuildTransactionJob).not_to have_been_enqueued
   end
 

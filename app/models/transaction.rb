@@ -111,6 +111,10 @@ class Transaction < ApplicationRecord
     source_data.fetch("extraction", {})
   end
 
+  def image_integrity_assessment
+    source_data["image_integrity"] || extraction["image_integrity"]
+  end
+
   def field_confidence(field)
     value = extraction.dig("confidence", field.to_s)
     value.nil? ? nil : BigDecimal(value.to_s)
@@ -121,7 +125,7 @@ class Transaction < ApplicationRecord
   end
 
   def review_reason_codes
-    Array(source_data["review_reasons"])
+    BillVision::ImageIntegrity.blocking_reasons(source_data["review_reasons"])
   end
 
   # The base fee the amount was priced with: the card base fee when one applied, else the base fee.

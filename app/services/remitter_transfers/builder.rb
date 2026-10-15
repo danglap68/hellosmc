@@ -59,7 +59,7 @@ module RemitterTransfers
       # A calculator, a sale slip, any photo that is not a bank transfer: skipped, nobody has to look.
       return [ { status: "rejected", bill_image: image }, [ "not_a_transfer" ] ] if not_a_transfer?(source)
 
-      reasons = BillVision::ImageIntegrity.reasons(source.documents)
+      reasons = vision_review_reasons(source)
       amount, confidence, amount_issue = amount_reading(source)
       reasons << amount_issue if amount_issue
 
@@ -73,7 +73,8 @@ module RemitterTransfers
       elsif !@transfer.remitter.active?
         reasons << "remitter_inactive"
       end
-      reasons << "possible_duplicate" if duplicate?(image, amount, match.code)
+      duplicate_check = DuplicateDetector.call(transfer: @transfer, image: image, amount: amount, code: match.code)
+      reasons << "possible_duplicate" if duplicate_check.possible_duplicate?
 
       attributes = {
         bill_image: image,
@@ -82,22 +83,27 @@ module RemitterTransfers
         transfer_code: match.code,
         code_source: match.source,
         merchant_dealer: link,
-        merchant: link&.merchant
+        merchant: link&.merchant,
+        metadata: @transfer.metadata.merge("duplicate_check" => duplicate_check.snapshot)
       }
       [ attributes, reasons.uniq ]
     end
 
     # OCR read the photo and found no bank transfer (and no settlement bill,
     # which AnalyzeBillImageJob hands to the transaction flow). A run that went
-    # wrong (malformed, truncated…) says nothing about the photo, so it is not
-    # skipped: the usual checks (amount, code, sender) decide.
+    # wrong or has conflicting evidence says nothing conclusive about the
+    # photo. Preserve those warnings for a person, even with a valid caption.
     def not_a_transfer?(image)
       return false unless image.ocr_completed? || image.ocr_needs_review?
+      return false if vision_review_reasons(image).any?
 
-      image.documents.none? do |doc|
-        doc["document_type"].in?(%w[transfer settlement]) ||
-          (Array(doc["vision_review_reasons"]) & Transactions::Builder::OCR_PROBLEM_REASONS).any?
-      end
+      image.documents.none? { |doc| doc["document_type"].in?(%w[transfer settlement]) }
+    end
+
+    def vision_review_reasons(image)
+      BillVision::ImageIntegrity.blocking_reasons(
+        image.documents.flat_map { |doc| Array(doc["vision_review_reasons"]) }
+      )
     end
 
     # Transfer documents win over
@@ -114,18 +120,6 @@ module RemitterTransfers
       confirmed = Array(document["validation_confirmed_fields"]).include?("total_amount_vnd")
       issue = "amount_low_confidence" if !confirmed && confidence < AppConfig.ocr_auto_approve_threshold
       [ amounts.first, confidence.round(4), issue ]
-    end
-
-    def duplicate?(image, amount, code)
-      return true if image&.ocr_duplicate? || image&.duplicate_of_id.present?
-      return false if amount.nil? || code.nil? || @transfer.remitter_id.nil?
-
-      window = AppConfig.duplicate_window_minutes.minutes
-      key = Codes.canonical(code)
-      RemitterTransfer.where(remitter_id: @transfer.remitter_id, amount_vnd: amount)
-        .where.not(id: @transfer.id).where.not(status: %w[rejected failed])
-        .where(transferred_at: (@transfer.transferred_at - window)..(@transfer.transferred_at + window))
-        .pluck(:transfer_code).any? { |other_code| Codes.canonical(other_code) == key }
     end
 
     def enqueue_write

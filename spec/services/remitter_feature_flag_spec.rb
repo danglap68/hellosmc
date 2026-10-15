@@ -95,12 +95,13 @@ RSpec.describe "remitter feature flag off" do
       expect(described_class.call(update).status).to eq(:queued)
     end
 
-    it "turns remitter images into transfers when the flag is on" do
+    it "queues remitter candidates without transfer rows when the flag is on" do
       allow(AppConfig).to receive(:remitter_features_enabled?).and_return(true)
       create(:remitter, telegram_user_id: 4242)
 
       expect(described_class.call(update).status).to eq(:queued_remitter_transfer)
-      expect(RemitterTransfer.count).to eq(1)
+      expect(RemitterTransfer.count).to eq(0)
+      expect(TelegramMessage.sole).to be_remitter_transfer_candidate
     end
   end
 end
