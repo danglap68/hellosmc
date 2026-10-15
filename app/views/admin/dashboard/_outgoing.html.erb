@@ -1,40 +1,48 @@
 <%# locals: (stats:, current:) %>
 <% outgoing = stats.outgoing_snapshot %>
-<section class="card outgoing-summary mb-3" aria-labelledby="outgoing-title">
-  <div class="card-header flex-wrap gap-2">
-    <h2 class="card-title" id="outgoing-title"><%= t("dashboard.outgoing.title") %></h2>
-    <% if can?(:read, :remitter_transfers) %>
-      <%= link_to t("dashboard.outgoing.view"), admin_remitter_transfers_path(queue: "all", date_from: stats.period_start.iso8601, date_to: stats.period_end.iso8601), class: "ms-auto" %>
-    <% end %>
-  </div>
-  <div class="card-body">
-    <dl class="outgoing-metrics">
-      <div data-metric="outgoing-total">
-        <dt><%= t("dashboard.outgoing.total") %></dt>
-        <dd class="money"><%= format_vnd(outgoing[:total]) %></dd>
+<% difference = current[:dealer_payable] - outgoing[:approved] %>
+<section class="money-summary outgoing-summary" aria-labelledby="outgoing-title">
+  <h2 id="outgoing-title"><%= t("dashboard.outgoing.title") %></h2>
+  <dl class="outgoing-metrics">
+    <div data-metric="outgoing-total">
+      <dt class="visually-hidden"><%= t("dashboard.outgoing.total") %></dt>
+      <dd class="settlement-value money"><%= format_vnd(outgoing[:total]) %></dd>
+      <dd class="money-summary-meta">
+        <span><%= t("dashboard.outgoing.count", count: outgoing[:count]) %></span>
         <% delta = period_delta(outgoing[:total], stats.previous_outgoing_snapshot[:total]) %>
-        <dd class="outgoing-detail"><span class="delta-pill delta-<%= delta[:direction] %>"><%= delta[:text] %></span></dd>
-        <dd class="outgoing-detail"><%= t("dashboard.outgoing.count", count: outgoing[:count]) %></dd>
-      </div>
-      <div data-metric="outgoing-approved">
-        <dt><%= t("dashboard.outgoing.approved") %></dt>
-        <dd class="money"><%= format_vnd(outgoing[:approved]) %></dd>
-        <dd class="outgoing-detail"><%= t("dashboard.outgoing.approved_count", count: outgoing[:approved_count], written: outgoing[:written_count]) %></dd>
-      </div>
-      <div data-metric="outgoing-waiting">
-        <dt><%= t("dashboard.outgoing.waiting") %></dt>
-        <dd class="money"><%= format_vnd(outgoing[:waiting]) %></dd>
-        <dd class="outgoing-detail"><%= t("dashboard.outgoing.count", count: outgoing[:waiting_count]) %></dd>
-      </div>
-      <div data-metric="reconciliation-difference">
-        <dt><%= t("dashboard.outgoing.difference") %></dt>
-        <dd class="money"><%= format_vnd(current[:dealer_payable] - outgoing[:approved]) %></dd>
-        <dd class="outgoing-detail"><%= t("dashboard.outgoing.payable", amount: format_vnd(current[:dealer_payable])) %></dd>
-      </div>
-    </dl>
-    <p class="outgoing-hint"><%= t("dashboard.outgoing.hint") %></p>
-    <% if outgoing[:unread_count].positive? || current[:dealer_unread_count].positive? %>
-      <p class="outgoing-hint mb-0" role="status"><%= icon("info-circle") %> <%= t("dashboard.outgoing.unread", transfers: outgoing[:unread_count], bills: current[:dealer_unread_count]) %></p>
+        <span class="delta-pill delta-<%= delta[:direction] %>"><%= delta[:text] %></span>
+      </dd>
+    </div>
+    <div class="money-summary-row" data-metric="outgoing-approved">
+      <dt><%= t("dashboard.outgoing.approved") %></dt>
+      <dd class="money"><%= format_vnd(outgoing[:approved]) %></dd>
+      <dd class="outgoing-detail"><%= t("dashboard.outgoing.approved_count", count: outgoing[:approved_count], written: outgoing[:written_count]) %></dd>
+    </div>
+    <div class="money-summary-row" data-metric="outgoing-waiting">
+      <dt><%= t("dashboard.outgoing.waiting") %></dt>
+      <dd class="money"><%= format_vnd(outgoing[:waiting]) %></dd>
+      <dd class="outgoing-detail"><%= t("dashboard.outgoing.count", count: outgoing[:waiting_count]) %></dd>
+    </div>
+  </dl>
+  <dl class="reconciliation-summary" data-balanced="<%= difference.zero? %>" data-metric="reconciliation-difference">
+    <div class="money-summary-row">
+      <dt><%= t("dashboard.outgoing.difference") %></dt>
+      <dd class="money"><%= format_vnd(difference) %></dd>
+      <dd class="outgoing-detail"><%= t("dashboard.outgoing.payable", amount: format_vnd(current[:dealer_payable])) %></dd>
+    </div>
+  </dl>
+  <% if outgoing[:unread_count].positive? || current[:dealer_unread_count].positive? %>
+    <p class="money-summary-notice" role="status"><%= icon("info-circle") %> <%= t("dashboard.outgoing.unread", transfers: outgoing[:unread_count], bills: current[:dealer_unread_count]) %></p>
+  <% end %>
+  <div class="money-summary-footer">
+    <details class="money-summary-help">
+      <summary><%= t("dashboard.outgoing.calculation") %></summary>
+      <p><%= t("dashboard.outgoing.hint") %></p>
+    </details>
+    <% if can?(:read, :remitter_transfers) %>
+      <%= link_to admin_remitter_transfers_path(queue: "all", date_from: stats.period_start.iso8601, date_to: stats.period_end.iso8601), class: "money-summary-link" do %>
+        <%= t("dashboard.outgoing.view") %> <%= icon("arrow-right") %>
+      <% end %>
     <% end %>
   </div>
 </section>

@@ -1,0 +1,44 @@
+<%# locals: (message:, tones:) %>
+<% photo = chat_photo(message) %>
+<li class="chat-entry" id="message-<%= message.id %>">
+  <article class="chat-bubble chat-tone-<%= chat_tone(message, tones) %>">
+    <div class="chat-bubble-head">
+      <span class="chat-avatar" aria-hidden="true"><%= chat_initial(message) %></span>
+      <span class="chat-sender"><%= chat_highlight(message.sender_name.presence || t("messages.index.unknown_sender")) %></span>
+      <%= link_to admin_message_path(message), class: "chat-detail", title: t("messages.index.message_details", id: message.telegram_message_id), aria: { label: t("messages.index.message_details", id: message.telegram_message_id) } do %>
+        <time datetime="<%= message.sent_at&.iso8601 %>"><%= message.sent_at&.strftime("%H:%M") || "—" %></time><%= icon("external-link") %>
+      <% end %>
+    </div>
+    <% if message.reply_to_message_id %>
+      <% reply = @replies[message.reply_to_message_id] %>
+      <blockquote class="chat-reply"><span><%= t("messages.show.reply", id: message.reply_to_message_id) %><%= " · #{reply.sender_name}" if reply&.sender_name.present? %></span><% if reply %><p><%= truncate(reply.display_body, length: 140) %></p><% end %></blockquote>
+    <% end %>
+    <% if message.forwarded_from.present? %><p class="chat-aside"><%= icon("corner-up-right") %> <%= t("messages.show.forward", name: message.forwarded_from) %></p><% end %>
+    <% if photo %>
+      <button type="button" class="chat-photo-link" data-action="chat-preview#open" data-chat-preview-src-param="<%= admin_bill_image_path(photo) %>" aria-label="<%= t("messages.index.preview") %>">
+        <%= image_tag admin_bill_image_path(photo), class: "chat-photo", alt: t("messages.index.attachment"), loading: "lazy", data: { action: "load->chat-thread#imageLoaded" } %>
+      </button>
+    <% end %>
+    <% body = message.message_text.presence || (photo ? nil : message.display_body) %>
+    <% if body.present? %><p class="chat-text"><%= chat_highlight(body) %></p><% end %>
+    <% if message.edited_at %><p class="chat-aside"><%= t("messages.show.edited") %></p><% end %>
+    <% if message.transactions.any? || message.remitter_transfer && !message.remitter_transfer.non_transfer_image? %>
+      <div class="chat-message-results">
+        <% if can?(:read, :transactions) %>
+          <% message.transactions.each do |transaction| %>
+            <%= link_to admin_transaction_path(transaction), class: "chat-result" do %>
+              <span><%= icon("receipt") %> <%= t("messages.results.transaction", id: transaction.id) %></span>
+              <span><%= format_vnd(transaction.transaction_amount_vnd) %> <%= status_badge(transaction.status) %></span>
+            <% end %>
+          <% end %>
+        <% end %>
+        <% if can?(:read, :remitter_transfers) && message.remitter_transfer && !message.remitter_transfer.non_transfer_image? %>
+          <% transfer = message.remitter_transfer %>
+          <%= link_to admin_remitter_transfer_path(transfer), class: "chat-result" do %><span><%= icon("arrows-exchange") %> <%= t("messages.results.transfer", id: transfer.id) %></span><span><%= format_vnd(transfer.amount_vnd) %> <%= status_badge(transfer.status) %></span><% end %>
+        <% end %>
+      </div>
+    <% elsif message.processing_failed? || message.processing_queued? %>
+      <p class="chat-aside"><%= enum_label(:telegram_message, :processing_status, message.processing_status) %></p>
+    <% end %>
+  </article>
+</li>

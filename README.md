@@ -18,10 +18,24 @@ It is not an ERP. PostgreSQL is the source of truth; Excel is an output.
 - Code, database, logs, tests: **English**. Admin UI: **100% Vietnamese** (Rails I18n, `config/locales/vi.yml`).
 - Business context, decisions and open questions: [docs/PROJECT_CONTEXT.md](docs/PROJECT_CONTEXT.md).
 
+The dashboard ranks incoming sales by household business with approved/waiting horizontal segments.
+The six largest groups are shown individually; the remaining groups are combined without dropping
+money or unread bills. Dealer/merchant tables retain exact amounts and profit, with waiting amounts
+shown explicitly. Card-type mix does not occupy a chart. Every breakdown uses the selected reporting
+period and reconciles to the incoming headline total. Incoming/outgoing summaries share aligned
+amount rows; empty waiting statuses are omitted by count, while unread active transactions remain visible.
+Calculation definitions stay available in expandable details.
+
 The dashboard separates incoming settlements from outgoing remitter transfers. Outgoing totals include
 approved and waiting/failed records with known amounts, exclude rejected records, and flag unread amounts.
 Reconciliation in the selected period is approved dealer payouts minus approved outgoing transfers; it
 does not include an opening balance. Outgoing days use `transferred_at`, matching the thu chi sheet writer.
+
+The messages workspace presents the connected Telegram groups as an inbox with group/state filters,
+scoped text/sender search, dated threads and permission-aware links to accounting evidence. Desktop
+opens the latest matching group; mobile keeps the inbox and the selected thread in separate views.
+Collection diagnostics are available from conversation info rather than persistent silence warnings.
+Older-message windows preserve their reading position and provide a return to the latest messages.
 
 Transfer codes tolerate only leading zero padding in their numeric part: `TK1`, `TK01` and `TK001` identify
 the same configured code; `TK10` remains different. New configurations cannot reserve competing padding

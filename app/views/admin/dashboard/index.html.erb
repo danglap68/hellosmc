@@ -20,43 +20,10 @@
   </div>
 </header>
 
-<section class="settlement-summary" aria-label="<%= t("dashboard.settlement.title") %>">
-  <div class="settlement-total">
-    <h2><%= t(@period == "today" ? "dashboard.settlement.today" : "dashboard.settlement.period") %></h2>
-    <p class="settlement-value"><%= format_vnd(current[:gross]) %></p>
-    <% delta = period_delta(current[:gross], previous[:gross]) %>
-    <span class="delta-pill delta-<%= delta[:direction] %>"><%= delta[:text] %></span>
-    <p class="settlement-hint"><%= t("dashboard.settlement.hint") %></p>
-  </div>
-  <dl class="settlement-equation">
-    <div>
-      <dt><%= t("dashboard.settlement.approved") %></dt>
-      <dd class="money"><%= format_vnd(current[:approved_gross]) %></dd>
-      <dd class="settlement-detail"><%= t("dashboard.settlement.approved_count", count: current[:approved_count], auto: current[:auto_approved_count]) %></dd>
-    </div>
-    <div>
-      <dt><%= t("dashboard.settlement.waiting") %></dt>
-      <dd class="money"><%= format_vnd(current[:waiting_gross]) %></dd>
-      <dd class="settlement-detail"><%= t("dashboard.transaction_count", count: current[:waiting_count]) %></dd>
-    </div>
-  </dl>
-</section>
-
-<section class="settlement-statuses" aria-label="<%= t("dashboard.settlement.details") %>">
-  <% { review: %w[needs_review], hold: %w[hold], processing: %w[pending processing], failed: %w[failed] }.each do |key, statuses| %>
-    <% rows = statuses.filter_map { |status| @stats.settlement_rows[status] } %>
-    <div class="settlement-status">
-      <h3><%= t("dashboard.settlement.statuses.#{key}") %></h3>
-      <p class="money"><%= format_vnd(rows.sum { |row| row[:amount] }) %></p>
-      <span><%= t("dashboard.transaction_count", count: rows.sum { |row| row[:count] }) %></span>
-    </div>
-  <% end %>
-</section>
-<% if current[:unread_count].positive? || @stats.unprocessed_images.positive? || @stats.queued_downloads.positive? %>
-  <p class="overview-note" role="status"><%= icon("info-circle") %> <%= t("dashboard.settlement.unread", count: current[:unread_count], images: @stats.unprocessed_images, downloads: @stats.queued_downloads) %></p>
-<% end %>
-
-<%= render "outgoing", stats: @stats, current: current %>
+<div class="money-overview">
+  <%= render "incoming", stats: @stats, current: current, previous: previous %>
+  <%= render "outgoing", stats: @stats, current: current %>
+</div>
 
 <section class="kpi-board" aria-label="<%= t("dashboard.settlement.other_stats") %>">
   <% [

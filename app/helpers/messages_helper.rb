@@ -60,4 +60,28 @@ module MessagesHelper
     body = message.display_body
     who ? "#{who}: #{body}" : body
   end
+
+  def chat_navigation(**overrides)
+    { group_q: @group_query.presence, filter: (@filter unless @filter == "all") }.merge(overrides).compact
+  end
+
+  def chat_date(time)
+    return t("messages.index.unknown_date") if time.blank?
+    return t("messages.index.today") if time.to_date == Time.zone.today
+    return t("messages.index.yesterday") if time.to_date == Time.zone.yesterday
+
+    l(time.to_date, format: :long)
+  end
+
+  def chat_list_time(time)
+    return "" if time.blank?
+    return time.strftime("%H:%M") if time.to_date == Time.zone.today
+    return t("messages.index.yesterday") if time.to_date == Time.zone.yesterday
+
+    time.strftime(time.year == Time.zone.today.year ? "%d/%m" : "%d/%m/%y")
+  end
+
+  def chat_highlight(text)
+    @query.present? ? highlight(h(text), @query, sanitize: false) : text
+  end
 end

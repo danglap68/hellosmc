@@ -1,0 +1,49 @@
+<%# locals: (stats:, current:, previous:) %>
+<section class="money-summary settlement-summary" aria-labelledby="settlement-title">
+  <div class="settlement-total">
+    <h2 id="settlement-title"><%= t(@period == "today" ? "dashboard.settlement.today" : "dashboard.settlement.period") %></h2>
+    <p class="settlement-value money"><%= format_vnd(current[:gross]) %></p>
+    <div class="money-summary-meta">
+      <span><%= t("dashboard.transaction_count", count: current[:count]) %></span>
+      <% delta = period_delta(current[:gross], previous[:gross]) %>
+      <span class="delta-pill delta-<%= delta[:direction] %>"><%= delta[:text] %></span>
+    </div>
+  </div>
+
+  <dl class="money-summary-rows settlement-equation">
+    <div class="money-summary-row">
+      <dt><%= t("dashboard.settlement.approved") %></dt>
+      <dd class="money"><%= format_vnd(current[:approved_gross]) %></dd>
+      <dd class="settlement-detail"><%= t("dashboard.settlement.approved_count", count: current[:approved_count], auto: current[:auto_approved_count]) %></dd>
+    </div>
+    <div class="money-summary-row">
+      <dt><%= t("dashboard.settlement.waiting") %></dt>
+      <dd class="money"><%= format_vnd(current[:waiting_gross]) %></dd>
+      <dd class="settlement-detail"><%= t("dashboard.transaction_count", count: current[:waiting_count]) %></dd>
+    </div>
+  </dl>
+
+  <% statuses = { review: %w[needs_review], hold: %w[hold], processing: %w[pending processing], failed: %w[failed] }.filter_map do |key, names| %>
+    <% rows = names.filter_map { |name| stats.settlement_rows[name] } %>
+    <% count = rows.sum { |row| row[:count] } %>
+    <% { key: key, count: count, amount: rows.sum { |row| row[:amount] } } if count.positive? %>
+  <% end %>
+  <% if statuses.any? %>
+    <section class="settlement-statuses" aria-label="<%= t("dashboard.settlement.details") %>">
+      <% statuses.each do |status| %>
+        <div class="settlement-status" data-status="<%= status[:key] %>">
+          <h3><%= t("dashboard.settlement.statuses.#{status[:key]}") %> <span><%= t("dashboard.transaction_count", count: status[:count]) %></span></h3>
+          <p class="money"><%= format_vnd(status[:amount]) %></p>
+        </div>
+      <% end %>
+    </section>
+  <% end %>
+
+  <% if current[:unread_count].positive? || stats.unprocessed_images.positive? || stats.queued_downloads.positive? %>
+    <p class="money-summary-notice" role="status"><%= icon("info-circle") %> <%= t("dashboard.settlement.unread", count: current[:unread_count], images: stats.unprocessed_images, downloads: stats.queued_downloads) %></p>
+  <% end %>
+  <details class="money-summary-help">
+    <summary><%= t("dashboard.settlement.calculation") %></summary>
+    <p><%= t("dashboard.settlement.hint") %></p>
+  </details>
+</section>

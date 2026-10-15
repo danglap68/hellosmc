@@ -1,0 +1,25 @@
+<aside class="chat-info" id="chat-info" data-chat-workspace-target="info" hidden aria-label="<%= t("messages.index.info") %>">
+  <header><h2><%= t("messages.index.info") %></h2><button type="button" class="chat-icon-button" data-action="chat-workspace#closeInfo" aria-label="<%= t("actions.close") %>"><%= icon("x") %></button></header>
+  <div class="chat-info-body">
+    <span class="chat-group-avatar" aria-hidden="true"><%= icon("users") %></span>
+    <h3><%= @chat.display_name %></h3>
+    <p class="chat-channel"><%= icon("brand-telegram") %> <%= t("messages.sources.telegram") %></p>
+    <dl class="chat-info-stats">
+      <div><dt><%= t("messages.index.info_today") %></dt><dd><%= @chat_health&.today_count.to_i %></dd></div>
+      <div><dt><%= t("messages.index.info_week") %></dt><dd><%= @chat_health&.week_count.to_i %></dd></div>
+      <div><dt><%= t("messages.index.bill_processing") %></dt><dd><%= t(@chat.active? ? "messages.index.bill_active" : "messages.index.bill_paused") %></dd></div>
+      <div><dt><%= t("messages.index.last_message") %></dt><dd><%= format_datetime(@chat_health&.last_sent_at) %></dd></div>
+    </dl>
+    <% if can?(:read, :telegram_chats) %><%= link_to t("messages.index.group_settings"), admin_telegram_chat_path(@chat), class: "chat-info-settings" %><% end %>
+    <details class="chat-collection" <%= "open" if @missing_ids %>>
+      <summary><%= t("messages.health.details") %></summary>
+      <p><%= t("messages.index.limits") %></p>
+      <% if @health.privacy_warning %><p class="chat-info-warning"><%= t("messages.health.privacy") %></p><% end %>
+      <% if @chat_health&.silent %><p><%= t("messages.health.quiet") %></p><% end %>
+      <% if @chat_health&.missing_count.to_i.positive? %>
+        <%= link_to t("messages.health.missing_short", count: @chat_health.missing_count), admin_messages_path(chat_navigation(chat_id: @chat.id, gaps: 1)), class: "chat-info-settings" %>
+      <% end %>
+      <% if @missing_ids %><p><%= t("messages.health.missing_ids", ids: @missing_ids.join(", ").presence || "—") %></p><% end %>
+    </details>
+  </div>
+</aside>

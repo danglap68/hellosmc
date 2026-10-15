@@ -1,94 +1,115 @@
 <% content_for :title, t("messages.index.title") %>
 <% content_for :bare_page, "1" %>
 
-<% if @health.privacy_warning || @health.silent_rows.any? || @missing_ids %>
-  <p class="chat-note">
-    <% if @health.privacy_warning %><span><%= t("messages.health.privacy") %></span><% end %>
-    <% if @health.silent_rows.any? %>
-      <span><%= t("messages.health.silent", names: @health.silent_rows.map { |row| row.chat.display_name }.join(", ")) %></span>
-    <% end %>
-    <% if @missing_ids %>
-      <span><%= t("messages.health.missing_ids", ids: @missing_ids.join(", ").presence || "—") %></span>
-    <% end %>
-  </p>
-<% end %>
+<header class="chat-page-head">
+  <div>
+    <h1><%= t("messages.index.title") %></h1>
+    <p><%= t("messages.index.description") %></p>
+  </div>
+  <%= link_to admin_messages_path(chat_navigation(chat_id: params[:chat_id].presence, q: @query.presence)), class: "btn btn-sm chat-refresh" do %>
+    <%= icon("refresh") %> <%= t("messages.index.refresh") %>
+  <% end %>
+</header>
 
-<div class="chat-app">
-  <aside class="chat-conv-list" aria-label="<%= t("messages.index.groups") %>">
-    <% if @conversations.any? %>
-      <% @conversations.each do |row| %>
-        <% preview = @previews[row.chat.id] %>
-        <%= link_to admin_messages_path(chat_id: row.chat.id), class: "chat-conv", aria: { current: ("page" if @chat&.id == row.chat.id) } do %>
-          <span class="chat-conv-title">
-            <span class="chat-conv-name"><%= row.chat.display_name %></span>
-            <span class="chat-platform"><%= t("messages.sources.telegram") %></span>
-          </span>
-          <time class="chat-conv-time" datetime="<%= preview&.sent_at&.iso8601 %>"><%= chat_time(preview&.sent_at) %></time>
-          <span class="chat-conv-preview"><%= chat_preview(preview) %></span>
-        <% end %>
-      <% end %>
-    <% else %>
-      <p class="chat-empty"><%= t("messages.index.no_groups") %></p>
+<div class="chat-app <%= "chat-app-thread" if params[:chat_id].present? && @chat %>" data-controller="chat-workspace" data-chat-workspace-info-open-value="<%= !@missing_ids.nil? %>" data-action="keydown.esc@window->chat-workspace#closeInfo">
+  <aside class="chat-inbox" aria-label="<%= t("messages.index.groups") %>">
+    <div class="chat-inbox-head">
+      <div class="chat-inbox-title"><h2><%= t("messages.index.inbox") %></h2><span><%= @health.rows.size %></span></div>
+      <span class="chat-channel"><%= icon("brand-telegram") %> <%= t("messages.sources.telegram") %></span>
+    </div>
+    <%= form_with url: admin_messages_path, method: :get, class: "chat-search chat-group-search", role: "search" do |form| %>
+      <%= hidden_field_tag :filter, @filter unless @filter == "all" %>
+      <%= icon("search") %>
+      <%= form.search_field :group_q, value: @group_query, placeholder: t("messages.index.search_groups"), aria: { label: t("messages.index.search_groups") }, autocomplete: "off" %>
+      <button type="submit" aria-label="<%= t("messages.index.search") %>"><%= icon("arrow-right") %></button>
     <% end %>
+    <nav class="chat-filters" aria-label="<%= t("messages.index.filter_groups") %>">
+      <% %w[all active inactive].each do |filter| %>
+        <%= link_to t("messages.index.filters.#{filter}"), admin_messages_path(chat_navigation(filter: filter == "all" ? nil : filter)), aria: { current: ("page" if @filter == filter) } %>
+      <% end %>
+    </nav>
+    <div class="chat-conv-list">
+      <% if @conversations.any? %>
+        <% @conversations.each do |row| %>
+          <% preview = @previews[row.chat.id] %>
+          <%= link_to admin_messages_path(chat_navigation(chat_id: row.chat.id)), class: "chat-conv", aria: { current: ("page" if @chat&.id == row.chat.id) } do %>
+            <span class="chat-group-avatar" aria-hidden="true"><%= icon("users") %></span>
+            <span class="chat-conv-content">
+              <span class="chat-conv-heading">
+                <span class="chat-conv-name" title="<%= row.chat.display_name %>"><%= row.chat.display_name %></span>
+                <time class="chat-conv-time" datetime="<%= preview&.sent_at&.iso8601 %>"><%= chat_list_time(preview&.sent_at) %></time>
+              </span>
+              <span class="chat-conv-preview"><%= chat_preview(preview) %></span>
+              <% unless row.chat.active? %><span class="chat-conv-paused"><%= t("messages.index.bill_paused") %></span><% end %>
+            </span>
+          <% end %>
+        <% end %>
+      <% else %>
+        <div class="chat-empty">
+          <%= icon("search") %>
+          <h3><%= t(@group_query.present? || @filter != "all" ? "messages.index.no_matching_groups" : "messages.index.no_groups") %></h3>
+          <% if @group_query.present? || @filter != "all" %><%= link_to t("messages.index.reset_filters"), admin_messages_path %><% end %>
+        </div>
+      <% end %>
+    </div>
+    <div class="chat-inbox-foot"><%= icon("brand-telegram") %> <%= t("messages.index.channel_count", count: @health.rows.size) %></div>
   </aside>
 
   <section class="chat-stage" data-controller="chat-preview" aria-label="<%= @chat ? @chat.display_name : t("messages.index.title") %>">
     <% if @chat %>
       <header class="chat-stage-head">
-        <h1><%= @chat.display_name %></h1>
-        <span class="chat-platform"><%= t("messages.sources.telegram") %></span>
-        <% gap = @health.rows.find { |row| row.chat.id == @chat.id } %>
-        <% if gap&.missing_count.to_i.positive? && @missing_ids.nil? %>
-          <%= link_to t("messages.health.missing_short", count: gap.missing_count), admin_messages_path(chat_id: @chat.id, gaps: 1), class: "chat-gap" %>
-        <% end %>
+        <%= link_to admin_messages_path(chat_navigation), class: "chat-back chat-icon-button", aria: { label: t("messages.index.back") } do %><%= icon("arrow-left") %><% end %>
+        <span class="chat-group-avatar" aria-hidden="true"><%= icon("users") %></span>
+        <div class="chat-stage-heading">
+          <h2><%= @chat.display_name %></h2>
+          <p><span class="chat-platform"><%= icon("brand-telegram") %> <%= t("messages.sources.telegram") %></span><span><%= t("messages.index.today_count", count: @chat_health&.today_count.to_i) %></span></p>
+        </div>
+        <button type="button" class="chat-icon-button chat-info-toggle" data-chat-workspace-target="infoToggle" data-action="chat-workspace#toggleInfo" aria-expanded="false" aria-controls="chat-info" aria-label="<%= t("messages.index.info") %>"><%= icon("info-circle") %></button>
       </header>
-      <% if @has_older && @messages.any? %>
-        <div class="chat-older">
-          <%= link_to t("messages.index.older"), admin_messages_path(chat_id: @chat.id, before_id: @messages.first.id) %>
+      <%= form_with url: admin_messages_path, method: :get, class: "chat-search chat-thread-search", role: "search" do |form| %>
+        <%= hidden_field_tag :chat_id, @chat.id %>
+        <% chat_navigation.each do |key, value| %><%= hidden_field_tag key, value %><% end %>
+        <%= icon("search") %>
+        <%= form.search_field :q, value: @query, placeholder: t("messages.index.search_thread"), aria: { label: t("messages.index.search_thread") }, autocomplete: "off" %>
+        <% if @query.present? %><%= link_to admin_messages_path(chat_navigation(chat_id: @chat.id)), class: "chat-search-clear", aria: { label: t("messages.index.clear_search") } do %><%= icon("x") %><% end %><% end %>
+        <button type="submit" aria-label="<%= t("messages.index.search") %>"><%= icon("arrow-right") %></button>
+      <% end %>
+      <% if @query.present? || @older_window %>
+        <div class="chat-window-note" role="status">
+          <span><%= @query.present? ? t("messages.index.search_count", count: @search_count) : t("messages.index.older_window") %></span>
+          <%= link_to t("messages.index.latest"), admin_messages_path(chat_navigation(chat_id: @chat.id)) %>
         </div>
       <% end %>
-      <% if @messages.any? %>
-        <% tones = chat_tone_map(@messages.map { |message| chat_sender_key(message) }) %>
-        <ol class="chat-log" data-controller="chat-thread">
-          <% @messages.each do |message| %>
-            <% photo = chat_photo(message) %>
-            <li class="chat-bubble chat-tone-<%= chat_tone(message, tones) %>">
-              <div class="chat-bubble-head">
-                <span class="chat-avatar" aria-hidden="true"><%= chat_initial(message) %></span>
-                <span class="chat-sender"><%= message.sender_name.presence || t("messages.index.unknown_sender") %></span>
-                <%= link_to chat_time(message.sent_at), admin_message_path(message), class: "chat-detail" %>
-              </div>
-              <% if photo %>
-                <button type="button" class="chat-photo-link" data-action="chat-preview#open" data-chat-preview-src-param="<%= admin_bill_image_path(photo) %>" aria-label="<%= t("messages.index.preview") %>">
-                  <%= image_tag admin_bill_image_path(photo), class: "chat-photo", alt: "", loading: "lazy" %>
-                </button>
-              <% end %>
-              <% body = message.message_text.presence || (photo ? nil : message.display_body) %>
-              <% if body.present? %>
-                <p class="chat-text"><%= body %></p>
-              <% end %>
-              <% if message.reply_to_message_id %>
-                <p class="chat-aside"><%= t("messages.show.reply", id: message.reply_to_message_id) %></p>
-              <% end %>
-              <% if message.forwarded_from.present? %>
-                <p class="chat-aside"><%= t("messages.show.forward", name: message.forwarded_from) %></p>
-              <% end %>
-              <% if message.edited_at %>
-                <p class="chat-aside"><%= t("messages.show.edited") %></p>
-              <% end %>
+      <div class="chat-thread" data-controller="chat-thread" data-chat-thread-history-value="<%= @older_window || @query.present? %>">
+        <ol class="chat-log" data-chat-thread-target="log" data-action="scroll->chat-thread#scrolled" aria-label="<%= t("messages.index.history") %>">
+          <% if @has_older && @messages.any? %>
+            <li class="chat-older"><%= link_to t("messages.index.older"), admin_messages_path(chat_navigation(chat_id: @chat.id, before_id: @messages.first.id, q: @query.presence)), class: "btn btn-sm" %></li>
+          <% end %>
+          <% tones = chat_tone_map(@messages.map { |message| chat_sender_key(message) }) %>
+          <% @messages.each_with_index do |message, index| %>
+            <% if index.zero? || message.sent_at&.to_date != @messages[index - 1].sent_at&.to_date %>
+              <li class="chat-date"><span><%= chat_date(message.sent_at) %></span></li>
+            <% end %>
+            <%= render "bubble", message: message, tones: tones %>
+          <% end %>
+          <% if @messages.empty? %>
+            <li class="chat-empty">
+              <%= icon(@query.present? ? "search" : "messages") %>
+              <h3><%= t(@query.present? ? "messages.index.no_results" : "messages.index.thread_empty") %></h3>
+              <p><%= t(@query.present? ? "messages.index.try_search" : "messages.index.thread_empty_hint") %></p>
             </li>
           <% end %>
         </ol>
-      <% else %>
-        <p class="chat-empty"><%= t("messages.index.thread_empty") %></p>
-      <% end %>
+        <button type="button" class="chat-jump" data-chat-thread-target="latest" data-action="chat-thread#jump" hidden><%= icon("arrow-down") %> <%= t("messages.index.latest") %></button>
+      </div>
+      <footer class="chat-stage-foot"><%= icon("history") %> <%= t("messages.index.history_hint") %></footer>
       <dialog class="chat-preview" data-chat-preview-target="dialog" data-action="click->chat-preview#backdrop close->chat-preview#closed" aria-label="<%= t("messages.index.preview") %>">
         <button type="button" class="chat-preview-close" data-action="chat-preview#close" aria-label="<%= t("actions.close") %>"><%= icon("x") %></button>
         <img data-chat-preview-target="image" alt="">
       </dialog>
     <% else %>
-      <p class="chat-empty"><%= t("messages.index.pick") %></p>
+      <div class="chat-empty chat-stage-empty"><%= icon("messages") %><h2><%= t("messages.index.inbox") %></h2><p><%= t("messages.index.pick") %></p></div>
     <% end %>
   </section>
+  <% if @chat %><%= render "info" %><% end %>
 </div>
-<p class="chat-note chat-note-quiet"><%= t("messages.index.limits") %></p>

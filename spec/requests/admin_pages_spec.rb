@@ -48,9 +48,38 @@ RSpec.describe "Admin pages" do
     expect(page.at_css('.period-option[aria-current="page"]').text).to eq("Hôm nay")
     expect(page.at_css(".settlement-total h2").text).to eq("Tiền kết toán hôm nay")
     expect(page.css(".settlement-equation dt").map(&:text)).to eq([ "Đã duyệt", "Chờ xử lý / kiểm tra" ])
-    expect(page.css(".settlement-status").size).to eq(4)
+    expect(page.css(".settlement-status").map { |node| node["data-status"] }).to eq([ "review" ])
+    expect(page.at_css(".settlement-summary").text).not_to include("Tạm giữ", "Đang xử lý", "Xử lý lỗi")
+    expect(page.at_css(".settlement-summary details")["open"]).to be_nil
+    expect(page.at_css(".settlement-summary details").text).to include("Đã duyệt + chờ xử lý = tổng tiền")
     expect(page.at_css('[data-controller="auto-refresh"]')["data-auto-refresh-interval-value"]).to eq("60000")
     expect(page.css(".sparkline")).to be_empty
+  end
+
+  it "keeps nonempty waiting statuses visible even when their amounts have not been read" do
+    create(:transaction, status: "hold", transaction_at: Time.current, transaction_amount_vnd: 10_000)
+    create(:transaction, status: "pending", transaction_at: Time.current, transaction_amount_vnd: nil)
+    create(:transaction, status: "processing", transaction_at: Time.current, transaction_amount_vnd: 20_000)
+    create(:transaction, status: "failed", transaction_at: Time.current, transaction_amount_vnd: nil)
+    get admin_root_path
+    page = Nokogiri::HTML(response.body)
+    statuses = page.css(".settlement-status").index_by { |node| node["data-status"] }
+
+    expect(statuses.keys).to eq(%w[review hold processing failed])
+    expect(statuses["processing"].text).to include("2 giao dịch", "20.000 ₫")
+    expect(statuses["failed"].text).to include("1 giao dịch")
+    stats = Dashboard::Stats.new(period: "today")
+    amounts = page.css(".settlement-equation .money").map { |node| node.text.gsub(/\D/, "").to_i }
+    expect(amounts.sum).to eq(stats.current_snapshot[:gross])
+  end
+
+  it "omits the empty waiting status group when every transaction is approved" do
+    review.update!(status: "rejected")
+    get admin_root_path
+    page = Nokogiri::HTML(response.body)
+
+    expect(page.css(".settlement-statuses")).to be_empty
+    expect(page.css(".settlement-equation dt").map(&:text)).to include("Đã duyệt", "Chờ xử lý / kiểm tra")
   end
 
   it "uses a merchant ranking chart with exact totals and period drill-down instead of card types" do
