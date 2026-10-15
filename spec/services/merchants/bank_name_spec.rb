@@ -34,6 +34,18 @@ RSpec.describe "Bank brand on the bill" do
     expect(Merchants::Resolver.for_document(document(bank: nil)).merchant).to eq(nct)
   end
 
+  it "keeps a bank-qualified alias authoritative when AI suggests the generic HKD" do
+    doc = document(bank: "MBV").merge("merchant_match" => { "merchant_id" => nct.id, "confidence" => 0.99 })
+    result = Merchants::Resolver.for_document(doc)
+    expect(result.merchant).to eq(nct_mbv)
+    expect(result).to be_exact
+  end
+
+  it "still reports a conflicting AI identity when no bank or identifier disambiguates it" do
+    doc = document(bank: nil).merge("merchant_match" => { "merchant_id" => nct_mbv.id, "confidence" => 0.99 })
+    expect(Merchants::Resolver.for_document(doc).method).to eq(:ai_conflict)
+  end
+
   it "does not let the bank turn an unknown name into a match" do
     expect(Merchants::Resolver.for_document(document(bank: "MBV", name: "HKD KHAC-1")).merchant).to be_nil
   end

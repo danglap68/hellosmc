@@ -53,4 +53,22 @@ RSpec.describe "Album with photos that are not bills" do
     expect(Nokogiri::HTML(response.body).css(".album-strip")).to be_empty
     expect(response.body).not_to include("Bỏ qua", "Hình chuyển tiền")
   end
+
+  it "displays the separate settlement as primary evidence and labels the group photo as reference" do
+    canonical = album.transactions.sole
+    single_extraction = BillVision::Normalizer.call({ "documents" => [ @photo.documents.first ] }, provider: "openai", model: "fixture")
+    single = stored_image(album, single_extraction, ocr_status: "completed")
+    album.update!(status: "processing", reconciliation_status: nil)
+    BillAlbums::Reconciler.call(album)
+    expect(album.reload.transactions.sole).to eq(canonical)
+
+    [ admin_transaction_path(canonical), admin_review_path(canonical) ].each do |path|
+      get path
+      expect(response).to have_http_status(:ok)
+      expect(Nokogiri::HTML(response.body).at_css(".bill-viewer img")["src"]).to eq(admin_bill_image_path(single))
+    end
+    get admin_bill_album_path(album)
+    expect(response.body).to include("Bill kết · ưu tiên ảnh riêng", "Ảnh đối chiếu")
+    expect(response.body).not_to include("translation missing")
+  end
 end

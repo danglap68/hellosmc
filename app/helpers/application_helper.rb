@@ -93,6 +93,11 @@ module ApplicationHelper
   # con, "unread" when OCR found nothing usable.
   def album_image_kind(album, image)
     types = (image.duplicate_of || image).documents.map { |doc| doc["document_type"] }
+    secondary_indices = Array(album.metadata["preferred_settlements"]).select { |entry| entry["secondary_image_id"] == image.id }
+      .map { |entry| entry["secondary_source_index"] }
+    totals = image.documents.select { |doc| doc["document_type"].in?(%w[settlement transfer]) }
+    return "reference" if totals.any? && totals.all? { |doc| secondary_indices.include?(doc["index"]) }
+
     return "total" if image.id == album.transfer_bill_image_id || types.intersect?(%w[settlement transfer])
     return album_children_dropped?(album) ? "child_unused" : "child" if types.include?("child_receipt")
 
@@ -105,6 +110,9 @@ module ApplicationHelper
   def album_image_label(album, image)
     kind = album_image_kind(album, image)
     return t("bill_images.album.kinds.#{kind}") unless kind == "total"
+    if Array(album.metadata["preferred_settlements"]).any? { |entry| entry["image_id"] == image.id }
+      return t("bill_images.album.kinds.preferred_settlement")
+    end
 
     types = (image.duplicate_of || image).documents.map { |doc| doc["document_type"] }
     t("bill_images.album.kinds.#{types.include?('settlement') ? 'settlement' : 'transfer'}")
@@ -113,7 +121,7 @@ module ApplicationHelper
   # A photo the album skips has no OCR verdict worth showing (a calculator reads
   # as "Cần kiểm tra"); a failed run or a duplicate still is.
   def album_image_skipped?(album, image)
-    album_image_kind(album, image).in?(%w[child_unused unused]) && !image.ocr_failed? && !image.ocr_duplicate?
+    album_image_kind(album, image).in?(%w[child_unused unused reference]) && !image.ocr_failed? && !image.ocr_duplicate?
   end
 
   # The settlement printed everything, so the album's child bills were dropped.
@@ -126,6 +134,11 @@ module ApplicationHelper
   # the child bills are on the same photo.
   def album_image_amounts(image, album = nil)
     documents = (image.duplicate_of || image).documents
+    if album
+      secondary_indices = Array(album.metadata["preferred_settlements"]).select { |entry| entry["secondary_image_id"] == image.id }
+        .map { |entry| entry["secondary_source_index"] }
+      documents = documents.reject { |doc| secondary_indices.include?(doc["index"]) }
+    end
     documents = documents.select { |doc| doc["document_type"].in?(%w[settlement transfer]) } if album && album_children_dropped?(album)
     documents.filter_map { |doc| doc["total_amount_vnd"] }
   end

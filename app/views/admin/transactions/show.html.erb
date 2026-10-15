@@ -17,7 +17,7 @@
     <% if @transaction.can_transition_to?("rejected") %>
       <%= render "admin/transactions/reject_button", transaction: @transaction %>
     <% end %>
-    <% if @transaction.excluded? %>
+    <% if @transaction.excluded? && !@transaction.source_data["excluded_reason"].in?(%w[child_receipt album_duplicate]) %>
       <%= button_to include_excluded_admin_transaction_path(@transaction), class: "btn btn-primary", form: { data: { turbo_confirm: t("transactions.confirm.include") } } do %><%= icon("arrow-back-up") %> <%= t("actions.include_excluded") %><% end %>
     <% end %>
     <% if @transaction.reprocessable? %>
@@ -27,7 +27,17 @@
 <% end %>
 
 <% if @transaction.excluded? %>
-  <div class="alert alert-secondary"><%= icon("ban") %> <%= t("transactions.show.excluded", tags: (@transaction.tags & Transaction::SKIP_TAGS).map { |tag| t("transactions.tags.#{tag}") }.to_sentence) %></div>
+  <div class="alert alert-secondary">
+    <%= icon("ban") %>
+    <% if @transaction.source_data["excluded_reason"] == "album_duplicate" %>
+      <%= t("transactions.show.album_duplicate") %>
+      <% if (canonical_id = @transaction.source_data["canonical_transaction_id"]) %>
+        <%= link_to "##{canonical_id}", admin_transaction_path(canonical_id) %>
+      <% end %>
+    <% else %>
+      <%= @transaction.source_data["excluded_reason"] == "child_receipt" ? t("transactions.show.corrected_child") : t("transactions.show.excluded", tags: (@transaction.tags & Transaction::SKIP_TAGS).map { |tag| t("transactions.tags.#{tag}") }.to_sentence) %>
+    <% end %>
+  </div>
 <% end %>
 <%= render "admin/transactions/review_reasons", transaction: @transaction %>
 <% if @transaction.rejected? && (rejection = @reviews.find(&:rejected?))&.note.present? %>
@@ -58,7 +68,7 @@
     <div class="card mb-3">
       <div class="card-header"><h3 class="card-title"><%= t("transactions.show.bill_image") %></h3></div>
       <div class="card-body">
-        <%= render "admin/transactions/bill_image", bill_image: @transaction.bill_image %>
+        <%= render "admin/transactions/bill_image", bill_image: @transaction.evidence_bill_image %>
         <% if (bill_image = @transaction.bill_image) %>
           <dl class="row mt-3 mb-0 small">
             <dt class="col-5"><%= BillImage.human_attribute_name(:ocr_status) %></dt><dd class="col-7"><%= ocr_status_badge(bill_image.ocr_status) %></dd>

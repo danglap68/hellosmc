@@ -111,6 +111,15 @@ class Transaction < ApplicationRecord
     source_data.fetch("extraction", {})
   end
 
+  # An already-posted record keeps its original OCR source and accounting
+  # identity. A clearer photo of that same settlement can lead its evidence UI.
+  def evidence_bill_image
+    preferred_id = source_data["preferred_bill_image_id"]
+    return bill_image if preferred_id.blank? || bill_image&.bill_album_id.blank?
+
+    bill_image.bill_album.bill_images.find_by(id: preferred_id) || bill_image
+  end
+
   def image_integrity_assessment
     source_data["image_integrity"] || extraction["image_integrity"]
   end

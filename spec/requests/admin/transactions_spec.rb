@@ -8,11 +8,17 @@ RSpec.describe "Admin transactions" do
 
   before { sign_in operator }
 
-  it "shows the advisory image score separately from OCR confidence on transaction and review pages" do
+  it "keeps advisory image scores on detail pages and out of transaction and review lists" do
     transaction.update!(source_data: transaction.source_data.merge("image_integrity" => {
       "status" => "suspicious", "risk_score" => 0.78, "evidence" => [ "Visible pasted digits" ] }))
 
-    [ admin_transactions_path, admin_transaction_path(transaction), admin_reviews_path, admin_review_path(transaction) ].each do |path|
+    [ admin_transactions_path, admin_reviews_path ].each do |path|
+      get path
+      expect(response).to have_http_status(:ok)
+      expect(Nokogiri::HTML(response.body).at_css('[data-testid="image-integrity-score"]')).to be_nil
+    end
+
+    [ admin_transaction_path(transaction), admin_review_path(transaction) ].each do |path|
       get path
       expect(response).to have_http_status(:ok)
       badge = Nokogiri::HTML(response.body).at_css('[data-testid="image-integrity-score"]')

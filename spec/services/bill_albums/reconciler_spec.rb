@@ -40,6 +40,15 @@ RSpec.describe BillAlbums::Reconciler do
     analyzed_image(raw_document("transfer", amount))
   end
 
+  it "finishes reprocessing rows even when a reread removes the album total" do
+    image = analyzed_image(raw_document("unknown", nil))
+    row = create(:transaction, bill_image: image, status: "processing")
+    reconcile
+    expect(album).to be_skipped
+    expect(row.reload).to be_needs_review
+    expect(row.review_reason_codes).to include("document_missing_after_reprocess")
+  end
+
   it "matches the example: three child bills and a matching transfer" do
     child_bill(100_000_000)
     child_bill(200_000_000)

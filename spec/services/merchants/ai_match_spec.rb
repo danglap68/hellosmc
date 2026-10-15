@@ -29,9 +29,9 @@ RSpec.describe Merchants::Resolver, "AI catalog matching" do
     create(:merchant_alias, merchant: other, alias_type: "merchant_id", alias: "000123")
     result = described_class.for_document(document(name: "GÁT ... 2", identifier: "000123"))
     expect(result.merchant).to eq(other)
-    expect(result.method).to eq(:ai_conflict)
-    expect(result.candidates).to contain_exactly(merchant, other)
-    expect(result).not_to be_exact
+    expect(result.method).to eq(:identifier)
+    expect(result.candidates).to contain_exactly(other)
+    expect(result).to be_exact
   end
 
   it "does not trust a conflicting fuzzy result" do

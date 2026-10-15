@@ -59,7 +59,7 @@
                 <% end %>
                 <% if transaction.review_reason_codes.size > 3 %><span class="text-secondary">+<%= transaction.review_reason_codes.size - 3 %></span><% end %>
               </td>
-              <td><%= confidence_badge(transaction.confidence_score) %><div class="mt-1"><%= image_integrity_badge(transaction) %></div></td>
+              <td><%= confidence_badge(transaction.confidence_score) %></td>
               <td><%= link_to admin_review_path(transaction), class: "btn btn-sm btn-ghost-secondary btn-icon", title: t("actions.review"), aria: { label: t("actions.review") } do %><%= icon("scan") %><% end %></td>
             </tr>
           <% end %>

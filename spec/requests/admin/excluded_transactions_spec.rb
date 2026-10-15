@@ -24,6 +24,17 @@ RSpec.describe "Excluded transactions" do
     expect(response.body).not_to include("##{skipped.id}</a>")
   end
 
+  it "keeps corrected SALE artifacts out of the default list while retaining their audit detail" do
+    skipped.update!(tags: [], source_data: skipped.source_data.merge("excluded_reason" => "child_receipt"))
+    get admin_transactions_path
+    expect(response.body).not_to include("##{skipped.id}</a>")
+    get admin_transactions_path(status: "excluded")
+    expect(response.body).to include("##{skipped.id}</a>")
+    get admin_transaction_path(skipped)
+    expect(response.body).to include(I18n.t("transactions.show.corrected_child"))
+    expect(response.body).not_to include(include_excluded_admin_transaction_path(skipped))
+  end
+
   it "shows them with 'Hiện cả bill đã bỏ qua', by tag, or by the excluded status" do
     [ { show_skipped: "1" }, { tag: "smart_pos" }, { status: "excluded" } ].each do |params|
       get admin_transactions_path(params)
@@ -60,6 +71,16 @@ RSpec.describe "Excluded transactions" do
 
     expect(flash[:alert]).to be_present
     expect(booked.reload).not_to be_excluded
+  end
+
+  it "does not reopen a duplicate that was retired in favor of its album's primary settlement" do
+    skipped.update!(source_data: skipped.source_data.merge("excluded_reason" => "album_duplicate", "canonical_transaction_id" => booked.id))
+    get admin_transaction_path(skipped)
+    expect(response.body).to include(I18n.t("transactions.show.album_duplicate"))
+    expect(response.body).not_to include(include_excluded_admin_transaction_path(skipped))
+    post include_excluded_admin_transaction_path(skipped)
+    expect(flash[:alert]).to be_present
+    expect(skipped.reload).to be_excluded
   end
 
   it "explains why a bill cannot be taken in, and leaves it as it was" do

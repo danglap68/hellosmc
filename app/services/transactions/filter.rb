@@ -42,7 +42,7 @@ module Transactions
       return scope.where("transactions.tags @> ARRAY[?]::varchar[]", self[:tag]) if self[:tag].in?(Transaction::SKIP_TAGS)
       return scope if self[:status] == "excluded" || self[:show_skipped] == "1"
 
-      scope.where.not("transactions.tags && ARRAY[?]::varchar[]", Transaction::SKIP_TAGS)
+      scope.where.not(status: "excluded").where.not("transactions.tags && ARRAY[?]::varchar[]", Transaction::SKIP_TAGS)
     end
 
     def apply_dates(scope)

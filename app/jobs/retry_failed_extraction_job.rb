@@ -10,6 +10,12 @@ class RetryFailedExtractionJob < ApplicationJob
   def perform
     release_stuck
     retry_failed
+    # Also recover factual extraction failures which finished as needs_review;
+    # they never enter the failed-image query above.
+    BillImage.analyzable.where(ocr_status: %w[completed needs_review]).joins(:transactions)
+      .merge(Transaction.where(status: "needs_review")).distinct.find_each do |image|
+        BillImages::SystemRecovery.call(image)
+      end
   end
 
   private

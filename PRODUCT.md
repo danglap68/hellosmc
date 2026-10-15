@@ -39,6 +39,7 @@ dashboard's approved and waiting subtotals must reconcile with its headline tota
 - Configuration editing, permissions and filters retain their purposeful form controls.
 - A pinned navigation item appears once. Empty pin sections and zero-work queues stay out of the way.
 - Financial lists prioritize amount, status and review actions; secondary bill details stay with their row.
+- AI image-screening labels belong on transaction and review detail pages; lists retain OCR confidence.
 - Diagnostic data remains available in expandable sections; originals and audit history are preserved.
 
 Detailed rules and implementation decisions are recorded in [docs/PROJECT_CONTEXT.md](docs/PROJECT_CONTEXT.md).

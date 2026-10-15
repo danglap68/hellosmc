@@ -25,6 +25,85 @@ RSpec.describe BillVision::Pipeline do
     bill_image.reload.metadata.fetch("vision_pipeline")
   end
 
+  it "uses a bounded stronger reread to corroborate the previous validator and correct a misclassified SALE" do
+    wrong = clean.deep_dup
+    wrong["documents"][0]["confidence"]["total_amount_vnd"] = 0.5
+    child = clean.deep_dup
+    child["documents"][0]["document_type"] = "child_receipt"
+    child["documents"][0]["total_amount_vnd"] = 12_000_000
+    stub_model("gpt-6-luna", data: wrong)
+    strong = stub_model("gpt-6.1-sol", data: child)
+    analyze
+    row = Transactions::Builder.call(bill_image: bill_image).sole
+    expect(row.review_reason_codes).to include("model_disagreement")
+    expect(BillImages::SystemRecovery.call(bill_image)).to eq(:ocr)
+
+    reread = child.deep_dup
+    reread["documents"][0]["transaction_time"] = "10:57:29"
+    strong = stub_model("gpt-6.1-sol", data: reread)
+
+    BillImages::Analyzer.call(bill_image.reload, force: true)
+    expect(metadata["validation_result"]).to eq("corroborated_previous_validator")
+    expect(metadata["calls"]).to eq("primary" => 1, "validator" => 0)
+    expect(metadata["corroborating_run_id"]).to be_present
+    expect(strong).to have_been_requested.twice
+    Transactions::Builder.call(bill_image: bill_image.reload)
+    expect(row.reload).to be_excluded
+    expect(row.source_data).to include("excluded_reason" => "child_receipt", "corrected_by" => "system_recovery")
+    expect(row.applied_base_fee_rate).to be_nil
+    expect(row.transaction_amount_vnd).to eq(12_000_000)
+    expect(bill_image.ocr_attempts).to eq(2)
+  end
+
+  it "does not treat a previous validator that omitted the amount as confirmation" do
+    stub_model("gpt-6-luna", data: blurry)
+    missing = clean.deep_dup
+    missing["documents"][0]["total_amount_vnd"] = nil
+    stub_model("gpt-6.1-sol", data: missing)
+    analyze
+    Transactions::Builder.call(bill_image: bill_image)
+    BillImages::SystemRecovery.call(bill_image)
+    stub_model("gpt-6.1-sol", data: clean)
+    BillImages::Analyzer.call(bill_image.reload, force: true)
+    expect(metadata["validation_result"]).not_to eq("corroborated_previous_validator")
+    expect(metadata["calls"]).to eq("primary" => 1, "validator" => 1)
+  end
+
+  it "retires every false row in a photo corroborated as three SALEs, including an initially misread amount" do
+    wrong = clean.deep_dup
+    wrong["documents"] = 3.times.map do |index|
+      clean["documents"].first.merge("total_amount_vnd" => 10_000_000 + index * 1_000_000,
+        "lot_number" => "00010#{index}", "transaction_time" => "10:5#{index}:00")
+    end
+    sales = wrong.deep_dup
+    sales["documents"].each { |document| document["document_type"] = "child_receipt" }
+    sales["documents"].last["total_amount_vnd"] = 12_010_000
+    stub_model("gpt-6-luna", data: wrong)
+    stub_model("gpt-6.1-sol", data: sales)
+    analyze
+    rows = Transactions::Builder.call(bill_image: bill_image)
+    expect(rows.map(&:status)).to eq(%w[needs_review needs_review needs_review])
+    BillImages::SystemRecovery.call(bill_image)
+    BillImages::Analyzer.call(bill_image.reload, force: true)
+    clear_enqueued_jobs
+    Transactions::Builder.call(bill_image: bill_image.reload)
+    expect(rows.map { |row| row.reload.status }).to eq(%w[excluded excluded excluded])
+    expect(rows.last.transaction_amount_vnd).to eq(12_010_000)
+    expect(WriteHelloSmcWorkbookJob).not_to have_been_enqueued
+  end
+
+  it "schedules recovery once per finished image instead of asking for a manual retry" do
+    stub_model("gpt-6-luna", data: blurry)
+    other = clean.deep_dup
+    other["documents"][0]["total_amount_vnd"] = 12_000_000
+    stub_model("gpt-6.1-sol", data: other)
+    analyze
+    clear_enqueued_jobs
+    Transactions::Builder.call(bill_image: bill_image)
+    RecoverBillImageJob.schedule(bill_image.id)
+    expect(RecoverBillImageJob).to have_been_enqueued.with(bill_image.id, run_id: metadata["run_id"]).once
+  end
+
   it "uses only Luna for a clean bill, with a strict output cap and usage telemetry" do
     request = stub_model("gpt-6-luna")
     allow(StructuredLog).to receive(:info).and_call_original

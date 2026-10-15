@@ -8,12 +8,13 @@ module BillVision
     # serves duplicate detection.
     Comparison = Data.define(:agreed, :differences, :soft_differences, :matches)
 
-    def self.call(primary:, validator:)
-      new(primary, validator).call
+    def self.call(primary:, validator:, child_details: true)
+      new(primary, validator, child_details).call
     end
 
-    def initialize(primary, validator)
+    def initialize(primary, validator, child_details)
       @primary, @validator = primary.fetch("documents"), validator.fetch("documents")
+      @child_details = child_details
     end
 
     def call
@@ -38,7 +39,11 @@ module BillVision
     private
 
     def blocking_differences(left, right)
-      differences = FIELDS.reject { |field| left[field] == right[field] }
+      # Standalone SALEs are excluded evidence. A timestamp difference must
+      # not prevent corroborating their type and retiring a false row. Their
+      # differing factual details remain recorded and are never booked.
+      fields = child_pair?(left, right) ? %w[document_type] : FIELDS
+      differences = fields.reject { |field| left[field] == right[field] }
       left_match = left.dig("merchant_match", "merchant_id")
       right_match = right.dig("merchant_match", "merchant_id")
       differences << "merchant_catalog_identity" if left_match && right_match && left_match != right_match
@@ -58,7 +63,7 @@ module BillVision
     end
 
     def soft_differences(left, right)
-      differences = []
+      differences = child_pair?(left, right) ? (FIELDS - [ "document_type" ]).reject { |field| left[field] == right[field] } : []
       # A conflicting identifier is material even if the names look alike.
       left_id = VietnameseText.normalize_identifier(left["terminal_or_merchant_id"])
       right_id = VietnameseText.normalize_identifier(right["terminal_or_merchant_id"])
@@ -81,6 +86,10 @@ module BillVision
         differences << "lot_number"
       end
       differences
+    end
+
+    def child_pair?(left, right)
+      !@child_details && left["document_type"] == "child_receipt" && right["document_type"] == "child_receipt"
     end
   end
 end

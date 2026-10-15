@@ -42,6 +42,28 @@ into accounting Excel files. SMC automates that, keeps the original evidence, an
     `docs/SPEC_TINH_PHI_THEO_THE.md`). `applied_base_fee_rate` always stays the winning rule's rate.
 11. **Fail safe.** Low confidence, missing values, ambiguity or possible duplicates go to review.
     False positives are worse than review.
+12. **Recover system extraction errors automatically.** Model disagreements, malformed/truncated
+    output and failed validation schedule a bounded reread after the transaction is built. Recovery
+    uses the configured stronger model (fixed 4096-token cap) and compares the complete factual
+    extraction with the previous validator, or a fresh second read. Each run still makes at most two
+    model requests and each image at most three runs. Confirmed SALE receipts are excluded with an
+    audit trail; booked, approved, held, rejected and human-corrected rows are preserved. Missing
+    business configuration and genuine duplicates are not resolved by inventing facts or extra OCR.
+    An explicit configured identifier or bank-qualified alias takes precedence over an AI catalog
+    suggestion; historical conflicts can be rebuilt from stored facts without another model call.
+    Outside albums, corroborated SALE classification can exclude false accounting rows even when
+    non-accounting receipt details differ; those differences remain in OCR metadata. Album child
+    details still compare strictly because they can supply facts for the album total. Reprocessing
+    an album with no remaining total must finish its processing rows rather than strand them.
+13. **Prefer a separate settlement photo over its group-photo copy.** Within an album, a readable
+    photo containing exactly one settlement takes precedence over the same settlement photographed
+    beside other receipts. Match the printed merchant and timestamp, respecting conflicting bank
+    or explicit lot identifiers; never discard another distinct settlement or choose between two
+    competing separate photos. Keep the group photo as evidence without building another accounting
+    row. Historical posted/approved rows keep their accounting identity and original OCR source;
+    a matching separate photo can become their displayed evidence, and unbooked duplicate rows are
+    excluded with an audit reference. Conflicts with posted values remain visible without changing
+    the ledger or posting a second row. This preference uses stored OCR and makes no model request.
 
 ## Decisions taken without customer confirmation
 
@@ -56,7 +78,7 @@ into accounting Excel files. SMC automates that, keeps the original evidence, an
 | Daily cutoff | Calendar day in Asia/Ho_Chi_Minh by transaction (settlement) time. | `Exports::ExcelGenerator#scope` |
 | Old/future receipts | Older than the "maximum receipt age" setting (default 45 days) or more than 1 hour in the future → review. | `Transactions::Evaluator` |
 | Approved → corrections | Approved transactions must be put on hold before editing. Approval recomputes amounts from the rate snapshotted at processing time; the fee rule is re-resolved only when merchant, dealer, card type or time is corrected, when a reviewer picks a rule, or when no rate was ever applied. | `Transaction::EDITABLE_STATUSES`, `Transactions::Recalculator` |
-| Reprocessing multi-settlement images | Re-read documents are matched to rows by content (amount, time, lot, merchant); settlements that already have a decided row are not booked twice; new settlements and every rebuilt row of a multi-settlement image go to review. | `Transactions::Builder#rebuild` |
+| Reprocessing multi-settlement images | Re-read documents are matched to rows by content (amount, time, lot, merchant); decided rows are not booked twice; new or uncertain assignments go to review. Automatic recovery can approve a unique, unchanged amount/time assignment after corroboration; excluded child receipts do not count as extra settlements. | `Transactions::Builder#rebuild` |
 | Concurrency | Status changes lock the row and re-check its status; review forms carry `lock_version` (optimistic locking); exports lock the rows they write; concurrent builds of the same merchant + amount are serialized for duplicate detection. | services in `app/services/transactions` |
 | Duplicates | Hard: same chat+message, same Telegram file, same SHA256, same image+settlement index. Possible: same merchant+amount within 10 minutes, or same lot same day. | `Transactions::DuplicateDetector` |
 

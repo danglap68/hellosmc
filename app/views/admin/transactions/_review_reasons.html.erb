@@ -8,6 +8,18 @@
         <li><%= review_reason_label(code) %></li>
       <% end %>
     </ul>
+    <% if (codes & BillImages::SystemRecovery::OCR_REASONS).any? && (image = transaction.bill_image) %>
+      <p class="mt-2 mb-0 small">
+        <% if image.ocr_runs_remaining? && image.metadata["recovery_job_run_id"] == image.metadata.dig("vision_pipeline", "run_id") %>
+          Hệ thống đã lên lịch tự đọc lại chứng từ, không cần bấm xử lý lại.
+        <% elsif !image.ocr_runs_remaining? %>
+          Đã dùng hết <%= image.ocr_attempts %> lượt đọc có giới hạn. Cần ảnh gốc rõ hơn để xử lý chính xác; hệ thống không tự đoán số tiền.
+        <% end %>
+        <% if (fields = Array(image.metadata.dig("vision_pipeline", "disagreement_fields"))).any? %>
+          Chưa thống nhất: <%= fields.map { |field| t("extraction_fields.#{field}", default: { "document_count" => "Số chứng từ", "document_missing" => "Chứng từ bị thiếu", "merchant_catalog_identity" => "Hộ kinh doanh" }.fetch(field, field)) }.join(", ") %>.
+        <% end %>
+      </p>
+    <% end %>
     <% if (ids = Array(transaction.source_data["possible_duplicate_ids"])).any? %>
       <div class="mt-2">
         <%= t("transactions.possible_duplicates") %>:

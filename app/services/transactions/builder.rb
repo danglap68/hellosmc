@@ -49,6 +49,10 @@ module Transactions
           first_build
         end
       @bill_image.telegram_message&.update!(processing_status: "processed")
+      if transactions.any? { |row| (row.review_reason_codes & BillImages::SystemRecovery::OCR_REASONS).any? }
+        id = @bill_image.id
+        ActiveRecord.after_all_transactions_commit { RecoverBillImageJob.schedule(id) }
+      end
       transactions
     end
 
@@ -75,7 +79,7 @@ module Transactions
       # theirs: OCR reads a little differently each run, so an exact match is
       # not required, only a better one than the rows being rebuilt.
       available = documents.reject { |document| claimed_by_other_row?(document, decided_rows, processing_rows) }
-      multi_settlement = @bill_image.documents.size > 1 || decided_rows.any? || processing_rows.size > 1
+      multi_settlement = documents.size > 1 || decided_rows.any? || processing_rows.size > 1
 
       assignments = {}
       processing_rows.each do |row|
@@ -86,7 +90,9 @@ module Transactions
         document = assignments[row]
         if document
           build_document(document, row.source_index,
-                         extra_reasons: multi_settlement ? [ "reprocessed_multi_settlement" ] : [])
+                         extra_reasons: multi_settlement && !confirmed_assignment?(row, document, available) ? [ "reprocessed_multi_settlement" ] : [])
+        elsif (child = confirmed_child_for(row, processing_rows))
+          exclude_corrected_child(row, child)
         else
           move_leftover(row, "needs_review", "document_missing_after_reprocess")
         end
@@ -98,6 +104,77 @@ module Transactions
                                   extra_reasons: [ "document_added_after_reprocess" ])
       end
       results
+    end
+
+    def recovery_confirmed?
+      recovery = @bill_image.metadata["system_recovery"].to_h
+      previous = Array(@bill_image.metadata["vision_history"]).last.to_h
+      recovery["mode"] == "ocr" && recovery["source_run_id"].present? &&
+        recovery["source_run_id"] == previous["run_id"] &&
+        @bill_image.metadata.dig("vision_pipeline", "validation_result").in?(%w[agreed corroborated_previous_validator])
+    end
+
+    # Reordered documents with a unique, unchanged amount/time identity do not
+    # need a new manual check merely because recovery ran on several receipts.
+    def confirmed_assignment?(row, document, available)
+      recovery_confirmed? && Array(@bill_image.metadata.dig("system_recovery", "transaction_ids")).include?(row.id) &&
+        same_settlement?(row, document) &&
+        available.count { |candidate| same_settlement?(row, candidate) } == 1
+    end
+
+    def confirmed_child_for(row, processing_rows)
+      return unless recovery_confirmed?
+      return if row.booked? || !Array(@bill_image.metadata.dig("system_recovery", "transaction_ids")).include?(row.id)
+
+      # The whole standalone image is corroborated as SALEs: there is no
+      # settlement left to book, including when the old read also got an
+      # amount wrong. Preserve the old accounting values in the audit log.
+      documents = @bill_image.documents
+      @whole_child_confirmation ||= @bill_image.bill_album_id.nil? && documents.size == processing_rows.size &&
+          documents.all? { |doc| confirmed_child_type?(doc) } &&
+          @bill_image.transactions.where.not(status: "processing").none?
+      if @whole_child_confirmation
+        return documents.find { |doc| doc["index"] == row.source_index }
+      end
+
+      children = documents.select do |doc|
+        confirmed_child?(doc) &&
+          doc["total_amount_vnd"] == row.transaction_amount_vnd &&
+          (doc["lot_number"].present? && doc["lot_number"] == row.lot_number ||
+            doc["merchant_name_normalized"].present? && doc["merchant_name_normalized"] == row.extraction["merchant_name_normalized"])
+      end
+      return unless children.one?
+      return unless processing_rows.count { |other| other.transaction_amount_vnd == row.transaction_amount_vnd } == 1
+
+      children.sole
+    end
+
+    def confirmed_child?(document)
+      confirmed_child_type?(document) && Array(document["validation_confirmed_fields"]).include?("total_amount_vnd")
+    end
+
+    def confirmed_child_type?(document)
+      document["document_type"] == "child_receipt" && !document["requires_review"] &&
+        Array(document["validation_confirmed_fields"]).include?("document_type")
+    end
+
+    def exclude_corrected_child(row, document)
+      with_transaction_row(row.source_index) do |transaction, _creating|
+        before = transaction.audit_snapshot
+        transaction.assign_attributes(Recalculator.blank_calculation.merge(fee_rule: nil,
+          lot_number: document["lot_number"], transaction_at: document["transaction_at"],
+          transaction_amount_vnd: Array(document["validation_confirmed_fields"]).include?("total_amount_vnd") ? document["total_amount_vnd"] : transaction.transaction_amount_vnd,
+          confidence_score: document["critical_confidence"]))
+        transaction.source_data = transaction.source_data.merge("extraction" => document, "review_reasons" => [],
+          "possible_duplicate_ids" => [], "excluded_reason" => "child_receipt", "corrected_by" => "system_recovery",
+          "ocr_provider" => @bill_image.ocr_provider, "ocr_model" => @bill_image.ocr_model)
+        transaction.transition_to!("excluded")
+        transaction.reviews.open.update_all(status: "superseded", updated_at: Time.current)
+        AuditLogger.log!(action: "transaction.rebuilt", auditable: transaction, before_data: before,
+                         after_data: transaction.audit_snapshot,
+                         metadata: { "trigger" => "system_recovery", "excluded_reason" => "child_receipt", "bill_image_id" => @bill_image.id })
+        transaction
+      end
     end
 
     def build_document(document, index, extra_reasons: [])
@@ -247,6 +324,10 @@ module Transactions
     # * outside an album (single image) only settlements are built.
     def skippable_document?(document)
       type = document["document_type"]
+      if @bill_image.bill_album_id.present? && type == "settlement"
+        @album_preference ||= BillAlbums::SettlementPreference.call(@bill_image.bill_album)
+        return true if @album_preference.suppressed?(@bill_image, document) || @album_preference.already_represented?(@bill_image, document)
+      end
       # A single photo only becomes a row when it is a settlement: transfers go
       # to RemitterTransfer, unknown photos and child receipts are skipped
       # instead of cluttering review. An OCR problem (failed run, malformed,
@@ -444,6 +525,7 @@ module Transactions
     # What the bill says, nothing calculated: no dealer, card type, fee, review,
     # duplicate check, sheet or Excel row.
     def exclude(transaction, document, tag, before:, creating:)
+      transaction.assign_attributes(Recalculator.blank_calculation.merge(fee_rule: nil))
       transaction.assign_attributes(
         merchant: trusted_merchant(document),
         lot_number: document["lot_number"],

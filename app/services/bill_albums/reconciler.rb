@@ -21,10 +21,19 @@ module BillAlbums
       @album.with_lock do
         return @album if @album.terminal?
 
-        scan_documents
-        build_transactions
-        apply_decision
-        persist
+        @preference = SettlementPreference.call(@album)
+        conflicts = @preference.apply_existing!
+        if conflicts.any?
+          @album.update!(status: "needs_review", reconciliation_status: "incomplete",
+            metadata: @album.metadata.merge("settlement_preference_conflicts" => conflicts))
+          AuditLogger.log!(action: "bill_album.settlement_preference_conflict", auditable: @album,
+                           metadata: { "conflicts" => conflicts })
+        else
+          scan_documents
+          build_transactions
+          apply_decision
+          persist
+        end
       end
       @album
     end
@@ -42,6 +51,8 @@ module BillAlbums
 
       @album.bill_images.analyzable.each do |image|
         image.documents.each do |doc|
+          next if @preference.suppressed?(image, doc)
+
           case doc["document_type"]
           when "child_receipt"
             @child_count += 1
@@ -70,7 +81,13 @@ module BillAlbums
     end
 
     def build_transactions
-      return unless @total_count >= 1
+      if @total_count.zero?
+        # A reread can remove a former total. Its processing rows must still
+        # finish (excluded or needs_review), even when the album is skipped.
+        @album.bill_images.analyzable.joins(:transactions).merge(Transaction.where(status: "processing"))
+          .distinct.each { |image| Transactions::Builder.call(bill_image: image) }
+        return
+      end
 
       # The Builder skips child receipts (evidence) and builds the "tổng kết"
       # settlement/transfer as the single transaction. A complete settlement
@@ -136,7 +153,9 @@ module BillAlbums
       total_image = @total_count == 1 ? @total_image : nil
       # A re-run starts from a clean slate: what an earlier run recorded about
       # dropped child bills must not outlive it.
-      metadata = @album.metadata.except("children_dropped", "skipped_failed_image_ids")
+      metadata = @album.metadata.except("children_dropped", "skipped_failed_image_ids", "total_amounts", "skip_reason",
+                                        "preferred_settlements", "settlement_preference_conflicts")
+      metadata = metadata.merge("preferred_settlements" => @preference.metadata) if @preference.pairs.any?
       metadata = metadata.merge("total_amounts" => @total_amounts) if @total_count > 1
       metadata = metadata.merge("skip_reason" => @skip_reason) if @skip_reason.present?
       if @reconciliation_status == "settlement_complete"

@@ -26,6 +26,22 @@ RSpec.describe BillVision::ResultComparator do
     described_class.call(primary: normalize(primary), validator: normalize(validator))
   end
 
+  it "does not let a standalone SALE timestamp conflict prevent exclusion, but keeps album evidence strict" do
+    data = extraction_fixture("normal_settlement")
+    data["documents"].first["document_type"] = "child_receipt"
+    other = data.deep_dup
+    other["documents"].first["transaction_time"] = "10:57:29"
+    standalone = described_class.call(primary: normalize(data), validator: normalize(other), child_details: false)
+    expect(standalone.agreed).to be(true)
+    expect(standalone.soft_differences).to include("transaction_time")
+    expect(compare(data, other).agreed).to be(false)
+    other["documents"].first["total_amount_vnd"] += 1
+    comparison = described_class.call(primary: normalize(data), validator: normalize(other), child_details: false)
+    expect(comparison.agreed).to be(true)
+    expect(comparison.soft_differences).to include("total_amount_vnd")
+    expect(compare(data, other).agreed).to be(false)
+  end
+
   it "accepts equivalent padded transfer memos but blocks conflicting or missing validator memos" do
     primary = extraction_fixture("transfer")
     primary["documents"].first.merge!("transfer_memo" => "As02", "transfer_memo_confidence" => 0.99)

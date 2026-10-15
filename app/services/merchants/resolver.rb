@@ -37,6 +37,10 @@ module Merchants
     # slips are told apart (an alias "MBV HKD NCT" on one of them).
     def self.for_document(document)
       result = deterministic_for_document(document)
+      # A configured MID/TID or bank-qualified alias is stronger evidence than
+      # the model's generic catalog suggestion (e.g. MBV HKD NCT versus NCT).
+      return result if authoritative_identity?(document, result)
+
       match = document["merchant_match"]
       return result unless match.is_a?(Hash)
 
@@ -56,6 +60,16 @@ module Merchants
       end
 
       Result.new(merchant: merchant, method: :ai_match, candidates: candidates, score: confidence)
+    end
+
+    def self.authoritative_identity?(document, result)
+      return true if result.method == :identifier
+      return false unless result.exact? && document["bill_bank_name"].present?
+
+      banked_names = candidate_names(document).map do |name|
+        VietnameseText.normalize("#{document['bill_bank_name']} #{name}")
+      end
+      result.merchant.merchant_aliases.active.names.where(normalized_alias: banked_names).exists?
     end
 
     def self.deterministic_for_document(document)

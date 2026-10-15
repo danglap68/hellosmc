@@ -1,6 +1,6 @@
 module BillVision
-  # Finite factual extraction: primary -> optional independent validator -> END.
-  # The primary facts are never replaced by a disagreeing validator.
+  # Each run has at most two reads. Recovery uses the stronger model and can
+  # corroborate it against the preceding validator without buying another call.
   class Pipeline
     Outcome = Data.define(:vision, :normalized, :metadata)
 
@@ -12,6 +12,7 @@ module BillVision
       @bill_image = image if image.is_a?(BillImage)
       @image = @bill_image ? Image.from_bill_image(image) : image
       @extractor, @budget = extractor, budget
+      @previous = @bill_image && Array(@bill_image.metadata["vision_history"]).last.to_h
       # Image screening stays advisory; extraction failures still need review.
       @review_reasons = []
       @integrity_assessments = if @bill_image
@@ -26,13 +27,17 @@ module BillVision
       primary = extract(:primary)
       normalized = normalize(primary)
       @budget.record!("primary" => snapshot(primary, normalized))
+      if recovery_read? && corroborate_previous_validator(normalized)
+        return outcome(primary, @corroborated)
+      end
       decision = ValidationPolicy.call(normalized: normalized, bill_image: @bill_image)
       @budget.record!("visual_validation_reasons" => decision.visual_validation_reasons,
                       "deterministic_business_review_reasons" => decision.deterministic_business_review_reasons)
 
       if primary.provider == "openai" && AppConfig.vision_validation_enabled? &&
-          AppConfig.vision_validation_mode == "risk_based" && decision.validate?
-        validate(primary, normalized, decision.visual_validation_reasons)
+          AppConfig.vision_validation_mode == "risk_based" && (decision.validate? || recovery_read?)
+        reasons = decision.visual_validation_reasons | (recovery_read? ? [ "system_recovery" ] : [])
+        validate(primary, normalized, reasons)
       else
         @budget.record!("validation_result" => "skipped", "validation_reason" => [], "validation_triggered" => false)
         log("ocr.validation.skipped", reasons: decision.visual_validation_reasons,
@@ -65,11 +70,11 @@ module BillVision
 
     def extract(stage)
       @budget.consume!(stage)
-      model = stage == :primary ? AppConfig.primary_vision_model : AppConfig.validator_vision_model
+      model = stage == :primary && !recovery_read? ? AppConfig.primary_vision_model : AppConfig.validator_vision_model
       event = stage == :primary ? "ocr.primary" : "ocr.validation"
       log("#{event}.request", request_type: stage, model: model)
       vision =
-        if stage == :primary
+        if stage == :primary && !recovery_read?
           @extractor.call(image: @image)
         else
           Extractor.call(image: @image, provider: OpenaiProvider.new(model: model, max_output_tokens: CallBudget::MAX_VALIDATOR_OUTPUT_TOKENS))
@@ -86,12 +91,35 @@ module BillVision
       raise
     end
 
+    def recovery_read?
+      recovery = @bill_image&.metadata&.fetch("system_recovery", {}) || {}
+      recovery["mode"] == "ocr" && recovery["source_run_id"] == @previous["run_id"] &&
+        AppConfig.vision_provider == "openai"
+    end
+
+    def corroborate_previous_validator(normalized)
+      previous = @previous.dig("validator", "normalized_output")
+      return false unless previous.is_a?(Hash) && previous["documents"].is_a?(Array)
+      return false if previous["documents"].empty? || previous["documents_truncated"].to_i.positive?
+
+      comparison = compare(normalized, previous)
+      return false unless comparison.agreed
+
+      @corroborated = confirm_fields(normalized.deep_dup, comparison.matches)
+      @budget.record!("validation_result" => "corroborated_previous_validator", "validation_triggered" => false,
+                      "validation_reason" => [], "disagreement_fields" => [],
+                      "soft_disagreement_fields" => comparison.soft_differences,
+                      "corroborating_run_id" => @previous["run_id"])
+      log("ocr.recovery.corroborated", previous_run_id: @previous["run_id"])
+      true
+    end
+
     def validate(primary, normalized, reasons, comparable: true)
       @budget.record!("validation_triggered" => true, "validation_reason" => reasons)
       validator = extract(:validator)
       validator_normalized = normalize(validator)
       @budget.record!("validator" => snapshot(validator, validator_normalized))
-      comparison = ResultComparator.call(primary: normalized, validator: validator_normalized)
+      comparison = compare(normalized, validator_normalized)
       if comparable && comparison.agreed
         normalized = confirm_fields(normalized.deep_dup, comparison.matches)
         result = normalized["requires_review"] ? "unresolved" : "agreed"
@@ -132,6 +160,10 @@ module BillVision
       raise PermanentError, "#{vision.provider} normalization failed" unless vision.provider == "openai"
 
       raise InvalidExtraction.new("OCR normalization failed", raw: vision.raw, model: vision.model)
+    end
+
+    def compare(primary, validator)
+      ResultComparator.call(primary: primary, validator: validator, child_details: @bill_image&.bill_album_id.present?)
     end
 
     def confirm_fields(normalized, matches)

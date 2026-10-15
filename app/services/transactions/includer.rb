@@ -17,7 +17,7 @@ module Transactions
       Transaction.transaction do
         @transaction.lock!
         bill_image = @transaction.bill_image
-        unless @transaction.excluded? && bill_image
+        unless @transaction.excluded? && bill_image && !@transaction.source_data["excluded_reason"].in?(%w[child_receipt album_duplicate])
           @transaction.errors.add(:base, :not_excludable)
           raise ActiveRecord::Rollback
         end

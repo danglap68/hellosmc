@@ -46,6 +46,14 @@ module BillVision
         date/time. merchant_name, lot_number and terminal_or_merchant_id are null for transfers.
       - "unknown": anything else, or when you cannot tell.
 
+      TOTAL / TỔNG alone does NOT establish a batch settlement: individual SALE receipts also
+      print TOTAL. Require visible batch-closing wording for "settlement". A photo of several
+      SALE / THANH TOÁN receipts remains several "child_receipt" entries even when they share
+      the same batch/lot. Never promote those sales to settlements or sum them into one.
+      The phone or terminal status-bar clock is NOT the receipt transaction time. Return null
+      when no time is printed in the receipt itself. Ignore tiny gallery thumbnails whose
+      receipt text cannot be read; do not count them as additional full-size documents.
+
       A POS receipt that shows a merchant name, a batch/lot number, or a terminal/MID number is NEVER
       a "transfer" — classify it as "settlement" or "child_receipt", even if it prints
       "GIAO DỊCH THÀNH CÔNG" (that phrase also appears on ordinary card-sale slips).
