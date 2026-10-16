@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Trạng thái | Đã triển khai trên nhánh `feature/ds-header-auto-mapping`: `8cd6c9d`, `d992360` (đã push) và commit kế tiếp "bill có người duyệt giữ nguyên đại lý" (mục 3.4, chưa push) (17/10/2026). |
+| Trạng thái | Đã triển khai trên nhánh `feature/ds-header-auto-mapping`: `8cd6c9d`, `d992360`, `46c285f` (bill có người duyệt giữ nguyên đại lý, mục 3.4) (17/10/2026). |
 | Áp dụng từ | Tháng 10/2026 trở đi (tab `DS MB T10` và các tab sau) |
 | Không đổi | OCR, nhận diện HKD (`Merchants::Resolver`), `Dealers::Resolver`, `TidParser`, tab `thu chi`, mã chuyển tiền, code QR chuyển khoản |
 
