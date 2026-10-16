@@ -189,18 +189,31 @@ RSpec.describe Workbook::HelloSmcWriter do
       expect(AuditLog.where(action: "transaction.dealer_reassigned", auditable: transaction)).to exist
     end
 
-    it "keeps the person on the bill's approval and amounts for the new dealer" do
+    it "keeps the dealer of a bill a person approved, while the agent row follows the header" do
       lan
-      approver = create(:user, :operator)
       transaction = build_transaction
-      transaction.update!(approved_by: approver, approved_at: Time.zone.local(2026, 10, 1, 11, 0))
+      transaction.update!(approved_by: create(:user, :operator))
+
+      result, client = write(transaction, renamed_grid("Lan (tid1)"))
+
+      expect(result).to eq(:identified)
+      expect(transaction.reload).to have_attributes(dealer: chuong, applied_dealer_rate: BigDecimal("0.0121"))
+      expect(link.reload.dealer).to eq(lan)
+      expect(client.cell("DS MB T10", "B2")).to eq("=354367000+486000")
+      expect(AuditLog.where(action: "transaction.dealer_reassigned")).to be_empty
+    end
+
+    it "keeps the dealer a reviewer chose by hand when the header names another dealer" do
+      lan
+      transaction = build_transaction
+      transaction.update!(approved_by: create(:user, :operator), source_data: transaction.source_data.merge(
+        "dealer_resolution" => { "merchant_dealer_id" => link.id },
+        "manual_corrections" => [ { "by" => create(:user, :operator).id, "fields" => [ "dealer_id" ] } ]
+      ))
 
       write(transaction, renamed_grid("Lan (tid1)"))
 
-      transaction.reload
-      expect(transaction.approved_by).to eq(approver)
-      expect(transaction.approved_at).to eq(Time.zone.local(2026, 10, 1, 11, 0))
-      expect(transaction.applied_dealer_rate).to eq(BigDecimal("0.0121"))
+      expect(transaction.reload.dealer).to eq(chuong)
     end
 
     it "sends the bill back to review for a name no dealer has, and writes nothing" do
@@ -486,12 +499,26 @@ RSpec.describe Workbook::HelloSmcWriter do
 
       lan = create(:dealer, name: "Lan")
       create(:fee_rule, merchant: merchant, base_fee_rate: BigDecimal("0.0088"), dealer_rate: BigDecimal("0.0121"))
-      expect(Transactions::Approver.call(transaction: transaction, actor: create(:user, :operator))).to be(true)
+      reviewer = create(:user, :operator)
+      expect(Transactions::Corrector.call(transaction: transaction, actor: reviewer, params: { "dealer_id" => lan.id })).to be_success
+      expect(Transactions::Approver.call(transaction: transaction, actor: reviewer)).to be(true)
 
       expect(described_class.call(transaction: transaction.reload, client: client, spreadsheet_id: "sheet-id")).to eq(:identified)
       expect(transaction.reload.dealer).to eq(lan)
       expect(link.reload.dealer).to eq(lan)
       expect(client.cell("DS MB T10", "B2")).to eq("=354367000+486000")
+    end
+
+    it "keeps the dealer the reviewer left on the bill when it is approved again" do
+      transaction = build_transaction
+      client = memory("DS MB T10" => ds_mb_grid.tap { |grid| grid[0][1] = "Lan (tid1)" })
+      described_class.call(transaction: transaction, client: client, spreadsheet_id: "sheet-id")
+      create(:dealer, name: "Lan")
+      create(:fee_rule, merchant: merchant, base_fee_rate: BigDecimal("0.0088"), dealer_rate: BigDecimal("0.0121"))
+      Transactions::Approver.call(transaction: transaction.reload, actor: create(:user, :operator))
+
+      expect(described_class.call(transaction: transaction.reload, client: client, spreadsheet_id: "sheet-id")).to eq(:identified)
+      expect(transaction.reload.dealer).to eq(chuong)
     end
   end
 

@@ -135,10 +135,12 @@ module Workbook
       :needs_review
     end
 
-    # Moves the bill to the dealer that now holds its agent row. A confirmed
-    # payment QR may already have paid the previous dealer: the bill goes to
-    # review once, and when a person approves it again it keeps its dealer.
+    # Moves the bill to the dealer that now holds its agent row. Only a bill the
+    # system approved is moved: a bill a person approved keeps its dealer. A
+    # confirmed payment QR may already have paid the previous dealer: the bill
+    # goes to review once, and when a person approves it again it keeps its dealer.
     def reassign_to!(dealer)
+      return if @transaction.approved_by_id.present?
       return if @transaction.source_data.dig("workbook_review", "issue") == PAID_BY_QR
 
       reassigned = Transactions::DealerReassigner.call(transaction: @transaction, dealer: dealer, source: "writer")
