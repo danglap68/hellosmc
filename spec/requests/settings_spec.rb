@@ -144,6 +144,15 @@ RSpec.describe "Settings" do
     end
   end
 
+  it "offers the DS MB header auto switch, on by default" do
+    sign_in create(:user, :admin)
+
+    get admin_settings_path
+
+    expect(response.body).to include("Tự đổi đại lý khi Google Sheet đổi tên người")
+    expect(AppConfig.ds_header_auto_switch?).to be(true)
+  end
+
   describe "Google Sheet connection" do
     let(:sheet_id) { "1AbCdEfGhIjKlMnOpQrStUvWxYz0123456789_-aBc" }
     let(:sheet) { instance_double(Workbook::GoogleSheetClient, titles: [ "DS MB", "thu chi" ]) }

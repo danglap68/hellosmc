@@ -34,6 +34,7 @@ class AppSetting < ApplicationRecord
   DEFINITIONS = [
     define("telegram_auto_activate_chats", :boolean, "false", "operations"),
     define("remitter_features_enabled", :boolean, "false", "operations"),
+    define("ds_header_auto_switch", :boolean, "true", "operations"),
     define("payment_qr_telegram_enabled", :boolean, "false", "payment_qr"),
     define("payment_qr_bot_username", :string, "", "payment_qr", allow_blank: true)
   ].index_by(&:key).freeze

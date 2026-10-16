@@ -20,6 +20,24 @@ namespace :telegram do
 end
 
 namespace :hellosmc do
+  namespace :ds_headers do
+    report_ds_headers = lambda do |apply|
+      report = Workbook::DsHeaderSync.call(apply: apply, source: "rake")
+      puts "#{report.sheet}: " + report.counts.map { |status, count| "#{status} #{count}" }.join(", ")
+      report.rows.reject { |row| row.status == :ok }.each do |row|
+        puts "  #{row.status.to_s.ljust(9)} #{row.link.merchant.name} / #{row.link.tid_key} / #{row.link.dealer.name}: #{row.header.inspect}"
+      end
+    rescue Workbook::DsHeaderSync::SheetMissing => e
+      abort "Chưa có tab #{e.message}"
+    end
+
+    desc "Report how this month's DS MB headers differ from the agents in the database (changes nothing)"
+    task(check: :environment) { report_ds_headers.call(false) }
+
+    desc "Apply this month's DS MB headers to the agents: renamed headers are saved, a dealer the header names takes the row (when the setting is on)"
+    task(sync: :environment) { report_ds_headers.call(true) }
+  end
+
   desc "Generate yesterday's Excel export (schedule with cron)"
   task export_daily: :environment do
     GenerateDailyExcelJob.perform_now

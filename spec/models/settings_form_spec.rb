@@ -9,7 +9,8 @@ RSpec.describe SettingsForm do
 
   it "holds only the client's switches" do
     expect(described_class.new.values).to eq("telegram_auto_activate_chats" => "0", "remitter_features_enabled" => "0",
-                                            "payment_qr_telegram_enabled" => "0", "payment_qr_bot_username" => "")
+                                            "ds_header_auto_switch" => "1", "payment_qr_telegram_enabled" => "0",
+                                            "payment_qr_bot_username" => "")
   end
 
   it "saves a switch and audits only what changed (S2)" do

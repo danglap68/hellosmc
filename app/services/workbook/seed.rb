@@ -126,6 +126,12 @@ module Workbook
 
       AGENTS.each do |(code, dealer_name, tid_key, tid_label, ds_header, rd_label)|
         merchant = merchants.fetch(code)
+        # The row of this TID changed hands (the DS MB header named another
+        # dealer, see Workbook::DsHeaderChange): a second active row for the
+        # same TID is not allowed, and the new holder is not the seed's to undo.
+        holder = merchant.merchant_dealers.active.find_by(tid_key: tid_key)
+        next if holder && holder.dealer.name != dealer_name
+
         dealer = find_or_create_dealer(dealer_name)
         # Upsert: the seed is the source of truth for these mapping fields, so a
         # re-run corrects labels that drifted from the sheets (e.g. rd labels).

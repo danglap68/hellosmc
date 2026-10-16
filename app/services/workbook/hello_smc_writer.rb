@@ -6,10 +6,15 @@ module Workbook
   # spreadsheet with a session-level Postgres advisory lock (try-lock: a busy
   # lock raises LockBusy and the job retries, so Sidekiq threads never block).
   #
-  # Idempotency: every ledger row carries a "TX<id>" marker (MB column L,
-  # "Bill vô chủ" column G). A retry after an ambiguous failure (timeout after
-  # Google applied the batch, crash before the DB entry was saved) finds the
-  # marker and only records the entry instead of adding the amount twice.
+  # Idempotency: every MB row carries a "TX<id>" marker (column L). A retry
+  # after an ambiguous failure (timeout after Google applied the batch, crash
+  # before the DB entry was saved) finds the marker and only records the entry
+  # instead of adding the amount twice.
+  #
+  # A bill the writer cannot place (unknown HKD, agent or TID, a DS MB cell it
+  # cannot find or add to, a header naming someone it cannot match) is not
+  # written anywhere: it goes back to the review queue with the reason. Once
+  # the configuration or the sheet is fixed, approving it again writes it.
   #
   # Remitters are not part of a transaction: the "thu chi" tab is written from
   # RemitterTransfer (Workbook::RemitterReportWriter), and MB column K
@@ -20,7 +25,6 @@ module Workbook
     DS_PREFIX = "DS MB T"
     SETUP_PREFIX = "__setup_"
     MB_SHEET = "MB"
-    UNIDENTIFIED_SHEET = "Bill vô chủ"
 
     DS_READ_RANGE = "A1:X80"
     DS_LAST_COL = 23
@@ -29,13 +33,19 @@ module Workbook
     # Whole-column reads return only the used rows, so the ledgers can grow.
     MB_READ_RANGE = "A:L"
     MB_MARKER_COL = 11
-    UNIDENTIFIED_READ_RANGE = "A:G"
-    UNIDENTIFIED_MARKER_COL = 6
 
     # Serial numbers for 2000-01-01..2099-12-31; keeps small amounts from
     # being mistaken for dates.
     DATE_SERIAL_RANGE = (36_526..73_415)
     MIN_DATE_RUN = 5
+
+    UNMATCHED = "ds_header_dealer_unmatched".freeze
+    REASSIGN_FAILED = "dealer_reassign_failed".freeze
+    PAID_BY_QR = "payment_qr_confirmed".freeze
+    KEPT_ISSUES = [ "ds_cell_not_numeric", UNMATCHED, REASSIGN_FAILED, PAID_BY_QR ].freeze
+    # Reasons fixed on the HKD's agent rows: the review page links to them.
+    MAPPING_ISSUES = [ "agent_tid_missing", "agent_tid_unmapped", "agent_recipient_mismatch", "ds_cell_missing",
+                       UNMATCHED, REASSIGN_FAILED ].freeze
 
     class ConfigurationError < StandardError; end
     class CellMissing < StandardError; end
@@ -77,7 +87,7 @@ module Workbook
         return :already_written if WorkbookEntry.exists?(transaction_id: @transaction.id)
 
         resolution = Resolver.call(transaction: @transaction)
-        resolution.identified? ? write_identified(client, resolution) : write_unidentified(client, resolution)
+        resolution.identified? ? write_identified(client, resolution) : send_to_review(resolution.issue)
       end
     end
 
@@ -90,8 +100,11 @@ module Workbook
       existing = marker_row(mb_rows, MB_MARKER_COL)
       return reconcile!("identified", resolution, mb_row: existing + 1) if existing
 
+      link = resolution.merchant_dealer
+      reassign_to!(link.dealer) unless dealer_current?(link)
+
       amount = @transaction.transaction_amount_vnd
-      ds_update, ds_cell, ds_sheet = increment_daily(client, resolution.merchant_dealer, amount)
+      ds_update, ds_cell, ds_sheet, header_change = increment_daily(client, link, amount)
       updates = [ ds_update ]
 
       mb_row, mb_update = append_mb(client, resolution, mb_rows)
@@ -100,20 +113,85 @@ module Workbook
       client.batch_update_values(updates)
       record!(branch: "identified", ds_sheet: ds_sheet, ds_cell: ds_cell, mb_row: mb_row,
               payload: payload(resolution, issue: nil))
+      remember_header(link, header_change, ds_sheet)
       :identified
     rescue CellMissing => error
-      write_unidentified(client, resolution, issue: error.message == "ds_cell_not_numeric" ? error.message : "ds_cell_missing")
+      send_to_review(issue_for(error))
     end
 
-    def write_unidentified(client, resolution, issue: resolution.issue)
-      rows = client.values(UNIDENTIFIED_SHEET, UNIDENTIFIED_READ_RANGE)
-      existing = marker_row(rows, UNIDENTIFIED_MARKER_COL)
-      return reconcile!("unidentified", resolution, unidentified_row: existing + 1, issue: issue) if existing
+    # Nothing was written: the bill goes back to the review queue with this
+    # reason only (the earlier review reasons were settled when it was approved).
+    # Leaving "approved" also invalidates a prepared payment QR.
+    def send_to_review(issue)
+      before = @transaction.audit_snapshot
+      @transaction.source_data = @transaction.source_data.merge(
+        "review_reasons" => [ issue ], "workbook_review" => { "issue" => issue, "at" => Time.current.utc.iso8601 }
+      )
+      @transaction.transition_to!("needs_review")
+      @transaction.reviews.open.find_each { |review| review.update!(status: "superseded") }
+      @transaction.reviews.create!(status: "open", reason_codes: [ issue ], reason: issue, original_values: {})
+      AuditLogger.log!(action: "transaction.sent_to_review", auditable: @transaction, before_data: before,
+                       after_data: @transaction.audit_snapshot, metadata: { "issue" => issue })
+      :needs_review
+    end
 
-      row, update = append_unidentified(client, rows)
-      client.batch_update_values([ update ])
-      record!(branch: "unidentified", unidentified_row: row, payload: payload(resolution, issue: issue))
-      :unidentified
+    # Moves the bill to the dealer that now holds its agent row. A confirmed
+    # payment QR may already have paid the previous dealer: the bill goes to
+    # review once, and when a person approves it again it keeps its dealer.
+    def reassign_to!(dealer)
+      return if @transaction.source_data.dig("workbook_review", "issue") == PAID_BY_QR
+
+      reassigned = Transactions::DealerReassigner.call(transaction: @transaction, dealer: dealer, source: "writer")
+      return if reassigned.success?
+
+      raise CellMissing, reassigned.reason == PAID_BY_QR ? PAID_BY_QR : REASSIGN_FAILED
+    end
+
+    # Issues kept as they are; any other missing cell (anchor, header, date) is ds_cell_missing.
+    def issue_for(error)
+      error.message.in?(KEPT_ISSUES) ? error.message : "ds_cell_missing"
+    end
+
+    # The bill was evaluated for the dealer that held this agent row then. When
+    # the row changed hands since (the DS MB header named another person), the
+    # bill moves to the new dealer before it is written. A dealer a person chose
+    # in review is never replaced (corrections by the system have no "by").
+    def dealer_current?(link)
+      return true if @transaction.dealer_id.blank? || @transaction.dealer_id == link.dealer_id
+      return true unless @transaction.source_data.dig("dealer_resolution", "merchant_dealer_id") == link.id
+
+      Array(@transaction.source_data["manual_corrections"]).any? do |entry|
+        entry["by"].present? && Array(entry["fields"]).include?("dealer_id")
+      end
+    end
+
+    # The header text of the same person changed: remember it once the bill is
+    # in the sheet. A failure here only logs; the bill is already recorded.
+    def remember_header(link, change, sheet)
+      return unless change&.kind.in?(%i[same rename])
+
+      MerchantDealer.transaction(requires_new: true) do
+        DsHeaderChange.rename!(link: link, header: change.header, sheet: sheet, source: "writer", transaction: @transaction)
+      end
+    rescue StandardError => error
+      StructuredLog.warn("workbook.ds_header_not_saved", transaction_id: @transaction.id,
+                                                          merchant_dealer_id: link.id, error: error.class.name)
+    end
+
+    # The header changed since the agent row was set up. Another existing
+    # dealer takes the row (and this bill) when the switch is on; a new or
+    # unclear name sends the bill back to review so no money goes to a guess.
+    def adopt_header_change!(link, change, sheet)
+      case change.kind
+      when :switch
+        raise CellMissing, UNMATCHED unless AppConfig.ds_header_auto_switch?
+        raise CellMissing, UNMATCHED unless DsHeaderChange.switch!(link: link, dealer: change.dealer, header: change.header,
+                                                                   sheet: sheet, source: "writer", transaction: @transaction)
+
+        reassign_to!(change.dealer)
+      when :unmatched
+        raise CellMissing, UNMATCHED
+      end
     end
 
     # The sheet already holds this transaction (an earlier attempt applied the
@@ -129,13 +207,11 @@ module Workbook
       sheet = monthly_sheet(client)
       grid = client.values(sheet, DS_READ_RANGE)
 
-      header_row, header_col = find_cell(grid) { |value| same_text?(value, link.ds_sheet_anchor) }
-      raise CellMissing, "ds_anchor" unless header_row
+      location = DsHeaderMatcher.locate(grid: grid, link: link, last_col: DS_LAST_COL)
+      raise CellMissing, "ds_anchor" unless location
+      raise CellMissing, "ds_header" unless location.col
 
-      agent_col = (header_col..[ header_col + 6, DS_LAST_COL ].min).find do |col|
-        same_text?(grid.dig(header_row, col), link.ds_header)
-      end
-      raise CellMissing, "ds_header" unless agent_col
+      header_row, header_col, agent_col = location.header_row, location.anchor_col, location.col
 
       date_row = find_date_row(grid, header_row, header_col, @transaction.transaction_at.to_date)
       raise CellMissing, "ds_date" unless date_row
@@ -143,11 +219,13 @@ module Workbook
       cell = a1(date_row, agent_col)
       formula = running_sum(client.values(sheet, cell, value_render_option: "FORMULA").dig(0, 0), amount)
       # The day cell holds something the writer cannot add to (a note, another
-      # formula): book the bill in "Bill vô chủ" so it is not silently missing
-      # from DS MB, like any other DS MB cell that cannot be found.
+      # formula): the bill goes back to review instead of silently missing from
+      # DS MB, like any other DS MB cell that cannot be found.
       raise CellMissing, "ds_cell_not_numeric" unless formula
 
-      [ { sheet: sheet, range: "#{cell}:#{cell}", rows: [ [ formula ] ] }, cell, sheet ]
+      # The database changes only once the bill is sure to land in that cell.
+      adopt_header_change!(link, location.change, sheet) if location.change
+      [ { sheet: sheet, range: "#{cell}:#{cell}", rows: [ [ formula ] ] }, cell, sheet, location.change ]
     end
 
     # DS MB day cells add up as a formula so every bill stays visible:
@@ -287,7 +365,7 @@ module Workbook
       { sheet: sheet, range: "#{a1(row1, col1)}:#{a1(row2, col2)}", rows: rows }
     end
 
-    # --- MB and Bill vô chủ ledgers ----------------------------------------
+    # --- MB ledger ----------------------------------------------------------
 
     def append_mb(client, resolution, rows)
       index = first_blank_row_index(rows)
@@ -313,25 +391,6 @@ module Workbook
         marker
       ] ]
       [ n, { sheet: MB_SHEET, range: "A#{n}:L#{n}", rows: values } ]
-    end
-
-    def append_unidentified(client, rows)
-      index = first_blank_row_index(rows)
-      n = index + 1
-      client.ensure_rows(UNIDENTIFIED_SHEET, n) if index >= rows.length
-
-      rate = @transaction.base_fee_rate_used || BigDecimal("0.0088")
-      status = @transaction.approved? ? "Thành công" : "Cần kiểm tra"
-      values = [ [
-        text_cell(@transaction.raw_merchant_name.presence || "—"),
-        "=C#{n}-(C#{n}*D#{n})",
-        @transaction.transaction_amount_vnd,
-        rate&.to_f,
-        date_text("%d/%m/%Y %H:%M:%S"),
-        status,
-        marker
-      ] ]
-      [ n, { sheet: UNIDENTIFIED_SHEET, range: "A#{n}:G#{n}", rows: values } ]
     end
 
     # First row (after the header) whose column A is empty. Works on the 2-D
@@ -370,18 +429,9 @@ module Workbook
 
     # --- cell helpers -------------------------------------------------------
 
-    def find_cell(grid)
-      grid.each_with_index do |row, r|
-        row.each_with_index do |value, c|
-          return [ r, c ] if yield(value)
-        end
-      end
-      [ nil, nil ]
-    end
-
-    # Dates in the ledgers are literal text (dd/mm/yyyy): the MB date/time
-    # columns are number-formatted and Bill vô chủ already stores text, and a
-    # leading apostrophe stops Sheets from parsing by the sheet's locale.
+    # Dates in the ledger are literal text (dd/mm/yyyy): the MB date/time
+    # columns are number-formatted, and a leading apostrophe stops Sheets from
+    # parsing by the sheet's locale.
     def date_text(format)
       "'#{@transaction.transaction_at.in_time_zone.strftime(format)}"
     end

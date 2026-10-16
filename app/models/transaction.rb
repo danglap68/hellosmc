@@ -12,7 +12,8 @@ class Transaction < ApplicationRecord
     "pending" => %w[processing],
     "processing" => %w[approved needs_review failed excluded],
     "needs_review" => %w[approved rejected hold processing],
-    "approved" => %w[hold],
+    # needs_review: the workbook writer could not place the bill (Workbook::HelloSmcWriter).
+    "approved" => %w[hold needs_review],
     "hold" => %w[approved needs_review rejected processing],
     "failed" => %w[processing needs_review],
     "rejected" => [],

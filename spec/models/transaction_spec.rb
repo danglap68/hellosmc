@@ -8,6 +8,12 @@ RSpec.describe Transaction do
       expect(transaction.reload).to be_approved
     end
 
+    it "lets the workbook writer send an approved bill back to review" do
+      transaction = create(:transaction, :approved)
+      transaction.transition_to!("needs_review")
+      expect(transaction.reload).to be_needs_review
+    end
+
     it "refuses arbitrary transitions" do
       transaction = create(:transaction, status: "needs_review")
       expect { transaction.transition_to!("excluded") }.to raise_error(Transaction::InvalidTransition)

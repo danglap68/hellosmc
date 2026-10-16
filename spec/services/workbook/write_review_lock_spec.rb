@@ -31,20 +31,25 @@ RSpec.describe "Workbook writes concurrent with review decisions" do
   end
 
   it "keeps incoming money locked until the sheet receipt is recorded" do
-    record = create(:transaction, :approved, bill_image: nil, telegram_message: nil)
+    link = create(:merchant_dealer, tid_key: "tid1", ds_sheet_anchor: "Thiên Kim GV", ds_header: "Chương (tid1)")
+    record = create(:transaction, :approved, bill_image: nil, telegram_message: nil, merchant: link.merchant, dealer: link.dealer,
+                                             source_data: { "extraction" => { "merchant_name" => "THIÊN KIM GV-1" } })
     decision = nil
     hook = -> do
       decision = concurrent_decision do
         Transactions::StatusUpdater.call(transaction: Transaction.find(record.id), actor: nil, action: "hold")
       end
     end
-    client = Workbook::MemorySheet.new("Bill vô chủ" => [ [ "header" ] ])
+    client = Workbook::MemorySheet.new(
+      "DS MB T10" => [ [ "Thiên Kim GV", "Chương (tid1)" ] ] + (1..5).map { |day| [ Date.new(2026, 10, day), nil ] },
+      "MB" => [ [ "header" ] ]
+    )
     client.define_singleton_method(:batch_update_values) do |updates|
       hook.call
       super(updates)
     end
 
-    expect(Workbook::HelloSmcWriter.call(transaction: record, client: client, spreadsheet_id: "lock-test")).to eq(:unidentified)
+    expect(Workbook::HelloSmcWriter.call(transaction: record, client: client, spreadsheet_id: "lock-test")).to eq(:identified)
     expect(decision).to eq(:locked)
     expect(record.reload).to be_approved
     expect(record).to be_booked

@@ -5,7 +5,12 @@
     <h4 class="alert-title"><%= icon("alert-triangle") %> <%= t("transactions.review_reasons_title") %></h4>
     <ul class="mb-0">
       <% codes.each do |code| %>
-        <li><%= review_reason_label(code) %></li>
+        <li>
+          <%= review_reason_label(code) %>
+          <% if code.in?(Workbook::HelloSmcWriter::MAPPING_ISSUES) && transaction.merchant && can?(:manage, :merchants) %>
+            · <%= link_to t("transactions.fix_agent_mapping"), edit_admin_merchant_path(transaction.merchant) %>
+          <% end %>
+        </li>
       <% end %>
     </ul>
     <% if (codes & BillImages::SystemRecovery::OCR_REASONS).any? && (image = transaction.bill_image) %>

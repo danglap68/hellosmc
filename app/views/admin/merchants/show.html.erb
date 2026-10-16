@@ -5,6 +5,7 @@
 <% end %>
 <% content_for :actions do %>
   <% if can?(:manage, :merchants) %>
+    <%= button_to sync_headers_admin_merchant_path(@merchant), method: :post, class: "btn", title: t("merchants.sync_headers.hint") do %><%= icon("refresh") %> <%= t("merchants.sync_headers.button") %><% end %>
     <%= link_to edit_admin_merchant_path(@merchant), class: "btn" do %><%= icon("edit") %> <%= t("actions.edit") %><% end %>
     <%= button_to admin_merchant_path(@merchant), method: :delete, class: "btn btn-outline-danger", form: { data: { turbo_confirm: t("actions.confirm_delete") } } do %><%= icon("trash") %> <%= t("actions.delete") %><% end %>
   <% end %>

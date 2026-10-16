@@ -39,6 +39,26 @@ RSpec.describe Workbook::Resolver do
     expect(result.issue).to eq("agent_tid_missing")
   end
 
+  describe "a bill whose TID gives no agent row" do
+    def approved_without_tid(dealer)
+      create(:transaction, :approved, merchant: hkd, dealer: dealer,
+                                      source_data: { "extraction" => { "merchant_name" => "001: HỘ KINH DOANH THIÊN KIM" } })
+    end
+
+    it "uses the only agent row of the dealer the reviewer approved" do
+      result = described_class.call(transaction: approved_without_tid(chuong))
+
+      expect(result).to be_identified
+      expect(result.merchant_dealer).to eq(link)
+    end
+
+    it "stays unidentified when that dealer has several rows in the HKD" do
+      create(:merchant_dealer, merchant: hkd, dealer: chuong, tid_key: "tid2", ds_sheet_anchor: "Thiên Kim GV", ds_header: "Chương (tid2)")
+
+      expect(described_class.call(transaction: approved_without_tid(chuong)).issue).to eq("agent_tid_missing")
+    end
+  end
+
   it "returns agent_tid_unmapped when the tid_key has no merchant_dealer" do
     result = described_class.call(transaction: build_transaction(merchant_name: "HỘ KINH DOANH THIÊN KIM GV-9"))
     expect(result).to be_unidentified
