@@ -66,6 +66,8 @@ RSpec.describe Transactions::DealerReassigner do
     result = call
 
     expect(result).not_to be_success
+    expect(transaction).to have_attributes(dealer: old_dealer, status: "approved", dealer_amount_vnd: 9_900_000)
+    expect { transaction.update!(lot_number: "000300") }.not_to raise_error
     expect(transaction.reload).to have_attributes(dealer: old_dealer, status: "approved", dealer_amount_vnd: 9_900_000)
     expect(AuditLog.where(action: "transaction.dealer_reassigned")).to be_empty
   end

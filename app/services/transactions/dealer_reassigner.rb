@@ -34,6 +34,8 @@ module Transactions
         result = reassign
         raise ActiveRecord::Rollback unless result.success?
       end
+      # The rollback restored the row, not this object (status, lock_version).
+      @transaction.reload unless result.success?
       result
     rescue ActiveRecord::ActiveRecordError, Transaction::InvalidTransition, PaymentQrs::Error => error
       @transaction.reload

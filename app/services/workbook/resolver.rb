@@ -3,6 +3,11 @@ module Workbook
   # are not part of a transaction (see RemitterTransfer).
   # The agent re-resolves by TID (not just transaction.dealer) because a dealer
   # like Chị Huệ owns several TIDs under one HKD; only tid_key picks the right row.
+  #
+  # Only approved bills are written, and a bill whose agent the TID does not
+  # give (no TID, an unknown TID, a recipient that contradicts it) was approved
+  # by a person who chose its dealer. That dealer's only agent row in the HKD
+  # is used then; a dealer with several rows there stays unidentified.
   class Resolver
     Result = Data.define(:status, :merchant, :merchant_dealer, :issue) do
       def identified?
@@ -31,7 +36,7 @@ module Workbook
       tid_key = TidParser.call(ocr_merchant_name)
       dealer_result = Dealers::Resolver.call(merchant:, merchant_name: ocr_merchant_name,
                                                   recipient_name: @transaction.extraction["recipient_name"])
-      link = dealer_result.merchant_dealer
+      link = dealer_result.merchant_dealer || only_row_of_dealer(merchant)
       unless link
         return unidentified("agent_recipient_mismatch", merchant) if dealer_result.issue == "dealer_recipient_mismatch"
         return unidentified("agent_tid_missing", merchant) if tid_key.blank?
@@ -43,6 +48,13 @@ module Workbook
     end
 
     private
+
+    def only_row_of_dealer(merchant)
+      return nil unless @transaction.dealer_id
+
+      rows = MerchantDealer.active.where(merchant: merchant, dealer_id: @transaction.dealer_id).limit(2).to_a
+      rows.one? ? rows.first : nil
+    end
 
     def unidentified(issue, merchant)
       Result.new(status: :unidentified, merchant:, merchant_dealer: nil, issue:)

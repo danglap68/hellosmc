@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| Trạng thái | Đã triển khai trên nhánh `feature/ds-header-auto-mapping`, chưa commit (16/10/2026). Xem mục 13. |
-| Phạm vi | `Workbook::HelloSmcWriter#increment_daily`, `Workbook::DsHeaderMatcher` (mới), `Transactions::DealerReassigner` (mới), `AppSetting`, `Workbook::Seed`, nút "Đồng bộ header" trên trang HKD, rake task |
+| Trạng thái | Đã triển khai trên nhánh `feature/ds-header-auto-mapping`: bước 1 đến 4 đã commit (`8cd6c9d`), bước 5 (bỏ `Bill vô chủ`) chưa commit (16/10/2026). Xem mục 13. |
+| Phạm vi | `Workbook::HelloSmcWriter` (`increment_daily`, bỏ nhánh `Bill vô chủ`), `Transaction::TRANSITIONS`, trang kiểm tra (lý do + link), `Workbook::DsHeaderMatcher` (mới), `Transactions::DealerReassigner` (mới), `AppSetting`, `Workbook::Seed`, nút "Đồng bộ header" trên trang HKD, rake task |
 | Áp dụng từ | Tháng 10/2026 trở đi (tab `DS MB T10` và các tab sau) |
 | Không đổi | OCR, nhận diện HKD/TID (`TidParser`, `Dealers::Resolver`), sheet `thu chi`, mã chuyển tiền, luồng QR chuyển khoản |
 
@@ -13,7 +13,7 @@
 
 Bill tiền vào được cộng dồn vào `DS MB T<tháng>`: mỗi ô là tổng tiền của **một đại lý (TID) trong một ngày** của một HKD. Writer tìm cột bằng cách so tên header trong sheet với `merchant_dealers.ds_header`. Client sửa header trên sheet bất cứ lúc nào (đổi tên, hoặc đổi sang người khác). Khi header đổi mà DB không đổi theo, `increment_daily` không thấy cột (`CellMissing "ds_header"`) và bill rơi vào `Bill vô chủ`.
 
-Mục tiêu: client chỉ cần sửa Google Sheet, app **tự phát hiện** header đổi và **tự đổi đại lý** khi xác định được người mới, ghi audit log, không ghi bill bằng đại lý cũ.
+Mục tiêu: client chỉ cần sửa Google Sheet, app **tự phát hiện** header đổi và **tự đổi đại lý** khi xác định được người mới, ghi audit log, không ghi bill bằng đại lý cũ. Bill nào writer không đặt được vào sheet thì **về hàng kiểm tra** (mục 2.2), không còn ghi vào `Bill vô chủ`.
 
 **Hiện trạng đã đối chiếu (16/10/2026).** Với Google Sheet production "Final SMC", `DS MB T10` và `T12` khớp 23/23 dòng đại lý của `seed.rb` (đối chiếu bằng script theo cùng quy tắc chuẩn hoá của `SheetText#normalize_text`). Trong tab `MB` có 214 dòng do app ghi (12 đến 16/10) và tab `Bill vô chủ` chỉ có 4 dòng do app ghi, không dòng nào của Cherry hay AS CAFE. Nên chưa thấy sự cố mapping; spec này là **phòng ngừa**. Chưa kiểm tra được bảng `merchant_dealers` thật. Lưu ý: tên đại lý thật trên production có thể khác `seed.rb` (ví dụ `MB` ghi `Nghĩa` thay vì `Nghĩa Nghiệp`); việc phân loại ở mục 3 luôn dùng `dealers.name` trong DB, không dùng seed.
 
@@ -37,7 +37,7 @@ phân loại:
            3. nhận diện lại để dòng MB dùng tên đại lý mới
            4. ghi bill vào cột dò được
   unmatched, hoặc switch khi cờ tắt, hoặc bước 2 không làm được
-           → KHÔNG ghi DS MB/MB; ghi vào Bill vô chủ với issue ds_header_dealer_unmatched
+           → KHÔNG ghi gì vào sheet; bill về hàng kiểm tra với lý do ds_header_dealer_unmatched (mục 2.2)
 ```
 
 Điểm giữ nguyên: bill không bao giờ được ghi bằng dữ liệu đại lý cũ khi header đã đổi người, và không bao giờ ghi nhầm cột.
@@ -50,9 +50,36 @@ Trước khi ghi, bill được chuyển sang đại lý hiện tại của dòn
 2. bill được nhận diện từ chính dòng này lúc đánh giá (`source_data.dealer_resolution.merchant_dealer_id` bằng id dòng);
 3. không có **người** nào sửa đại lý của bill trong lúc kiểm tra (`source_data.manual_corrections` không có mục nào vừa có `by` vừa có trường `dealer_id`; lần sửa do hệ thống tự làm có `by` rỗng).
 
-Điều kiện 2 và 3 để không bao giờ ghi đè đại lý mà người kiểm tra đã chọn tay. Quy tắc này xử lý bill đầu tiên phát hiện đổi người, các bill đã duyệt nhưng chưa ghi lúc đó, và bill đánh giá trước khi đại lý đổi. Không sửa được thì bill vào `Bill vô chủ` với issue `dealer_reassign_failed`.
+Điều kiện 2 và 3 để không bao giờ ghi đè đại lý mà người kiểm tra đã chọn tay. Quy tắc này xử lý bill đầu tiên phát hiện đổi người, các bill đã duyệt nhưng chưa ghi lúc đó, và bill đánh giá trước khi đại lý đổi. Không sửa được thì bill về hàng kiểm tra với lý do `dealer_reassign_failed`.
 
-### 2.2 Retry
+### 2.2 Bill không đặt được vào sheet: về hàng kiểm tra (đã chốt 16/10/2026)
+
+Writer không còn ghi vào `Bill vô chủ`. Mọi trường hợp trước đây ghi vào đó giờ **không ghi gì vào sheet, không tạo `WorkbookEntry`**, và bill chuyển `approved → needs_review` (`HelloSmcWriter#send_to_review`):
+
+| Lý do (`review_reasons`) | Khi nào |
+|---|---|
+| `merchant_missing`, `agent_tid_missing`, `agent_tid_unmapped`, `agent_recipient_mismatch` | Không xác định được HKD, TID hoặc dòng đại lý |
+| `ds_cell_missing` | Không thấy tab tháng, ô tên HKD, cột đại lý (kể cả dò theo TID) hoặc ngày trong DS MB |
+| `ds_cell_not_numeric` | Ô ngày có chữ hoặc công thức lạ |
+| `ds_header_dealer_unmatched` | Header ghi tên người chưa có, khớp nhiều đại lý, đại lý đã tắt, hoặc đổi người khi cờ tắt |
+| `dealer_reassign_failed` | Cần chuyển đại lý cho bill nhưng không được (thiếu fee rule, …) |
+| `payment_qr_confirmed` | Cần chuyển đại lý nhưng QR chuyển khoản của bill đã xác nhận cho đại lý hiện tại |
+
+- `review_reasons` của bill **thay bằng đúng một lý do** của writer (các lý do lúc đánh giá đã được giải quyết khi duyệt). Review đang mở chuyển `superseded`, tạo review mới `open`. Audit `transaction.sent_to_review` (`metadata.issue`).
+- `Transaction::TRANSITIONS` cho phép thêm `approved → needs_review` (chỉ writer dùng). Bill hiện ở hàng "Cần kiểm tra" mặc định và trên dashboard.
+- Trang giao dịch và trang kiểm tra hiện lý do tiếng Việt. Với các lý do sửa được ở dòng đại lý (`HelloSmcWriter::MAPPING_ISSUES`: `agent_tid_unmapped`, `agent_recipient_mismatch`, `ds_cell_missing`, `ds_header_dealer_unmatched`, `dealer_reassign_failed`) có link **"Cập nhật đại lý của HKD"** tới trang sửa HKD, chỉ người có quyền quản lý HKD mới thấy.
+- **QR chuyển khoản (đã chốt 16/10/2026: giữ giống luồng tạm giữ hiện có).** Code QR không sửa dòng nào; tác động chỉ đến từ các chốt chặn có sẵn:
+  - Bill rời `approved` nên yêu cầu QR đã chuẩn bị hết hiệu lực: không gửi Telegram (`DeliverPaymentQrJob` kiểm tra `current?`), xác nhận bị từ chối (`PaymentQrs::Decide`).
+  - Duyệt lại xong, yêu cầu cũ **vẫn hết hiệu lực** (thời điểm duyệt đã đổi) và `Approver` không tự làm mới: admin bấm "Làm mới yêu cầu" như khi tạm giữ rồi duyệt lại.
+  - Khác trước: bill trước đây vào `Bill vô chủ` vẫn ở `approved` nên luồng QR vẫn chạy; nay phải qua kiểm tra trước khi trả tiền.
+- Client sửa cấu hình hoặc sheet rồi duyệt lại: `Approver` xếp job ghi như thường. Nếu header khớp một đại lý có sẵn thì writer tự `switch` (mục 3.2). Chưa sửa thì bill lại về hàng kiểm tra.
+- **Không để bill kẹt giữa duyệt và kiểm tra:**
+  - **TID không cho ra dòng đại lý** (bill không có TID, TID chưa cấu hình, người nhận mâu thuẫn với TID): bill đã được người duyệt với một đại lý cụ thể, nên `Workbook::Resolver` dùng **dòng đại lý active duy nhất** của cặp (HKD, đại lý của bill). Đại lý có nhiều dòng trong HKD đó (ví dụ Chị Huệ có TID 127, 128, 129 ở MILO) thì vẫn về kiểm tra; màn hình kiểm tra chưa có chỗ chọn TID nên trường hợp này phải sửa tay trên sheet (giới hạn đã biết).
+  - **QR đã xác nhận (`payment_qr_confirmed`):** người kiểm tra duyệt lại thì bill **giữ đại lý đang có** (đã được trả tiền) và được ghi vào cột theo TID; muốn chuyển sang đại lý mới thì sửa đại lý trên bill rồi duyệt. Nhận biết bằng `source_data.workbook_review.issue` mà `send_to_review` ghi lại.
+  - Cột I của dòng `MB` vẫn ghi tên đại lý của cột (theo TID) như trước, kể cả khi bill giữ đại lý khác.
+- Dữ liệu cũ giữ nguyên: các dòng đã có trên tab `Bill vô chủ` và các `WorkbookEntry` nhánh `unidentified` vẫn hiển thị trên trang giao dịch. Tab `Bill vô chủ` không nhận dòng mới từ app.
+
+### 2.3 Retry
 
 Writer chạy trong một transaction DB (`with_lock` của giao dịch). Đổi đại lý, sửa giao dịch và ghi `WorkbookEntry` cùng nằm trong transaction đó, nên nếu ghi sheet lỗi thì **cả đổi đại lý lẫn sửa giao dịch cùng bị hoàn lại**; lần retry làm lại từ đầu và đổi đúng một lần. Trường hợp Google đã áp dụng ghi nhưng báo lỗi (timeout): lần retry thấy marker `TX<id>` ở sheet và chỉ ghi nhận (`reconcile!`), không đổi đại lý lúc đó; header đổi sẽ được xử lý ở bill kế tiếp hoặc khi bấm "Đồng bộ header".
 
@@ -75,9 +102,9 @@ Tên người = text header sau khi bỏ `(tidN)` / `(TID N)` và hậu tố kê
 | 1 | `same` | Trùng tên đại lý hiện tại của dòng | Chỉ cập nhật `ds_header` nếu text header khác (ví dụ khác khoảng trắng) |
 | 2 | `switch` | **Trùng nguyên văn** (sau chuẩn hoá) tên của **đúng một** `Dealer` khác đang hoạt động | Đổi đại lý (mục 2, bước 1) |
 | 3 | `rename` | Dãy từ của một bên nằm trọn trong dãy từ của bên kia so với đại lý hiện tại (`Nghĩa` và `Nghĩa Nghiệp`) | Giữ đại lý, cập nhật `ds_header` |
-| 4 | `unmatched` | Còn lại: tên mới chưa có trong hệ thống, khớp từ hai đại lý trở lên, chỉ khớp một đại lý đã tắt, tên rỗng hoặc ngắn hơn 2 ký tự | Không ghi, `Bill vô chủ` với `ds_header_dealer_unmatched` |
+| 4 | `unmatched` | Còn lại: tên mới chưa có trong hệ thống, khớp từ hai đại lý trở lên, chỉ khớp một đại lý đã tắt, tên rỗng hoặc ngắn hơn 2 ký tự | Không ghi, về hàng kiểm tra với `ds_header_dealer_unmatched` |
 
-`switch` đứng trước `rename` để tên trùng một đại lý khác được đổi đại lý, không bị coi là đổi tên (ví dụ dòng đang là `Hải`, header đổi thành `Anh Hải` mà `Anh Hải` là một đại lý có sẵn). Không bao giờ tự tạo `Dealer` mới; tên chưa có thì admin tạo đại lý hoặc sửa dòng đại lý như hiện nay, rồi xử lý lại bill từ `Bill vô chủ`.
+`switch` đứng trước `rename` để tên trùng một đại lý khác được đổi đại lý, không bị coi là đổi tên (ví dụ dòng đang là `Hải`, header đổi thành `Anh Hải` mà `Anh Hải` là một đại lý có sẵn). Không bao giờ tự tạo `Dealer` mới; tên chưa có thì admin tạo đại lý hoặc sửa dòng đại lý như hiện nay, rồi duyệt lại bill trong hàng kiểm tra.
 
 ### 3.3 Lưu thay đổi
 
@@ -98,7 +125,7 @@ Phí của đại lý mới lấy từ `fee_rule` mặc định đã có cho m�
 ## 5. Cờ bật tắt `ds_header_auto_switch`
 
 - `AppSetting::DEFINITIONS`: `define("ds_header_auto_switch", :boolean, "true", "operations")`. **Mặc định bật.** Hiện trong trang Cài đặt cùng nhóm công tắc "operations" (`SettingsForm`), có nhãn và mô tả ở `config/locales/vi.yml`. Đọc bằng `AppSetting.get("ds_header_auto_switch")` (đệm 30 giây). Đổi cờ có paper trail của `AppSetting`.
-- Cờ tắt: `switch` xử lý như `unmatched` (không ghi, `Bill vô chủ` với `ds_header_dealer_unmatched`). `rename` và dò theo TID không phụ thuộc cờ. Lớp bảo vệ 2.1 vẫn chạy khi admin đã đổi đại lý tay, vì đó là giữ dữ liệu nhất quán.
+- Cờ tắt: `switch` xử lý như `unmatched` (không ghi, về hàng kiểm tra với `ds_header_dealer_unmatched`). `rename` và dò theo TID không phụ thuộc cờ. Lớp bảo vệ 2.1 vẫn chạy khi admin đã đổi đại lý tay, vì đó là giữ dữ liệu nhất quán.
 
 ## 6. Nút "Đồng bộ header" và rake task (bắt buộc)
 
@@ -118,8 +145,8 @@ Chạy cùng `DsHeaderMatcher.locate` và quy tắc phân loại cho mọi dòng
 | Trường hợp | Kết quả |
 |---|---|
 | Header khớp `ds_header` | Như cũ, không dò, không phân loại |
-| Hai header trong block cùng TID (sheet nhập sai) | Không dò, `Bill vô chủ` với `ds_cell_missing` |
-| Header không có TID | Không dò, `Bill vô chủ` với `ds_cell_missing` |
+| Hai header trong block cùng TID (sheet nhập sai) | Không dò, về hàng kiểm tra với `ds_cell_missing` |
+| Header không có TID | Không dò, về hàng kiểm tra với `ds_cell_missing` |
 | Cột có TID đúng nhưng là `ds_header` của đại lý khác cùng HKD | Bỏ qua cột đó |
 | Block HKD kề nhau, cột trống ngăn cách | Dò dừng ở cột trống |
 | Tên đại lý trùng ở nhiều HKD (Sơn, Cường Duyên, Trân, Anh Hải) | Cùng một `Dealer`; không mơ hồ nếu bảng `dealers` không có hai bản ghi cùng tên chuẩn hoá. Nếu có thì `unmatched` |
@@ -129,8 +156,8 @@ Chạy cùng `DsHeaderMatcher.locate` và quy tắc phân loại cho mọi dòng
 | Lưu DB lỗi sau khi ghi sheet (rename) | Chỉ log; lần ghi sau dò lại |
 | Cờ tắt | `switch` thành `unmatched`; `rename` vẫn chạy |
 | Admin đổi đại lý trên trang HKD nhưng sheet vẫn ghi tên người cũ | Sheet là nguồn đúng: bill kế tiếp (hoặc "Đồng bộ header") đổi dòng về người trên sheet, có audit `merchant_dealer.agent_switched`. Muốn đổi người thì sửa trên sheet |
-| QR chuyển khoản của bill đã được xác nhận | Không tự chuyển đại lý (có thể đã trả tiền cho người cũ); bill vào `Bill vô chủ` với `dealer_reassign_failed` để người quản lý xử lý |
-| Không tìm được ô ngày hoặc ô ngày không cộng được | Không đổi gì trong DB; bill vào `Bill vô chủ` như cũ |
+| QR chuyển khoản của bill đã được xác nhận | Không tự chuyển đại lý (có thể đã trả tiền cho người cũ); bill về hàng kiểm tra với `dealer_reassign_failed` để người quản lý xử lý |
+| Không tìm được ô ngày hoặc ô ngày không cộng được | Không đổi đại lý; bill về hàng kiểm tra (`ds_cell_missing` / `ds_cell_not_numeric`) |
 | Tab tháng mới | `monthly_sheet` nhân từ tab có số tháng lớn nhất, nên header mới đi theo |
 
 ## 9. Kiểm thử
@@ -138,7 +165,12 @@ Chạy cùng `DsHeaderMatcher.locate` và quy tắc phân loại cho mọi dòng
 | Spec | Nội dung |
 |---|---|
 | `spec/services/workbook/ds_header_matcher_spec.rb` | Dò theo TID (một cột, hai cột cùng TID, cột của đại lý khác, dừng ở cột trống, quá `last_col`), phân loại `same` / `rename` / `switch` (ưu tiên hơn `rename`) / `unmatched` (tên mới, đại lý đã tắt, nhiều đại lý, tên rỗng), `.locate` |
-| `spec/services/workbook/hello_smc_writer_spec.rb` (khối "DS MB header changes") | `rename` ghi đúng cột và lưu header, header khớp thì không audit, `switch` đổi đại lý và giao dịch và dòng `MB`, giữ `approved_by`/`approved_at`, tên chưa có thì `Bill vô chủ`, cờ tắt, rename khi cờ tắt, không chuyển được đại lý thì `dealer_reassign_failed`, bill đánh giá trước khi đổi đại lý được chuyển, đại lý chọn tay không bị ghi đè, ghi sheet lỗi thì hoàn lại cả đổi đại lý và retry đổi đúng một lần |
+| `spec/services/workbook/hello_smc_writer_spec.rb` (khối "DS MB header changes") | `rename` ghi đúng cột và lưu header, header khớp thì không audit, `switch` đổi đại lý và giao dịch và dòng `MB`, giữ `approved_by`/`approved_at`, tên chưa có thì về hàng kiểm tra, cờ tắt, rename khi cờ tắt, không chuyển được đại lý thì `dealer_reassign_failed`, bill đánh giá trước khi đổi đại lý được chuyển, đại lý chọn tay không bị ghi đè, ghi sheet lỗi thì hoàn lại cả đổi đại lý và retry đổi đúng một lần |
+| `spec/services/workbook/hello_smc_writer_spec.rb` (khối "bill the writer cannot place") | Không ghi gì, bill về `needs_review` với đúng lý do và review mới, audit `transaction.sent_to_review`, lý do cũ được thay, sửa cấu hình và duyệt lại thì ghi đúng (kèm `switch`) |
+| `spec/services/workbook/resolver_spec.rb` (khối "a bill whose TID gives no agent row") | Dùng dòng đại lý duy nhất của đại lý trên bill; nhiều dòng thì vẫn chưa xác định |
+| `spec/services/workbook/hello_smc_writer_spec.rb` (thêm) | Bill không có TID được ghi vào cột duy nhất của đại lý; QR đã xác nhận: về kiểm tra một lần, duyệt lại thì ghi và giữ đại lý |
+| `spec/requests/admin/workbook_review_reasons_spec.rb` | Lý do tiếng Việt và link "Cập nhật đại lý của HKD" (ẩn với người chỉ xem) |
+| `spec/models/transaction_spec.rb` | Cho phép `approved → needs_review` |
 | `spec/services/transactions/dealer_reassigner_spec.rb` | Chuyển đại lý, tính lại phí, giữ duyệt, audit, không xếp lại job ghi, bill đã vào sổ hoặc chưa duyệt bị từ chối, thiếu fee rule thì hoàn lại, yêu cầu QR bị chặn hoặc tạo lại theo tài khoản đại lý mới |
 | `spec/services/workbook/ds_header_sync_spec.rb` | Báo cáo `ok` / `renamed` / `switched` / `unmatched` / `missing`, chế độ chỉ kiểm tra không ghi, giới hạn theo HKD, thiếu tab tháng |
 | `spec/requests/admin/merchant_header_sync_spec.rb` | Nút "Đồng bộ header", thông báo kết quả và lỗi, người chỉ xem không có nút và bị chặn |
@@ -149,15 +181,17 @@ Chạy cùng `DsHeaderMatcher.locate` và quy tắc phân loại cho mọi dòng
 ## 10. Thứ tự làm
 
 1. `DsHeaderMatcher` (dò theo TID, phân loại, `.locate`) kèm spec. **Xong.**
-2. Nối vào `increment_daily` và `write_identified`: `rename`, `unmatched`, `Bill vô chủ` mới; sửa `Workbook::Seed`. **Xong.**
+2. Nối vào `increment_daily` và `write_identified`: `rename`, `unmatched`; sửa `Workbook::Seed`. **Xong.**
 3. `DealerReassigner`, lớp bảo vệ 2.1, `switch`, cờ `ds_header_auto_switch`, `DsHeaderChange`. **Xong.**
 4. Nút "Đồng bộ header" (`DsHeaderSync`) và rake task. **Xong.**
+5. Bỏ `Bill vô chủ`: mọi bill writer không đặt được về hàng kiểm tra kèm lý do và link tới cấu hình đại lý (mục 2.2). **Xong** (16/10/2026).
+6. Không để bill kẹt giữa duyệt và kiểm tra: dùng dòng đại lý duy nhất của đại lý trên bill khi TID không cho ra dòng; giữ đại lý khi QR đã xác nhận và người duyệt lại (mục 2.2). **Xong** (16/10/2026).
 
 ## 11. Đã chốt khi làm và việc cần kiểm chứng
 
 Đã chốt (16/10/2026):
 - Sau khi sửa đại lý, giao dịch **tự động về `approved`** (không chờ người duyệt lại) bằng chuyển trạng thái trực tiếp, giữ `approved_by` và `approved_at` cũ (mục 4).
-- Hai issue mới của `Bill vô chủ` (`ds_header_dealer_unmatched`, `dealer_reassign_failed`) hiển thị theo đúng cách các issue hiện có (`ds_cell_missing`, `ds_cell_not_numeric`) đang được hiển thị.
+- ~~Issue mới của `Bill vô chủ` hiển thị như issue cũ~~ Thay bằng: bỏ `Bill vô chủ`, bill về hàng kiểm tra với lý do hiển thị rõ (mục 2.2).
 
 Cần kiểm chứng khi làm:
 - `hold` → `approved` bằng `transition_to!` có cần ghi thêm `reviews` như luồng duyệt thường không. Nếu cần thì dùng `Transactions::StatusUpdater` cho phần chuyển `hold`.
@@ -169,11 +203,11 @@ Bảng đề xuất và chip chờ xác nhận trong cấu hình HKD, lý do ki�
 
 ## 13. Trạng thái triển khai (16/10/2026)
 
-Đã làm xong các bước 1 đến 4 ở mục 10, trên nhánh `feature/ds-header-auto-mapping`, **chưa commit**. Không thêm gem nào.
+Bước 1 đến 4 ở mục 10 đã commit (`8cd6c9d`) trên nhánh `feature/ds-header-auto-mapping`. Bước 5 (bỏ `Bill vô chủ`) đã làm, **chưa commit**. Không thêm gem nào.
 
 Khác với bản đầu của spec, khi làm có ba điều chỉnh:
 - **Lớp bảo vệ 2.1:** điều kiện chặt hơn (mục 2.1) để không ghi đè đại lý người kiểm tra chọn tay. Bản đầu chỉ so `dealer_id` và sẽ làm vậy.
-- **Retry (mục 2.2):** đổi đại lý nằm trong transaction của lần ghi nên bị hoàn lại cùng lần ghi lỗi, không "đã commit trước" như bản đầu.
+- **Retry (mục 2.3):** đổi đại lý nằm trong transaction của lần ghi nên bị hoàn lại cùng lần ghi lỗi, không "đã commit trước" như bản đầu.
 - **Seed (mục 7):** bỏ qua cặp (HKD, TID) đã chuyển đại lý, vẫn sửa nhãn lệch của các dòng còn lại.
 
 Kết quả chạy test (trong container `hellosmc-web-1`, `RAILS_ENV=test`):
@@ -191,4 +225,10 @@ Hiệu năng: khi header khớp (trường hợp thường gặp), lần ghi bil
 
 Chưa làm được:
 - Chạy thử với Google Sheet thật (mọi kiểm thử dùng `Workbook::MemorySheet`).
-- Issue của `Bill vô chủ` (cả cũ như `ds_cell_missing` lẫn mới) chưa hiện ở giao diện, chỉ nằm trong `workbook_entries.payload`. Bill rơi vào nhánh `unmatched` nên được hiện lý do cho admin; chưa làm vì ngoài spec.
+- Tài liệu khác còn mô tả `Bill vô chủ` theo cách cũ (`docs/SPEC_HELLO_SMC_WORKBOOK.md`, `docs/PROJECT_CONTEXT.md`); chưa sửa vì ngoài phạm vi spec này.
+
+Bước 5 (bỏ `Bill vô chủ`, 16/10/2026):
+- Làm theo mục 2.2. Code ghi `Bill vô chủ` (`write_unidentified`, `append_unidentified`, các hằng `UNIDENTIFIED_*`) đã xoá.
+- Khi chạy test phát hiện thêm một lỗi của `DealerReassigner`: chuyển bill thất bại thì DB được hoàn lại nhưng object giao dịch trong bộ nhớ vẫn mang trạng thái `hold` và `lock_version` cũ, lần cập nhật sau báo `StaleObjectError` (trước đây lỗi này làm cột "Trạng thái" của dòng `Bill vô chủ` ghi sai thành "Cần kiểm tra"). Nay nạp lại giao dịch sau khi hoàn lại; có test, thử bỏ chỗ sửa thì 2 test báo lỗi.
+- Bước 6 (không để bill kẹt): thử bỏ từng chỗ sửa thì test tương ứng báo lỗi. Toàn bộ suite sau bước 6: **1271 ví dụ, 2 lỗi** (vẫn 2 lỗi sẵn có).
+- Kết quả trước bước 6: toàn bộ suite **1267 ví dụ, 2 lỗi** (vẫn là 2 lỗi sẵn có ở `spec/requests/remitter_transfers_spec.rb:16` và `:30`); `rubocop` sạch trên các file đã sửa.

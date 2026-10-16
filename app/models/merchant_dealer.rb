@@ -37,7 +37,7 @@ class MerchantDealer < ApplicationRecord
     self.tid_label = tid_label.to_s.strip.presence || self.tid_key
     # Names on the Google Sheet, filled when left blank (the client does not
     # know them). The DS MB table name is never guessed from the merchant name
-    # (a wrong guess silently sends bills to "Bill vô chủ"): it is taken from
+    # (a wrong guess sends every bill back to review): it is taken from
     # another agent row of the same merchant, which already matches the sheet.
     # The column header "Chương (tid1)" and the thu chi label "Chương" follow
     # the sheet's convention (matching ignores spaces and accents).
@@ -50,8 +50,8 @@ class MerchantDealer < ApplicationRecord
   # agent or the TID of a row would not see them go stale: the row would keep
   # writing to the previous agent's column. They are rebuilt for the new agent
   # unless they were edited in the same change. A rebuilt name that does not
-  # match the sheet sends the bill to "Bill vô chủ" with a reason (visible),
-  # never to another agent's column.
+  # match the sheet is resolved by TID or sends the bill back to review with a
+  # reason (Workbook::HelloSmcWriter), never to another agent's column.
   def forget_names_of_previous_agent
     return unless persisted?
 
