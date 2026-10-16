@@ -3,7 +3,14 @@ require "rails_helper"
 RSpec.describe AppSetting do
   it "keeps only the client's switches" do
     expect(described_class::DEFINITIONS.keys).to contain_exactly("telegram_auto_activate_chats", "remitter_features_enabled",
-                                                              "payment_qr_telegram_enabled", "payment_qr_bot_username")
+                                                              "ds_header_auto_switch", "payment_qr_telegram_enabled",
+                                                              "payment_qr_bot_username")
+  end
+
+  it "turns the DS MB header auto switch on by default" do
+    expect(AppConfig.ds_header_auto_switch?).to be(true)
+    described_class.create!(key: "ds_header_auto_switch", value: "false")
+    expect(AppConfig.ds_header_auto_switch?).to be(false)
   end
 
   it "falls back to typed defaults and refreshes after a change" do

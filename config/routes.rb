@@ -42,6 +42,7 @@ Rails.application.routes.draw do
       member { post :process_stored }
     end
     resources :merchants do
+      member { post :sync_headers }
       resources :merchant_aliases, only: [ :create, :edit, :update, :destroy ]
     end
     resources :fee_rules

@@ -76,6 +76,17 @@ RSpec.describe Workbook::Seed do
     expect(link.reload.rd_agent_label).to eq("NamHai")
   end
 
+  it "leaves a row alone when its TID now belongs to another dealer" do
+    described_class.call
+    link = Merchant.find_by!(code: "CHERRY001").merchant_dealers.find_by!(tid_key: "tid1")
+    lan = create(:dealer, name: "Lan")
+    link.update!(dealer: lan, ds_header: "Lan (tid1)")
+
+    expect { described_class.call }.not_to change(MerchantDealer, :count)
+    expect(link.reload).to have_attributes(dealer: lan, ds_header: "Lan (tid1)")
+    expect(Dealer.where(name: "Nghĩa Nghiệp").count).to eq(1)
+  end
+
   describe ".seed_telegram_chats" do
     it "creates one active chat per dealer, idempotently" do
       described_class.call

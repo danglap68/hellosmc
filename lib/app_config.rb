@@ -13,6 +13,7 @@ module AppConfig
 
   # Feature flag for remitter transfers ("người đi tiền").
   def remitter_features_enabled? = AppSetting.get("remitter_features_enabled")
+  def ds_header_auto_switch? = AppSetting.get("ds_header_auto_switch")
 
   # --- Technical tuning (edited by admins under "Thông số kỹ thuật") -------
   #

@@ -2,7 +2,7 @@ module Admin
   class MerchantsController < BaseController
     permission :merchants
 
-    before_action :set_merchant, only: %i[show edit update destroy]
+    before_action :set_merchant, only: %i[show edit update destroy sync_headers]
 
     def index
       scope = Merchant.includes(:default_card_type).ordered
@@ -66,6 +66,18 @@ module Admin
       else
         redirect_to admin_merchant_path(@merchant), alert: @merchant.errors.full_messages.to_sentence, status: :see_other
       end
+    end
+
+    # Checks this HKD's agent headers in this month's DS MB tab (same rules as
+    # the writer) and says what it found and changed.
+    def sync_headers
+      report = Workbook::DsHeaderSync.call(merchants: [ @merchant ])
+      redirect_to admin_merchant_path(@merchant), status: :see_other,
+                  notice: t("merchants.sync_headers.done", sheet: report.sheet, **report.counts)
+    rescue StandardError => error
+      StructuredLog.error("workbook.ds_header_sync_failed", merchant_id: @merchant.id, error: error.class.name)
+      redirect_to admin_merchant_path(@merchant), status: :see_other,
+                  alert: t("merchants.sync_headers.failed", error: error.message.to_s.truncate(200))
     end
 
     private

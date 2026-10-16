@@ -37,6 +37,10 @@ module Workbook
     DATE_SERIAL_RANGE = (36_526..73_415)
     MIN_DATE_RUN = 5
 
+    UNMATCHED = "ds_header_dealer_unmatched".freeze
+    REASSIGN_FAILED = "dealer_reassign_failed".freeze
+    KEPT_ISSUES = [ "ds_cell_not_numeric", UNMATCHED, REASSIGN_FAILED ].freeze
+
     class ConfigurationError < StandardError; end
     class CellMissing < StandardError; end
     class LockBusy < StandardError; end
@@ -90,8 +94,14 @@ module Workbook
       existing = marker_row(mb_rows, MB_MARKER_COL)
       return reconcile!("identified", resolution, mb_row: existing + 1) if existing
 
+      link = resolution.merchant_dealer
+      unless dealer_current?(link)
+        reassigned = Transactions::DealerReassigner.call(transaction: @transaction, dealer: link.dealer, source: "writer")
+        raise CellMissing, REASSIGN_FAILED unless reassigned.success?
+      end
+
       amount = @transaction.transaction_amount_vnd
-      ds_update, ds_cell, ds_sheet = increment_daily(client, resolution.merchant_dealer, amount)
+      ds_update, ds_cell, ds_sheet, header_change = increment_daily(client, link, amount)
       updates = [ ds_update ]
 
       mb_row, mb_update = append_mb(client, resolution, mb_rows)
@@ -100,9 +110,58 @@ module Workbook
       client.batch_update_values(updates)
       record!(branch: "identified", ds_sheet: ds_sheet, ds_cell: ds_cell, mb_row: mb_row,
               payload: payload(resolution, issue: nil))
+      remember_header(link, header_change, ds_sheet)
       :identified
     rescue CellMissing => error
-      write_unidentified(client, resolution, issue: error.message == "ds_cell_not_numeric" ? error.message : "ds_cell_missing")
+      write_unidentified(client, resolution, issue: issue_for(error))
+    end
+
+    # Issues kept as they are; any other missing cell (anchor, header, date) is ds_cell_missing.
+    def issue_for(error)
+      error.message.in?(KEPT_ISSUES) ? error.message : "ds_cell_missing"
+    end
+
+    # The bill was evaluated for the dealer that held this agent row then. When
+    # the row changed hands since (the DS MB header named another person), the
+    # bill moves to the new dealer before it is written. A dealer a person chose
+    # in review is never replaced (corrections by the system have no "by").
+    def dealer_current?(link)
+      return true if @transaction.dealer_id.blank? || @transaction.dealer_id == link.dealer_id
+      return true unless @transaction.source_data.dig("dealer_resolution", "merchant_dealer_id") == link.id
+
+      Array(@transaction.source_data["manual_corrections"]).any? do |entry|
+        entry["by"].present? && Array(entry["fields"]).include?("dealer_id")
+      end
+    end
+
+    # The header text of the same person changed: remember it once the bill is
+    # in the sheet. A failure here only logs; the bill is already recorded.
+    def remember_header(link, change, sheet)
+      return unless change&.kind.in?(%i[same rename])
+
+      MerchantDealer.transaction(requires_new: true) do
+        DsHeaderChange.rename!(link: link, header: change.header, sheet: sheet, source: "writer", transaction: @transaction)
+      end
+    rescue StandardError => error
+      StructuredLog.warn("workbook.ds_header_not_saved", transaction_id: @transaction.id,
+                                                          merchant_dealer_id: link.id, error: error.class.name)
+    end
+
+    # The header changed since the agent row was set up. Another existing
+    # dealer takes the row (and this bill) when the switch is on; a new or
+    # unclear name stops the bill in "Bill vô chủ" so no money goes to a guess.
+    def adopt_header_change!(link, change, sheet)
+      case change.kind
+      when :switch
+        raise CellMissing, UNMATCHED unless AppConfig.ds_header_auto_switch?
+        raise CellMissing, UNMATCHED unless DsHeaderChange.switch!(link: link, dealer: change.dealer, header: change.header,
+                                                                   sheet: sheet, source: "writer", transaction: @transaction)
+
+        reassigned = Transactions::DealerReassigner.call(transaction: @transaction, dealer: change.dealer, source: "writer")
+        raise CellMissing, REASSIGN_FAILED unless reassigned.success?
+      when :unmatched
+        raise CellMissing, UNMATCHED
+      end
     end
 
     def write_unidentified(client, resolution, issue: resolution.issue)
@@ -129,13 +188,11 @@ module Workbook
       sheet = monthly_sheet(client)
       grid = client.values(sheet, DS_READ_RANGE)
 
-      header_row, header_col = find_cell(grid) { |value| same_text?(value, link.ds_sheet_anchor) }
-      raise CellMissing, "ds_anchor" unless header_row
+      location = DsHeaderMatcher.locate(grid: grid, link: link, last_col: DS_LAST_COL)
+      raise CellMissing, "ds_anchor" unless location
+      raise CellMissing, "ds_header" unless location.col
 
-      agent_col = (header_col..[ header_col + 6, DS_LAST_COL ].min).find do |col|
-        same_text?(grid.dig(header_row, col), link.ds_header)
-      end
-      raise CellMissing, "ds_header" unless agent_col
+      header_row, header_col, agent_col = location.header_row, location.anchor_col, location.col
 
       date_row = find_date_row(grid, header_row, header_col, @transaction.transaction_at.to_date)
       raise CellMissing, "ds_date" unless date_row
@@ -147,7 +204,9 @@ module Workbook
       # from DS MB, like any other DS MB cell that cannot be found.
       raise CellMissing, "ds_cell_not_numeric" unless formula
 
-      [ { sheet: sheet, range: "#{cell}:#{cell}", rows: [ [ formula ] ] }, cell, sheet ]
+      # The database changes only once the bill is sure to land in that cell.
+      adopt_header_change!(link, location.change, sheet) if location.change
+      [ { sheet: sheet, range: "#{cell}:#{cell}", rows: [ [ formula ] ] }, cell, sheet, location.change ]
     end
 
     # DS MB day cells add up as a formula so every bill stays visible:
@@ -369,15 +428,6 @@ module Workbook
     end
 
     # --- cell helpers -------------------------------------------------------
-
-    def find_cell(grid)
-      grid.each_with_index do |row, r|
-        row.each_with_index do |value, c|
-          return [ r, c ] if yield(value)
-        end
-      end
-      [ nil, nil ]
-    end
 
     # Dates in the ledgers are literal text (dd/mm/yyyy): the MB date/time
     # columns are number-formatted and Bill vô chủ already stores text, and a
