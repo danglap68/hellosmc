@@ -111,14 +111,19 @@ module Workbook
     # whole row is inserted and every reference to a row at or below it moves
     # down, so a SUM range that contains the new row grows.
     def insert_row_with_value(title, row:, col:, value:, note:)
+      insert_row(title, row: row)
+      @sheets.fetch(title)[row][col] = value
+      @notes[title][[ row, col ]] = note
+    end
+
+    # Same observable behaviour as GoogleSheetClient#insert_row.
+    def insert_row(title, row:)
       grid = @sheets.fetch(title)
       grid.fill([], grid.length...row) if grid.length < row
       grid.insert(row, [])
       grid.each { |cells| cells.map! { |cell| cell.is_a?(String) && cell.start_with?("=") ? shift_rows(cell, row) : cell } }
-      grid[row][col] = value
       notes = (@notes[title] ||= {})
       @notes[title] = notes.to_h { |(r, c), text| [ [ r >= row ? r + 1 : r, c ], text ] }
-      @notes[title][[ row, col ]] = note
     end
 
     def notes(title, range)

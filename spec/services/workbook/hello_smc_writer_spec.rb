@@ -522,6 +522,54 @@ RSpec.describe Workbook::HelloSmcWriter do
     end
   end
 
+  describe "MB totals row" do
+    def bill_row(amount, marker)
+      [ amount, "=A2-(A2*D2)", nil, 0.014, nil, "000001", "14/10/2026", "10:00:00", "Chương", "001", nil, marker ]
+    end
+
+    def write(client)
+      described_class.call(transaction: build_transaction, client: client, spreadsheet_id: "sheet-id")
+    end
+
+    it "inserts the bill above the totals row and stretches its sums" do
+      totals = [ "=sum(A2:A3)", 2_000, nil, nil, "=SUM(E2:E3)" ]
+      client = memory("MB" => mb_grid + [ bill_row(1_000, "TX900"), bill_row(1_000, "TX901"), totals ])
+      allow(client).to receive(:insert_row).and_call_original
+
+      write(client)
+
+      expect(client).to have_received(:insert_row).with("MB", row: 3)
+      expect(client.cell("MB", "A4")).to eq(486_000)
+      expect(client.cell("MB", "L4")).to start_with("TX")
+      expect(client.cell("MB", "A5")).to eq("=sum(A2:A4)")
+      expect(client.cell("MB", "E5")).to eq("=SUM(E2:E4)")
+      expect(client.cell("MB", "B5")).to eq(2_000)
+      expect(WorkbookEntry.sole.mb_row).to eq(4)
+    end
+
+    it "reuses an empty row left above the totals by a failed attempt" do
+      client = memory("MB" => mb_grid + [ bill_row(1_000, "TX900"), [], [ "=sum(A2:A2)" ] ])
+      allow(client).to receive(:insert_row).and_call_original
+
+      write(client)
+
+      expect(client).not_to have_received(:insert_row)
+      expect(client.cell("MB", "A3")).to eq(486_000)
+      expect(client.cell("MB", "A4")).to eq("=sum(A2:A3)")
+    end
+
+    it "appends at the end when the totals row is not the last row" do
+      client = memory("MB" => mb_grid + [ bill_row(1_000, "TX900"), [ "=sum(A2:A2)" ], bill_row(1_000, "TX901") ])
+      allow(client).to receive(:insert_row).and_call_original
+
+      write(client)
+
+      expect(client).not_to have_received(:insert_row)
+      expect(client.cell("MB", "A5")).to eq(486_000)
+      expect(client.cell("MB", "A3")).to eq("=sum(A2:A2)")
+    end
+  end
+
   describe "idempotency and guards" do
     it "returns :already_written when an entry already exists" do
       transaction = build_transaction

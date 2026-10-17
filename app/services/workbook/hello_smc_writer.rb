@@ -96,7 +96,8 @@ module Workbook
     end
 
     def write_identified(client, resolution)
-      mb_rows = client.values(MB_SHEET, MB_READ_RANGE)
+      # Formulas as written, so the totals row (=SUM in column A) is recognised.
+      mb_rows = client.values(MB_SHEET, MB_READ_RANGE, value_render_option: "FORMULA")
       existing = marker_row(mb_rows, MB_MARKER_COL)
       return reconcile!("identified", resolution, mb_row: existing + 1) if existing
 
@@ -107,8 +108,8 @@ module Workbook
       ds_update, ds_cell, ds_sheet, header_change = increment_daily(client, link, amount)
       updates = [ ds_update ]
 
-      mb_row, mb_update = append_mb(client, resolution, mb_rows)
-      updates << mb_update
+      mb_row, mb_updates = append_mb(client, resolution, mb_rows)
+      updates.concat(mb_updates)
 
       client.batch_update_values(updates)
       record!(branch: "identified", ds_sheet: ds_sheet, ds_cell: ds_cell, mb_row: mb_row,
@@ -369,8 +370,19 @@ module Workbook
 
     # --- MB ledger ----------------------------------------------------------
 
+    # The bill goes on the first empty row. A totals row (=SUM in column A) on
+    # the last filled row stays last: a row is inserted right above it
+    # (formatted like the bill above), and its sums end on the row before it.
+    # A row left empty by a failed attempt is reused on the retry.
     def append_mb(client, resolution, rows)
       index = first_blank_row_index(rows)
+      total = total_row_index(rows)
+      if total && index > total
+        client.insert_row(MB_SHEET, row: total)
+        rows = rows.dup.insert(total, [])
+        index = total
+        total += 1
+      end
       n = index + 1
       client.ensure_rows(MB_SHEET, n) if index >= rows.length
 
@@ -392,7 +404,27 @@ module Workbook
         nil, # K "Người đi tiền": not part of a transaction any more
         marker
       ] ]
-      [ n, { sheet: MB_SHEET, range: "A#{n}:L#{n}", rows: values } ]
+      updates = [ { sheet: MB_SHEET, range: "A#{n}:L#{n}", rows: values } ]
+      updates << totals_update(rows[total], total) if total
+      [ n, updates.compact ]
+    end
+
+    def total_row_index(rows)
+      last = rows.rindex { |row| !blank_cell?(Array(row)[0]) }
+      last if last&.positive? && Array(rows[last])[0].to_s.match?(/\A=\s*sum\s*\(/i)
+    end
+
+    # "=sum(A2:A71)" -> "=sum(A2:A<row above the totals>)"; nil when nothing changes.
+    def totals_update(row, index)
+      formulas = Array(row).map do |cell|
+        next unless cell.is_a?(String) && cell.start_with?("=")
+
+        stretched = cell.gsub(/([A-Z]+\$?\d+:\$?[A-Z]+\$?)\d+/i) { "#{Regexp.last_match(1)}#{index}" }
+        stretched unless stretched == cell
+      end
+      return nil if formulas.none?
+
+      { sheet: MB_SHEET, range: "A#{index + 1}:#{a1(index, formulas.length - 1)}", rows: [ formulas ] }
     end
 
     # First row (after the header) whose column A is empty. Works on the 2-D
