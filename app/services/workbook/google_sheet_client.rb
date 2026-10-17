@@ -169,6 +169,15 @@ module Workbook
       structural_updates(requests)
     end
 
+    # Inserts one blank sheet row at row (0-based), formatted like the row above.
+    # References to the rows below move with them.
+    def insert_row(title, row:)
+      structural_update(insert_dimension: {
+        range: { sheet_id: sheet_properties(title).sheet_id, dimension: "ROWS", start_index: row, end_index: row + 1 },
+        inherit_from_before: row.positive?
+      })
+    end
+
     # Cell notes of a range as a 2-D array (nil where a cell has none), the same
     # shape as #values.
     def notes(title, range)
