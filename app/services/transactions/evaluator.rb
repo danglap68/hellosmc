@@ -81,6 +81,7 @@ module Transactions
         return nil
       end
 
+      transaction_at = swapped_day_month(transaction_at) || transaction_at
       flag_confidence("transaction_date", "transaction_date", corroborated: date_matches_submission?(transaction_at))
       flag_confidence("transaction_time", "transaction_time")
       if transaction_at > Time.current + FUTURE_TOLERANCE || transaction_at < AppConfig.max_receipt_age_days.days.ago
@@ -215,8 +216,23 @@ module Transactions
       (submitted_at.in_time_zone.to_date - transaction_at.in_time_zone.to_date).between?(0, 1)
     end
 
+    # Receipts print DD/MM, and OCR sometimes swaps day and month (12/10 read
+    # as 10/12). When only the swapped date is the day the bill was sent, the
+    # swapped date is used; the date read is kept in source_data.
+    def swapped_day_month(transaction_at)
+      return nil if transaction_at.day > 12 || transaction_at.day == transaction_at.month
+      return nil if date_matches_submission?(transaction_at)
+
+      swapped = transaction_at.change(month: transaction_at.day, day: transaction_at.month)
+      return nil unless date_matches_submission?(swapped)
+
+      @swapped_from = @doc["transaction_at"]
+      swapped
+    end
+
     def source_data(merchant_result, card_type_result, fee_result)
       {
+        "transaction_at_read" => @swapped_from,
         "extraction" => @doc,
         "image_integrity" => @bill_image.normalized_extraction.to_h["image_integrity"] || @doc["image_integrity"],
         "message_text" => @bill_image.message_text,
@@ -240,7 +256,7 @@ module Transactions
           "level" => fee_result.level,
           "candidate_ids" => fee_result.candidates.map(&:id)
         }
-      }
+      }.compact
     end
 
     def ai_suggestion(merchant_result)
